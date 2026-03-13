@@ -83,6 +83,10 @@
         .success-alert { background: var(--success); }
 
         .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px;}
+
+        /* Tab content hidden by default */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body>
@@ -217,8 +221,19 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, push } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, set, onValue, update, push, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            sendPasswordResetEmail, 
+            onAuthStateChanged, 
+            signOut, 
+            GoogleAuthProvider, 
+            signInWithPopup,
+            signInWithRedirect,
+            getRedirectResult
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCjTwIQapCFbAXkHlPYBdX8Hob_gVJzS98",
@@ -250,10 +265,12 @@
             {n:"Shubman Gill", t:"GT", r:"Batter", o:false}, {n:"Rashid Khan", t:"GT", r:"Bowler", o:true}, {n:"Kagiso Rabada", t:"GT", r:"Bowler", o:true}, {n:"Pat Cummins", t:"SRH", r:"Bowler", o:true}, {n:"Heinrich Klaasen", t:"SRH", r:"Wicketkeeper", o:true}, {n:"Rishabh Pant", t:"DC", r:"Wicketkeeper", o:false}, {n:"KL Rahul", t:"LSG", r:"Wicketkeeper", o:false}, {n:"Sanju Samson", t:"RR", r:"Wicketkeeper", o:false}, {n:"Jos Buttler", t:"RR", r:"Wicketkeeper", o:true}, {n:"Trent Boult", t:"RR", r:"Bowler", o:true}
         ];
 
+        // ─── Utility ────────────────────────────────────────────────────────────────
+
         window.showAlert = function(msg, isSuccess = false) {
             const alertBox = document.getElementById('globalAlert');
             alertBox.innerText = msg;
-            alertBox.className = isSuccess ? 'alert success-alert active' : 'alert active';
+            alertBox.className = isSuccess ? 'alert success-alert' : 'alert';
             alertBox.style.display = 'block';
             setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
         };
@@ -270,6 +287,21 @@
             document.getElementById(tabId + '-tab').classList.add('active');
             document.getElementById('btn-' + tabId).classList.add('active');
         };
+
+        // ─── Auth ────────────────────────────────────────────────────────────────────
+
+        // FIX 1: Handle Google redirect result on page load (for mobile redirect flow)
+        getRedirectResult(auth)
+            .then((result) => {
+                if (result && result.user) {
+                    window.showAlert("Logged in with Google successfully!", true);
+                }
+            })
+            .catch((error) => {
+                if (error.code !== 'auth/no-current-user') {
+                    window.showAlert(`Google Sign-In Error: ${error.code} - ${error.message}`);
+                }
+            });
 
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
@@ -294,54 +326,94 @@
             document.getElementById('authToggleBtn').innerText = isSignupMode ? "Already have an account? Log in" : "Create an account instead";
         };
 
+        // FIX 2: Cleaner error handling with specific error codes
         window.handleAuth = function() {
-            const email = document.getElementById('authEmail').value;
+            const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value;
-            if(!email || !password) return window.showAlert("Please enter an email and a password.");
+            if (!email || !password) return window.showAlert("Please enter an email and password.");
 
-            if(isSignupMode) {
+            if (isSignupMode) {
                 createUserWithEmailAndPassword(auth, email, password)
                     .then(() => window.showAlert("Account created successfully!", true))
-                    .catch(e => window.showAlert(`Sign Up Failed: ${e.message}`));
+                    .catch(e => {
+                        const msg = {
+                            'auth/email-already-in-use': 'This email is already registered. Try logging in.',
+                            'auth/invalid-email': 'Please enter a valid email address.',
+                            'auth/weak-password': 'Password must be at least 6 characters.',
+                        }[e.code] || `Sign Up Failed: ${e.message}`;
+                        window.showAlert(msg);
+                    });
             } else {
                 signInWithEmailAndPassword(auth, email, password)
                     .then(() => window.showAlert("Logged in successfully!", true))
-                    .catch(e => window.showAlert(`Login Failed: ${e.message}`));
+                    .catch(e => {
+                        const msg = {
+                            'auth/user-not-found': 'No account found with this email.',
+                            'auth/wrong-password': 'Incorrect password. Please try again.',
+                            'auth/invalid-email': 'Please enter a valid email address.',
+                            'auth/invalid-credential': 'Invalid email or password. Please check and try again.',
+                            'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+                            'auth/unauthorized-domain': 'This domain is not authorized. Add it in Firebase Console under Auth > Settings > Authorized Domains.',
+                        }[e.code] || `Login Failed (${e.code}): ${e.message}`;
+                        window.showAlert(msg);
+                    });
             }
         };
 
+        // FIX 3: Google sign-in with popup, fallback to redirect on mobile/blocked
         window.signInWithGoogle = function() {
             signInWithPopup(auth, googleProvider)
                 .then((result) => {
                     window.showAlert("Logged in with Google successfully!", true);
-                }).catch((error) => {
-                    window.showAlert(`Google Sign-In Failed: ${error.message}`);
+                })
+                .catch((error) => {
+                    if (
+                        error.code === 'auth/popup-blocked' ||
+                        error.code === 'auth/popup-closed-by-user' ||
+                        error.code === 'auth/cancelled-popup-request'
+                    ) {
+                        // Fallback to redirect for mobile browsers that block popups
+                        signInWithRedirect(auth, googleProvider)
+                            .catch(redirectError => {
+                                window.showAlert(`Google Sign-In Failed: ${redirectError.message}`);
+                            });
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        window.showAlert('Domain not authorized. Add this domain in Firebase Console: Auth > Settings > Authorized Domains.');
+                    } else {
+                        window.showAlert(`Google Sign-In Failed (${error.code}): ${error.message}`);
+                    }
                 });
         };
 
         window.resetPassword = function() {
-            const email = document.getElementById('authEmail').value;
-            if(!email) return window.showAlert("Please type your email in the box first to reset your password.");
+            const email = document.getElementById('authEmail').value.trim();
+            if (!email) return window.showAlert("Please type your email in the box first.");
             sendPasswordResetEmail(auth, email)
-                .then(() => window.showAlert("A password reset link has been sent to your email.", true))
+                .then(() => window.showAlert("Password reset link sent to your email.", true))
                 .catch(e => window.showAlert(`Error: ${e.message}`));
         };
 
         window.logoutUser = function() {
+            if (currentRoomListener) currentRoomListener();
             signOut(auth).then(() => {
-                window.location.search = ''; 
+                window.location.search = '';
             });
         };
+
+        // ─── Dashboard ───────────────────────────────────────────────────────────────
 
         function loadDashboard() {
             showView('dashboard-view');
             activeRoomId = null;
-            if(currentRoomListener) currentRoomListener();
+            if (currentRoomListener) {
+                currentRoomListener();
+                currentRoomListener = null;
+            }
 
             onValue(ref(db, `users/${currentUser.uid}/auctions`), (snapshot) => {
                 const container = document.getElementById('roomListContainer');
                 const rooms = snapshot.val();
-                if(!rooms) {
+                if (!rooms) {
                     container.innerHTML = '<p style="color:var(--text-muted)">You haven\'t created any auctions yet.</p>';
                     return;
                 }
@@ -362,9 +434,10 @@
         }
 
         window.createNewRoom = function() {
-            const name = document.getElementById('newRoomName').value || "My League";
-            const budget = document.getElementById('newRoomBudget').value || 100;
-            
+            if (!currentUser) return window.showAlert("You must be logged in to create a room.");
+            const name = document.getElementById('newRoomName').value.trim() || "My League";
+            const budget = parseFloat(document.getElementById('newRoomBudget').value) || 100;
+
             const newRoomRef = push(ref(db, 'auctions'));
             const roomId = newRoomRef.key;
 
@@ -377,31 +450,43 @@
 
         window.copyInviteLink = function() {
             const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => {
-                window.showAlert("Invite Link Copied! Send this to your league mates.", true);
-            }).catch(() => {
-                window.showAlert("Failed to copy link. Check browser permissions.");
-            });
+            navigator.clipboard.writeText(url)
+                .then(() => window.showAlert("Invite Link Copied! Send this to your league mates.", true))
+                .catch(() => window.showAlert("Failed to copy link. Check browser permissions."));
         };
+
+        // ─── Auction Room ────────────────────────────────────────────────────────────
 
         function loadAuctionRoom(roomId) {
             showView('auction-view');
             activeRoomId = roomId;
             document.getElementById('roomTitleDisplay').innerText = `Room: ${roomId.substring(1, 6).toUpperCase()}`;
-            
+
             window.generateTeamInputs();
 
-            currentRoomListener = onValue(ref(db, `auctions/${roomId}`), (snapshot) => {
+            // Detach any previous listener
+            if (currentRoomListener) {
+                currentRoomListener();
+                currentRoomListener = null;
+            }
+
+            const unsubscribe = onValue(ref(db, `auctions/${roomId}`), (snapshot) => {
                 const data = snapshot.val();
-                if (!data) return; 
+                if (!data) return;
                 roomState = data;
 
-                if(data.setup && data.setup.isStarted) {
+                // Hide setup tab once auction is initialized
+                if (data.setup && data.setup.isStarted) {
                     document.getElementById('setup-tab').style.display = 'none';
-                    if(document.getElementById('setup-tab').classList.contains('active')) window.switchTab('auction');
+                    if (document.getElementById('setup-tab').classList.contains('active')) {
+                        window.switchTab('auction');
+                    }
+                } else {
+                    document.getElementById('setup-tab').style.display = 'block';
                 }
 
-                if(data.teams) {
+                // Render teams
+                if (data.teams) {
                     const teamSelect = document.getElementById('winningTeamSelect');
                     const prevSelected = teamSelect.value;
                     teamSelect.innerHTML = '<option value="">-- Select Winner --</option>';
@@ -410,35 +495,49 @@
 
                     Object.values(data.teams).forEach(team => {
                         let opt = document.createElement('option');
-                        opt.value = team.name; opt.textContent = team.name;
+                        opt.value = team.name;
+                        opt.textContent = team.name;
                         teamSelect.appendChild(opt);
 
                         const roster = team.roster || [];
-                        let html = `<div class="team-card glass-panel"><h3 style="margin: 0 0 5px 0;">${team.name}</h3>
-                            <div class="budget-display">₹${team.budget.toFixed(2)} Cr</div><ul>`;
+                        let html = `<div class="team-card glass-panel">
+                            <h3 style="margin: 0 0 5px 0;">${team.name}</h3>
+                            <div class="budget-display">₹${team.budget.toFixed(2)} Cr</div>
+                            <ul>`;
                         roster.forEach(p => {
-                            html += `<li><span>${p.name}</span> <span style="font-weight:bold; color:var(--cream);">₹${p.soldPrice.toFixed(2)}</span></li>`;
+                            html += `<li><span>${p.name}</span><span style="font-weight:bold; color:var(--cream);">₹${p.soldPrice.toFixed(2)}</span></li>`;
                         });
                         html += `</ul></div>`;
                         grid.innerHTML += html;
                     });
-                    teamSelect.value = prevSelected; 
+
+                    teamSelect.value = prevSelected;
                 }
 
-                if(data.players) {
+                // Render players
+                if (data.players) {
                     const select = document.getElementById('manualPlayerSelect');
                     select.innerHTML = '<option value="">-- Search / Pull Specific Player --</option>';
                     const tbody = document.querySelector('#globalRosterTable tbody');
                     tbody.innerHTML = '';
 
-                    let available = Object.values(data.players).filter(p => p.status === 'available' || p.status === 'unsold').sort((a,b) => a.name.localeCompare(b.name));
+                    let available = Object.values(data.players)
+                        .filter(p => p.status === 'available' || p.status === 'unsold')
+                        .sort((a, b) => a.name.localeCompare(b.name));
+
                     available.forEach(p => {
                         let opt = document.createElement('option');
-                        opt.value = p.id; opt.textContent = `${p.name} (${p.status})`; select.appendChild(opt);
+                        opt.value = p.id;
+                        opt.textContent = `${p.name} (${p.status})`;
+                        select.appendChild(opt);
                     });
 
                     Object.values(data.players).forEach(p => {
-                        let statusHtml = p.status === 'available' ? 'Available' : (p.status === 'unsold' ? '<span style="color:var(--danger)">Unsold</span>' : `<span style="color:var(--success)">${p.soldTo}</span>`);
+                        let statusHtml = p.status === 'available'
+                            ? 'Available'
+                            : (p.status === 'unsold'
+                                ? `<span style="color:var(--danger)">Unsold</span>`
+                                : `<span style="color:var(--success)">${p.soldTo}</span>`);
                         tbody.innerHTML += `<tr>
                             <td style="font-weight: 600;">${p.name}</td>
                             <td>${p.iplTeam} | ${p.role}</td>
@@ -449,9 +548,10 @@
                     });
                 }
 
+                // Render auction block
                 const block = document.getElementById('auctionBlockDisplay');
                 const controls = document.getElementById('biddingControls');
-                
+
                 if (data.currentBlock && data.currentBlock.active) {
                     const p = data.players[data.currentBlock.playerId];
                     controls.style.display = 'block';
@@ -459,9 +559,9 @@
 
                     const m = data.setup.budgetMultiplier;
                     document.getElementById('quickBidGrid').innerHTML = `
-                        <button class="quick-bid-btn" onclick="window.addBid(${0.1*m})">+ ₹${(0.1*m).toFixed(1)}</button>
-                        <button class="quick-bid-btn" onclick="window.addBid(${0.5*m})">+ ₹${(0.5*m).toFixed(1)}</button>
-                        <button class="quick-bid-btn" onclick="window.addBid(${1.0*m})">+ ₹${(1.0*m).toFixed(1)}</button>
+                        <button class="quick-bid-btn" onclick="window.addBid(${0.1 * m})">+ ₹${(0.1 * m).toFixed(1)}</button>
+                        <button class="quick-bid-btn" onclick="window.addBid(${0.5 * m})">+ ₹${(0.5 * m).toFixed(1)}</button>
+                        <button class="quick-bid-btn" onclick="window.addBid(${1.0 * m})">+ ₹${(1.0 * m).toFixed(1)}</button>
                     `;
 
                     block.innerHTML = `
@@ -475,23 +575,28 @@
                     `;
                 } else {
                     controls.style.display = 'none';
-                    if(data.currentBlock && data.currentBlock.lastAction) {
+                    if (data.currentBlock && data.currentBlock.lastAction) {
                         if (data.currentBlock.lastAction === 'unsold') {
                             block.innerHTML = `<h2 style="color: var(--danger); font-size: 2.2rem; margin: 0;">❌ UNSOLD</h2>`;
                         } else if (data.currentBlock.lastAction.startsWith('sold')) {
                             const parts = data.currentBlock.lastAction.split('_');
-                            block.innerHTML = `<h2 style="color: var(--success); font-size: 2.2rem; margin: 0;">🔨 SOLD!</h2>
-                            <p style="font-size: 1.1rem;">To ${parts[2]}</p><p style="font-size: 1.5rem; font-weight: bold; color: var(--cream);">₹${parseFloat(parts[3]).toFixed(2)} Cr</p>`;
+                            block.innerHTML = `
+                                <h2 style="color: var(--success); font-size: 2.2rem; margin: 0;">🔨 SOLD!</h2>
+                                <p style="font-size: 1.1rem;">To ${parts[2]}</p>
+                                <p style="font-size: 1.5rem; font-weight: bold; color: var(--cream);">₹${parseFloat(parts[3]).toFixed(2)} Cr</p>
+                            `;
                         }
                     } else {
                         block.innerHTML = `<h3 style="color: var(--text-muted); margin: 40px 0;">Ready to begin</h3>`;
                     }
                 }
             });
+
+            currentRoomListener = unsubscribe;
         }
 
         window.generateTeamInputs = function() {
-            const num = document.getElementById('numTeams').value;
+            const num = parseInt(document.getElementById('numTeams').value) || 4;
             const container = document.getElementById('teamNamesContainer');
             container.innerHTML = '';
             for (let i = 1; i <= num; i++) {
@@ -499,90 +604,142 @@
             }
         };
 
+        // FIX 4: Replaced onValue + {onlyOnce} with get() for a cleaner one-time read
         window.initializeAuctionData = function() {
-            if(!activeRoomId) return;
-            const num = document.getElementById('numTeams').value;
-            const maxPlayers = parseInt(document.getElementById('playersPerTeam').value);
-            
-            onValue(ref(db, `users/${currentUser.uid}/auctions/${activeRoomId}`), (snap) => {
-                const roomMeta = snap.val();
-                if(!roomMeta) return window.showAlert("Error loading room data.");
-                const budget = parseFloat(roomMeta.budget);
-                const multiplier = budget / 100;
+            if (!activeRoomId) return window.showAlert("No active room found.");
+            if (!currentUser) return window.showAlert("You must be logged in.");
 
-                let dbPlayers = {};
-                rawData.forEach((p, i) => {
-                    let base = 0.2; 
-                    if (p.o) base = 0.5; else if (p.r === "All-Rounder") base = 0.3; 
-                    dbPlayers[i] = { id: i, name: p.n, role: p.r, isOverseas: p.o, iplTeam: p.t, basePrice: base * multiplier, status: 'available' };
-                });
+            const num = parseInt(document.getElementById('numTeams').value) || 4;
+            const maxPlayers = parseInt(document.getElementById('playersPerTeam').value) || 20;
 
-                let dbTeams = {};
-                for (let i = 1; i <= num; i++) {
-                    const name = document.getElementById(`teamName${i}`).value || `Franchise ${i}`;
-                    dbTeams[name] = { name: name, budget: budget, roster: [] }; 
-                }
+            get(ref(db, `users/${currentUser.uid}/auctions/${activeRoomId}`))
+                .then((snap) => {
+                    const roomMeta = snap.val();
+                    if (!roomMeta) return window.showAlert("Error: Room metadata not found. Create the room from the dashboard first.");
 
-                set(ref(db, `auctions/${activeRoomId}`), {
-                    setup: { isStarted: true, maxPlayers: maxPlayers, budgetMultiplier: multiplier },
-                    players: dbPlayers,
-                    teams: dbTeams,
-                    currentBlock: { active: false }
-                }).then(() => window.showAlert("Room Data Initialized Successfully!", true))
-                  .catch(e => window.showAlert(`Initialization Error: ${e.message}`));
-            }, {onlyOnce: true});
+                    const budget = parseFloat(roomMeta.budget) || 100;
+                    const multiplier = budget / 100;
+
+                    let dbPlayers = {};
+                    rawData.forEach((p, i) => {
+                        let base = 0.2;
+                        if (p.o) base = 0.5;
+                        else if (p.r === "All-Rounder") base = 0.3;
+                        dbPlayers[i] = {
+                            id: i,
+                            name: p.n,
+                            role: p.r,
+                            isOverseas: p.o,
+                            iplTeam: p.t,
+                            basePrice: parseFloat((base * multiplier).toFixed(2)),
+                            status: 'available',
+                            soldTo: null,
+                            soldPrice: null
+                        };
+                    });
+
+                    let dbTeams = {};
+                    for (let i = 1; i <= num; i++) {
+                        const nameEl = document.getElementById(`teamName${i}`);
+                        const name = (nameEl && nameEl.value.trim()) ? nameEl.value.trim() : `Franchise ${i}`;
+                        dbTeams[name] = { name: name, budget: budget, roster: [] };
+                    }
+
+                    return set(ref(db, `auctions/${activeRoomId}`), {
+                        setup: {
+                            isStarted: true,
+                            maxPlayers: maxPlayers,
+                            budgetMultiplier: multiplier
+                        },
+                        players: dbPlayers,
+                        teams: dbTeams,
+                        currentBlock: { active: false, lastAction: null }
+                    });
+                })
+                .then(() => window.showAlert("Room initialized successfully!", true))
+                .catch(e => window.showAlert(`Initialization Error: ${e.message}`));
         };
 
+        // ─── Auction Actions ─────────────────────────────────────────────────────────
+
         window.pullRandomPlayer = function() {
+            if (!roomState || !roomState.players) return window.showAlert("Room not loaded yet.");
             const avail = Object.values(roomState.players).filter(p => p.status === 'available');
-            if (avail.length === 0) return alert("No more players.");
+            if (avail.length === 0) return window.showAlert("No more available players.");
             const p = avail[Math.floor(Math.random() * avail.length)];
-            update(ref(db, `auctions/${activeRoomId}/currentBlock`), { active: true, playerId: p.id, currentBid: p.basePrice });
+            update(ref(db, `auctions/${activeRoomId}/currentBlock`), {
+                active: true,
+                playerId: p.id,
+                currentBid: p.basePrice
+            });
         };
 
         window.pullSpecificPlayer = function() {
             const id = document.getElementById('manualPlayerSelect').value;
-            if (!id) return;
+            if (!id) return window.showAlert("Please select a player first.");
             const p = roomState.players[id];
-            update(ref(db, `auctions/${activeRoomId}/currentBlock`), { active: true, playerId: p.id, currentBid: p.basePrice });
+            if (!p) return window.showAlert("Player not found.");
+            update(ref(db, `auctions/${activeRoomId}/currentBlock`), {
+                active: true,
+                playerId: p.id,
+                currentBid: p.basePrice
+            });
         };
 
         window.addBid = function(inc) {
-            let newBid = roomState.currentBlock.currentBid + inc;
+            if (!roomState || !roomState.currentBlock) return;
+            const newBid = parseFloat((roomState.currentBlock.currentBid + inc).toFixed(2));
             update(ref(db, `auctions/${activeRoomId}/currentBlock`), { currentBid: newBid });
         };
 
         window.sellPlayer = function() {
             const teamName = document.getElementById('winningTeamSelect').value;
-            if(!teamName) return window.showAlert("Select a franchise!");
+            if (!teamName) return window.showAlert("Please select a winning franchise!");
+            if (!roomState || !roomState.currentBlock || !roomState.currentBlock.active) return window.showAlert("No active player on the block.");
+
             const bidAmount = roomState.currentBlock.currentBid;
             const pId = roomState.currentBlock.playerId;
             const player = roomState.players[pId];
             const team = roomState.teams[teamName];
-            const roster = team.roster || []; 
 
-            if (team.budget < bidAmount) return window.showAlert("Insufficient funds!");
-            if (roster.length >= roomState.setup.maxPlayers) return window.showAlert("Team is full!");
+            if (!player || !team) return window.showAlert("Player or team data missing.");
+            if (team.budget < bidAmount) return window.showAlert("Insufficient budget for this team!");
+
+            const roster = Array.isArray(team.roster) ? [...team.roster] : [];
+            if (roster.length >= roomState.setup.maxPlayers) return window.showAlert("This team's roster is full!");
+
+            roster.push({
+                name: player.name,
+                role: player.role,
+                iplTeam: player.iplTeam,
+                soldPrice: bidAmount
+            });
 
             let updates = {};
-            roster.push({ name: player.name, role: player.role, iplTeam: player.iplTeam, soldPrice: bidAmount });
             updates[`/teams/${teamName}/roster`] = roster;
-            updates[`/teams/${teamName}/budget`] = team.budget - bidAmount;
+            updates[`/teams/${teamName}/budget`] = parseFloat((team.budget - bidAmount).toFixed(2));
             updates[`/players/${pId}/status`] = 'sold';
             updates[`/players/${pId}/soldTo`] = teamName;
             updates[`/players/${pId}/soldPrice`] = bidAmount;
-            updates['/currentBlock'] = { active: false, lastAction: `sold_${pId}_${teamName}_${bidAmount}` };
+            updates['/currentBlock'] = {
+                active: false,
+                lastAction: `sold_${pId}_${teamName}_${bidAmount}`
+            };
 
-            update(ref(db, `auctions/${activeRoomId}`), updates);
+            update(ref(db, `auctions/${activeRoomId}`), updates)
+                .catch(e => window.showAlert(`Sell Error: ${e.message}`));
         };
 
         window.markUnsold = function() {
+            if (!roomState || !roomState.currentBlock || !roomState.currentBlock.active) return;
             const pId = roomState.currentBlock.playerId;
             let updates = {};
             updates[`/players/${pId}/status`] = 'unsold';
             updates['/currentBlock'] = { active: false, lastAction: 'unsold' };
-            update(ref(db, `auctions/${activeRoomId}`), updates);
+            update(ref(db, `auctions/${activeRoomId}`), updates)
+                .catch(e => window.showAlert(`Error: ${e.message}`));
         };
+
     </script>
 </body>
 </html>
