@@ -1,745 +1,807 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IPL Mega Auction Platform</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IPL Mega Auction 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #D4A847; --gold-light: #F0C96B; --gold-glow: rgba(212,168,71,0.18);
+  --red: #C0392B; --red-dim: rgba(192,57,43,0.15);
+  --bg: #07090F; --bg2: #0C1018; --bg3: #111827;
+  --surface: rgba(255,255,255,0.04); --surface2: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08); --border-gold: rgba(212,168,71,0.35);
+  --text: #EDE9E3; --muted: #5C6470; --muted2: #8B95A3;
+  --green: #10B981; --danger: #EF4444; --blue: #3B82F6;
+  --ff-display: 'Bebas Neue', cursive; --ff-body: 'DM Sans', sans-serif;
+  --r: 12px; --r-lg: 18px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--ff-body);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 5%,rgba(212,168,71,0.07) 0%,transparent 55%),radial-gradient(ellipse 50% 40% at 85% 95%,rgba(192,57,43,0.06) 0%,transparent 55%);pointer-events:none;z-index:0;}
 
-        :root {
-            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --cream: #F5E6CC;
-            --cream-hover: #e0d0b5;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --success: #10b981;
-            --danger: #ef4444;
-            --brand: #3b82f6;
-        }
+/* TOAST */
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:11px 22px;font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:9px;z-index:9999;transition:transform .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 12px 40px rgba(0,0,0,.6);}
+#toast.show{transform:translateX(-50%) translateY(0);}
+.t-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+#toast.ok .t-dot{background:var(--green);}
+#toast.err .t-dot{background:var(--danger);}
+#toast.info .t-dot{background:var(--gold);}
 
-        body { font-family: 'Inter', sans-serif; background: var(--bg-gradient); background-attachment: fixed; margin: 0; padding: 20px; color: var(--text-main); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
-        h1, h2, h3 { color: var(--cream); font-weight: 600; margin-top: 0; }
-        h1 { text-align: center; margin-bottom: 20px; text-shadow: 0 2px 10px rgba(245, 230, 204, 0.2); font-size: 1.8rem; }
+/* TOPBAR */
+#topBar{display:none;align-items:center;justify-content:space-between;padding:13px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:14px;position:relative;z-index:1;}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-badge{width:34px;height:34px;background:linear-gradient(135deg,var(--gold),var(--red));border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--ff-display);font-size:18px;color:#fff;flex-shrink:0;}
+.tb-name{font-family:var(--ff-display);font-size:22px;color:var(--gold);letter-spacing:.05em;}
+.tb-right{display:flex;gap:8px;}
 
-        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); padding: 25px; margin-bottom: 20px;}
-        
-        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
-        .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+/* VIEWS */
+.view{display:none;position:relative;z-index:1;}
+.view.active{display:block;animation:fadeUp .3s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
-        .form-group { margin-bottom: 15px; width: 100%; }
-        label { font-weight: 600; display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 0.9rem;}
-        input, select { width: 100%; padding: 14px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); border-radius: 10px; color: var(--text-main); font-family: inherit; font-size: 1rem; box-sizing: border-box; }
-        input:focus, select:focus { outline: none; border-color: var(--cream); }
-        select option { background: #0f172a; color: var(--text-main); }
+/* AUTH */
+#auth-view.active{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.auth-card{width:100%;max-width:400px;background:var(--bg2);border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.5);}
+.auth-hero{padding:36px 32px 28px;text-align:center;border-bottom:1px solid var(--border);background:linear-gradient(170deg,rgba(212,168,71,.1) 0%,transparent 70%);}
+.auth-icon{width:60px;height:60px;margin:0 auto 16px;background:linear-gradient(135deg,var(--gold),var(--red));border-radius:18px;display:flex;align-items:center;justify-content:center;font-family:var(--ff-display);font-size:30px;color:#fff;box-shadow:0 8px 28px rgba(212,168,71,.3);}
+.auth-h{font-family:var(--ff-display);font-size:36px;color:var(--gold);letter-spacing:.04em;line-height:1;}
+.auth-sub{font-size:.82rem;color:var(--muted2);margin-top:5px;}
+.auth-body{padding:28px 32px 32px;}
+.auth-mode{font-size:.95rem;font-weight:600;margin-bottom:18px;color:var(--text);}
+.auth-footer{margin-top:18px;text-align:center;display:flex;flex-direction:column;gap:10px;}
 
-        button { touch-action: manipulation; }
-        button.primary-btn { width: 100%; background-color: var(--cream); color: #0f172a; border: none; cursor: pointer; padding: 16px 20px; font-weight: 700; border-radius: 10px; transition: background 0.2s; font-size: 1.1rem; }
-        button.primary-btn:active { transform: scale(0.98); }
-        button.danger-btn { width: 100%; background-color: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); cursor: pointer; padding: 16px 20px; font-weight: 700; border-radius: 10px; font-size: 1.1rem; }
-        button.action-btn { background: var(--brand); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; width: 100%; margin-top: 10px; cursor: pointer;}
-        
-        .google-btn { background-color: #ffffff; color: #3c4043; display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 15px; border: 1px solid #dadce0; }
-        .google-btn:hover { background-color: #f8f9fa; }
+/* FORM */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:.75rem;font-weight:600;color:var(--muted2);margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;}
+input[type=email],input[type=password],input[type=text],input[type=number]{width:100%;padding:13px 15px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--ff-body);font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s;}
+input:focus{border-color:var(--border-gold);box-shadow:0 0 0 3px rgba(212,168,71,.08);}
+input::placeholder{color:var(--muted);}
+select{width:100%;padding:13px 15px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--ff-body);font-size:.95rem;outline:none;cursor:pointer;transition:border-color .2s;}
+select:focus{border-color:var(--border-gold);}
+select option{background:#0C1018;}
 
-        .text-link { color: var(--brand); cursor: pointer; text-decoration: underline; background: none; border: none; font-size: 0.9rem; padding: 0; display: inline; }
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px 18px;border:none;border-radius:10px;font-family:var(--ff-body);font-weight:600;font-size:.95rem;cursor:pointer;transition:all .2s;outline:none;}
+.btn:active{transform:scale(.98);}
+.btn-gold{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:#1a1000;}
+.btn-gold:hover{filter:brightness(1.08);}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);}
+.btn-outline:hover{border-color:var(--border-gold);background:var(--gold-glow);}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.3);}
+.btn-danger:hover{background:rgba(239,68,68,.2);}
+.btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--surface2);}
+.btn-google{background:#fff;color:#3c4043;border:1px solid #dadce0;}
+.btn-google:hover{background:#f8f9fa;}
+.btn-sm{padding:9px 16px;font-size:.85rem;width:auto;}
+.btn-xs{padding:7px 13px;font-size:.8rem;width:auto;}
+.text-btn{background:none;border:none;color:var(--gold);cursor:pointer;font-family:var(--ff-body);font-size:.85rem;text-decoration:none;padding:0;}
+.text-btn:hover{text-decoration:underline;}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--muted);font-size:.8rem;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
 
-        .auth-box { max-width: 400px; margin: 50px auto; }
-        .room-card { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border: 1px solid var(--glass-border); margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
-        
-        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; padding: 10px; justify-content: center; flex-wrap: wrap; }
-        .nav-tabs button { flex: 1; min-width: 100px; background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid transparent; padding: 12px 10px; border-radius: 8px; font-weight: 600; transition: all 0.2s; cursor: pointer; font-size: 0.9rem; }
-        .nav-tabs button.active { background: var(--cream); color: #0f172a; box-shadow: 0 4px 15px rgba(245, 230, 204, 0.3); }
+/* DASHBOARD */
+.dash-wrap{padding:0;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:600px){.dash-grid{grid-template-columns:1fr;}}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;}
+.stat-label{font-size:.75rem;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.stat-val{font-family:var(--ff-display);font-size:36px;color:var(--gold);letter-spacing:.02em;}
 
-        .auction-block { text-align: center; padding: 30px 15px; border: 2px dashed var(--glass-border); border-radius: 16px; margin-bottom: 20px; background: rgba(0,0,0,0.4); }
-        .player-name-huge { font-size: 2.2rem; font-weight: 900; color: var(--cream); margin: 0 0 5px 0; text-transform: uppercase; line-height: 1.1;}
-        .player-meta { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;}
-        .player-tag { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; border: 1px solid var(--glass-border);}
-        .base-price { font-size: 1.2rem; color: var(--text-muted); font-weight: 600; margin-bottom: 5px; }
-        
-        .live-bid-display { font-size: 3rem; font-weight: 900; color: var(--success); margin: 15px 0; font-variant-numeric: tabular-nums; }
-        .quick-bid-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .quick-bid-btn { background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid var(--glass-border); padding: 15px 0; border-radius: 8px; font-weight: 700; font-size: 1.1rem; cursor: pointer; transition: background 0.1s; }
-        .quick-bid-btn:active { background: rgba(255,255,255,0.3); }
+.section-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:14px;overflow:hidden;}
+.section-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.section-title{font-family:var(--ff-display);font-size:22px;color:var(--text);letter-spacing:.04em;}
+.section-body{padding:18px 22px;}
 
-        .bidding-controls { background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; }
-        .action-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-top: 15px; }
+.room-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;transition:border-color .2s;}
+.room-item:hover{border-color:var(--border-gold);}
+.room-item:last-child{margin-bottom:0;}
+.room-name{font-weight:600;color:var(--text);margin-bottom:3px;}
+.room-meta{font-size:.78rem;color:var(--muted2);}
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted2);font-size:.9rem;}
+.empty-icon{font-size:2rem;margin-bottom:10px;opacity:.4;}
 
-        .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .team-card { padding: 20px; border-top: 4px solid var(--cream); }
-        .budget-display { font-size: 1.4rem; font-weight: bold; color: var(--success); margin-bottom: 10px; }
-        .team-card ul { padding: 0; margin: 10px 0 0 0; list-style: none; max-height: 200px; overflow-y: auto; }
-        .team-card li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+.create-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:500px){.create-grid{grid-template-columns:1fr;}}
 
-        .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 500px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem;}
-        th { color: var(--cream); background: rgba(0,0,0,0.3); white-space: nowrap; }
+/* AUCTION ROOM */
+.room-header{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.room-title{font-family:var(--ff-display);font-size:26px;color:var(--gold);letter-spacing:.05em;}
+.room-id{font-size:.78rem;color:var(--muted2);margin-top:2px;}
 
-        .alert { color: white; font-weight: 600; padding: 15px; background: var(--danger); border-radius: 8px; display: none; margin-bottom: 15px; text-align: center; z-index: 1000; position: relative;}
-        .success-alert { background: var(--success); }
+/* NAV TABS */
+.nav-tabs{display:flex;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:6px;margin-bottom:14px;}
+.nav-tab{flex:1;padding:10px 8px;background:none;border:none;border-radius:9px;color:var(--muted2);font-family:var(--ff-body);font-weight:600;font-size:.82rem;cursor:pointer;transition:all .2s;text-align:center;}
+.nav-tab.active{background:var(--gold);color:#1a1000;box-shadow:0 4px 14px rgba(212,168,71,.3);}
+.nav-tab:not(.active):hover{background:var(--surface2);color:var(--text);}
 
-        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px;}
+/* TAB CONTENT */
+.tab-pane{display:none;}
+.tab-pane.active{display:block;animation:fadeUp .25s ease both;}
 
-        /* Tab content hidden by default */
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-    </style>
+/* SETUP TAB */
+.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:500px){.setup-grid{grid-template-columns:1fr;}}
+.team-inputs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:14px;}
+.admin-badge{font-size:.72rem;font-weight:600;color:var(--danger);background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);padding:3px 9px;border-radius:20px;vertical-align:middle;margin-left:8px;}
+
+/* AUCTION BLOCK */
+.block-stage{text-align:center;padding:32px 20px;border:1px dashed var(--border);border-radius:var(--r-lg);margin-bottom:16px;background:rgba(0,0,0,.25);min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.player-big{font-family:var(--ff-display);font-size:clamp(1.8rem,6vw,3rem);color:var(--gold-light);letter-spacing:.04em;line-height:1;margin-bottom:8px;text-transform:uppercase;}
+.player-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-bottom:14px;}
+.tag{padding:4px 12px;border-radius:20px;font-size:.78rem;font-weight:600;background:var(--surface2);border:1px solid var(--border);}
+.tag-ipl{border-color:rgba(212,168,71,.3);color:var(--gold);}
+.tag-role{border-color:rgba(59,130,246,.3);color:var(--blue);}
+.tag-ov{border-color:rgba(16,185,129,.3);color:var(--green);}
+.base-lbl{font-size:.8rem;color:var(--muted2);font-weight:500;}
+.base-val{color:var(--gold);font-weight:700;}
+
+.sold-display{font-family:var(--ff-display);font-size:clamp(2rem,8vw,4rem);letter-spacing:.04em;line-height:1;}
+.sold-display.sold{color:var(--green);}
+.sold-display.unsold{color:var(--danger);}
+.sold-detail{font-size:1rem;color:var(--muted2);margin-top:8px;}
+.sold-price{font-family:var(--ff-display);font-size:2rem;color:var(--gold-light);margin-top:4px;}
+
+/* BID PANEL */
+.bid-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;}
+.bid-label{font-size:.72rem;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;text-align:center;margin-bottom:4px;}
+.bid-amount{font-family:var(--ff-display);font-size:clamp(2.5rem,9vw,4rem);color:var(--green);text-align:center;letter-spacing:.02em;line-height:1;margin-bottom:16px;}
+.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+.quick-btn{padding:14px 8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--ff-display);font-size:1.1rem;letter-spacing:.04em;cursor:pointer;transition:all .15s;}
+.quick-btn:hover{background:var(--gold-glow);border-color:var(--border-gold);color:var(--gold);}
+.quick-btn:active{transform:scale(.97);}
+.sell-grid{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:12px;}
+
+/* TEAMS TAB */
+.teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+.team-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:border-color .2s;}
+.team-card:hover{border-color:var(--border-gold);}
+.team-card-head{padding:16px 18px 12px;border-bottom:1px solid var(--border);background:linear-gradient(160deg,rgba(212,168,71,.07) 0%,transparent 80%);}
+.team-card-name{font-family:var(--ff-display);font-size:22px;color:var(--gold);letter-spacing:.04em;}
+.team-budget{font-size:1.5rem;font-weight:700;color:var(--green);margin-top:2px;}
+.team-budget-lbl{font-size:.72rem;color:var(--muted2);}
+.team-roster{list-style:none;padding:12px 18px;max-height:220px;overflow-y:auto;}
+.team-roster::-webkit-scrollbar{width:3px;}
+.team-roster::-webkit-scrollbar-thumb{background:var(--border);}
+.roster-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem;}
+.roster-item:last-child{border-bottom:none;}
+.roster-name{color:var(--text);}
+.roster-price{font-weight:700;color:var(--gold-light);font-size:.82rem;}
+.roster-count{font-size:.72rem;color:var(--muted2);padding:8px 18px 14px;border-top:1px solid var(--border);}
+
+/* LEDGER TAB */
+.table-wrap{overflow-x:auto;border-radius:var(--r);}
+table{width:100%;border-collapse:collapse;min-width:520px;}
+thead th{padding:11px 14px;text-align:left;font-size:.75rem;font-weight:600;color:var(--muted2);letter-spacing:.06em;text-transform:uppercase;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:11px 14px;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.04);}
+tbody tr:hover{background:var(--surface);}
+tbody tr:last-child td{border-bottom:none;}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;}
+.status-avail{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.2);}
+.status-sold{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2);}
+.status-unsold{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2);}
+
+/* MANUAL PLAYER ROW */
+.pull-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-bottom:14px;}
+
+/* Utility */
+.gap-8{gap:8px;}
+.mt-8{margin-top:8px;}
+.mt-12{margin-top:12px;}
+.mt-16{margin-top:16px;}
+.mt-20{margin-top:20px;}
+.text-muted{color:var(--muted2);}
+.text-gold{color:var(--gold);}
+.text-green{color:var(--green);}
+.text-danger{color:var(--danger);}
+.fw-700{font-weight:700;}
+.fs-sm{font-size:.85rem;}
+</style>
 </head>
 <body>
 
-    <div class="top-bar" id="topBar" style="display: none;">
-        <h3 style="margin:0;">IPL Auction Platform</h3>
-        <button class="danger-btn" style="width: auto; padding: 8px 15px; font-size: 0.9rem;" onclick="window.logoutUser()">Sign Out</button>
+<div id="toast"><span class="t-dot"></span><span id="toast-msg"></span></div>
+
+<!-- TOPBAR -->
+<div id="topBar">
+  <div class="tb-left">
+    <div class="tb-badge">🏏</div>
+    <span class="tb-name">IPL AUCTION 2026</span>
+  </div>
+  <div class="tb-right">
+    <button class="btn btn-danger btn-sm" onclick="window.logoutUser()">Sign Out</button>
+  </div>
+</div>
+
+<div style="position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 14px 40px;">
+
+<!-- AUTH VIEW -->
+<div id="auth-view" class="view active">
+  <div class="auth-card">
+    <div class="auth-hero">
+      <div class="auth-icon">🏏</div>
+      <div class="auth-h">IPL AUCTION</div>
+      <div class="auth-sub">2026 Mega Auction Platform</div>
     </div>
-
-    <div id="globalAlert" class="alert"></div>
-
-    <div id="auth-view" class="view-section active glass-panel auth-box">
-        <h2 id="authTitle" style="text-align: center;">Login</h2>
-        
-        <div class="form-group">
-            <label>Email Address</label>
-            <input type="email" id="authEmail" placeholder="you@example.com">
-        </div>
-        <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="authPassword" placeholder="••••••••">
-        </div>
-
-        <button class="primary-btn" id="authBtn" onclick="window.handleAuth()">Sign In</button>
-
-        <button class="primary-btn google-btn" onclick="window.signInWithGoogle()">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo" width="20" height="20">
-            Sign in with Google
-        </button>
-        
-        <div style="margin-top: 15px; text-align: center; font-size: 0.9rem; color: var(--text-muted);">
-            <button class="text-link" onclick="window.toggleAuthMode()" id="authToggleBtn">Create an account instead</button>
-            <br><br>
-            <button class="text-link" onclick="window.resetPassword()">Forgot Password?</button>
-        </div>
+    <div class="auth-body">
+      <div class="auth-mode" id="authModeTitle">Welcome back</div>
+      <div class="field">
+        <label>Email Address</label>
+        <div class="input-wrap"><input type="email" id="authEmail" placeholder="you@example.com"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="input-wrap"><input type="password" id="authPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')window.handleAuth()"></div>
+      </div>
+      <button class="btn btn-gold" id="authBtn" onclick="window.handleAuth()">Sign In</button>
+      <div class="divider">or</div>
+      <button class="btn btn-google" onclick="window.signInWithGoogle()">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="">
+        Continue with Google
+      </button>
+      <div class="auth-footer">
+        <button class="text-btn" id="authToggleBtn" onclick="window.toggleAuthMode()">Don't have an account? Sign up</button>
+        <button class="text-btn" style="color:var(--muted2);" onclick="window.resetPassword()">Forgot password?</button>
+      </div>
     </div>
+  </div>
+</div>
 
-    <div id="dashboard-view" class="view-section">
-        <div class="glass-panel">
-            <h2>Your Auction Rooms</h2>
-            <div id="roomListContainer">Loading your rooms...</div>
-        </div>
+<!-- DASHBOARD VIEW -->
+<div id="dashboard-view" class="view">
 
-        <div class="glass-panel">
-            <h2>Create New Auction Room</h2>
-            <div class="setup-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                <div class="form-group">
-                    <label>Auction Name</label>
-                    <input type="text" id="newRoomName" placeholder="e.g. Office League 2026">
-                </div>
-                <div class="form-group">
-                    <label>Total Budget (Cr)</label>
-                    <input type="number" id="newRoomBudget" value="100">
-                </div>
-            </div>
-            <button class="action-btn" onclick="window.createNewRoom()">+ Generate New Auction Room</button>
-        </div>
+  <div class="section-card" style="margin-top:14px;">
+    <div class="section-head">
+      <span class="section-title">YOUR ROOMS</span>
     </div>
-
-    <div id="auction-view" class="view-section">
-        <div class="glass-panel" style="display: flex; justify-content: space-between; align-items: center; padding: 15px;">
-            <div>
-                <h3 id="roomTitleDisplay" style="margin:0; color: var(--cream);">Loading Room...</h3>
-            </div>
-            <button class="action-btn" style="width: auto; margin:0;" onclick="window.copyInviteLink()">🔗 Copy Invite Link</button>
-        </div>
-
-        <div class="nav-tabs glass-panel" id="navTabs">
-            <button id="btn-setup" class="active" onclick="window.switchTab('setup')">⚙️ Setup</button>
-            <button id="btn-auction" onclick="window.switchTab('auction')">🔨 Auction Block</button>
-            <button id="btn-teams" onclick="window.switchTab('teams')">📋 Purses</button>
-            <button id="btn-roster" onclick="window.switchTab('roster')">📊 Ledger</button>
-        </div>
-
-        <div id="setup-tab" class="tab-content glass-panel active">
-            <h2>Room Setup <span style="font-size: 0.5em; color: var(--danger);">(Admin Only)</span></h2>
-            <div class="setup-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                <div class="form-group">
-                    <label>Teams (Max 10):</label>
-                    <input type="number" id="numTeams" min="2" max="10" value="4" onchange="window.generateTeamInputs()">
-                </div>
-                <div class="form-group">
-                    <label>Max Players/Team:</label>
-                    <input type="number" id="playersPerTeam" min="15" max="25" value="20">
-                </div>
-            </div>
-            <div id="teamNamesContainer" style="margin-top: 10px;"></div>
-            <button class="primary-btn" onclick="window.initializeAuctionData()" style="margin-top: 20px;">Initialize / Reset Auction Data</button>
-        </div>
-
-        <div id="auction-tab" class="tab-content glass-panel">
-            <div class="form-group">
-                <select id="manualPlayerSelect"><option value="">-- Search / Pull Specific Player --</option></select>
-                <button class="action-btn" onclick="window.pullSpecificPlayer()">Call to Block</button>
-            </div>
-
-            <div class="auction-block" id="auctionBlockDisplay">
-                <h3 style="color: var(--text-muted); margin: 40px 0;">Waiting for Auctioneer...</h3>
-            </div>
-
-            <div class="bidding-controls" id="biddingControls" style="display: none;">
-                <div style="text-align: center;">
-                    <div style="color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.8rem;">Current Bid (Cr)</div>
-                    <div class="live-bid-display" id="liveBidText">₹0.00</div>
-                </div>
-                <div class="quick-bid-grid" id="quickBidGrid"></div>
-                <div class="form-group">
-                    <label>Select Winning Team:</label>
-                    <select id="winningTeamSelect"></select>
-                </div>
-                <div class="action-grid">
-                    <button class="primary-btn" onclick="window.sellPlayer()">🔨 SOLD!</button>
-                    <button class="danger-btn" onclick="window.markUnsold()">Pass</button>
-                </div>
-            </div>
-            <button class="primary-btn" onclick="window.pullRandomPlayer()" style="margin-top: 25px; background: rgba(255,255,255,0.1); color: white; border: 1px solid var(--glass-border);">🎲 Bring Up Random Player</button>
-        </div>
-
-        <div id="teams-tab" class="tab-content glass-panel">
-            <div class="team-grid" id="teamGrid"></div>
-        </div>
-
-        <div id="roster-tab" class="tab-content glass-panel">
-            <div class="table-container">
-                <table id="globalRosterTable">
-                    <thead><tr><th>Player</th><th>Details</th><th>Base (Cr)</th><th>Status</th><th>Sold (Cr)</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
+    <div class="section-body">
+      <div id="roomListContainer"><div class="empty-state"><div class="empty-icon">🏟️</div>Loading your rooms...</div></div>
     </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, push, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-        import { 
-            getAuth, 
-            signInWithEmailAndPassword, 
-            createUserWithEmailAndPassword, 
-            sendPasswordResetEmail, 
-            onAuthStateChanged, 
-            signOut, 
-            GoogleAuthProvider, 
-            signInWithPopup,
-            signInWithRedirect,
-            getRedirectResult
-        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCjTwIQapCFbAXkHlPYBdX8Hob_gVJZs98",
-            authDomain: "ipl-auction-26.firebaseapp.com",
-            databaseURL: "https://ipl-auction-26-default-rtdb.firebaseio.com",
-            projectId: "ipl-auction-26",
-            storageBucket: "ipl-auction-26.firebasestorage.app",
-            messagingSenderId: "201005854292",
-            appId: "1:201005854292:web:c223f76d9194a2f8a047c1",
-            measurementId: "G-15NG9X7SD5"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
-        const googleProvider = new GoogleAuthProvider();
-
-        let currentUser = null;
-        let activeRoomId = null;
-        let roomState = null;
-        let isSignupMode = false;
-        let currentRoomListener = null;
-
-        const rawData = [
-            {n:"Ruturaj Gaikwad", t:"CSK", r:"Batter", o:false}, {n:"MS Dhoni", t:"CSK", r:"Wicketkeeper", o:false}, {n:"Shivam Dube", t:"CSK", r:"All-Rounder", o:false}, {n:"Matheesha Pathirana", t:"CSK", r:"Bowler", o:true}, {n:"Ravindra Jadeja", t:"CSK", r:"All-Rounder", o:false},
-            {n:"Rohit Sharma", t:"MI", r:"Batter", o:false}, {n:"Suryakumar Yadav", t:"MI", r:"Batter", o:false}, {n:"Hardik Pandya", t:"MI", r:"All-Rounder", o:false}, {n:"Jasprit Bumrah", t:"MI", r:"Bowler", o:false}, {n:"Tim David", t:"MI", r:"Batter", o:true},
-            {n:"Shreyas Iyer", t:"KKR", r:"Batter", o:false}, {n:"Sunil Narine", t:"KKR", r:"All-Rounder", o:true}, {n:"Andre Russell", t:"KKR", r:"All-Rounder", o:true}, {n:"Rinku Singh", t:"KKR", r:"Batter", o:false}, {n:"Varun Chakaravarthy", t:"KKR", r:"Bowler", o:false},
-            {n:"Virat Kohli", t:"RCB", r:"Batter", o:false}, {n:"Faf du Plessis", t:"RCB", r:"Batter", o:true}, {n:"Glenn Maxwell", t:"RCB", r:"All-Rounder", o:true}, {n:"Mohammed Siraj", t:"RCB", r:"Bowler", o:false}, {n:"Cameron Green", t:"RCB", r:"All-Rounder", o:true},
-            {n:"Shubman Gill", t:"GT", r:"Batter", o:false}, {n:"Rashid Khan", t:"GT", r:"Bowler", o:true}, {n:"Kagiso Rabada", t:"GT", r:"Bowler", o:true}, {n:"Pat Cummins", t:"SRH", r:"Bowler", o:true}, {n:"Heinrich Klaasen", t:"SRH", r:"Wicketkeeper", o:true}, {n:"Rishabh Pant", t:"DC", r:"Wicketkeeper", o:false}, {n:"KL Rahul", t:"LSG", r:"Wicketkeeper", o:false}, {n:"Sanju Samson", t:"RR", r:"Wicketkeeper", o:false}, {n:"Jos Buttler", t:"RR", r:"Wicketkeeper", o:true}, {n:"Trent Boult", t:"RR", r:"Bowler", o:true}
-        ];
-
-        // ─── Utility ────────────────────────────────────────────────────────────────
-
-        window.showAlert = function(msg, isSuccess = false) {
-            const alertBox = document.getElementById('globalAlert');
-            alertBox.innerText = msg;
-            alertBox.className = isSuccess ? 'alert success-alert' : 'alert';
-            alertBox.style.display = 'block';
-            setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
-        };
-
-        function showView(viewId) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            document.getElementById('topBar').style.display = viewId === 'auth-view' ? 'none' : 'flex';
-        }
-
-        window.switchTab = function(tabId) {
-            document.querySelectorAll('#auction-view .tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('#auction-view .nav-tabs button').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId + '-tab').classList.add('active');
-            document.getElementById('btn-' + tabId).classList.add('active');
-        };
-
-        // ─── Auth ────────────────────────────────────────────────────────────────────
-
-        // FIX 1: Handle Google redirect result on page load (for mobile redirect flow)
-        getRedirectResult(auth)
-            .then((result) => {
-                if (result && result.user) {
-                    window.showAlert("Logged in with Google successfully!", true);
-                }
-            })
-            .catch((error) => {
-                if (error.code !== 'auth/no-current-user') {
-                    window.showAlert(`Google Sign-In Error: ${error.code} - ${error.message}`);
-                }
-            });
-
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            const urlParams = new URLSearchParams(window.location.search);
-            const roomParam = urlParams.get('room');
-
-            if (user) {
-                if (roomParam) {
-                    loadAuctionRoom(roomParam);
-                } else {
-                    loadDashboard();
-                }
-            } else {
-                showView('auth-view');
-            }
-        });
-
-        window.toggleAuthMode = function() {
-            isSignupMode = !isSignupMode;
-            document.getElementById('authTitle').innerText = isSignupMode ? "Create Account" : "Login";
-            document.getElementById('authBtn').innerText = isSignupMode ? "Sign Up" : "Sign In";
-            document.getElementById('authToggleBtn').innerText = isSignupMode ? "Already have an account? Log in" : "Create an account instead";
-        };
-
-        // FIX 2: Cleaner error handling with specific error codes
-        window.handleAuth = function() {
-            const email = document.getElementById('authEmail').value.trim();
-            const password = document.getElementById('authPassword').value;
-            if (!email || !password) return window.showAlert("Please enter an email and password.");
-
-            if (isSignupMode) {
-                createUserWithEmailAndPassword(auth, email, password)
-                    .then(() => window.showAlert("Account created successfully!", true))
-                    .catch(e => {
-                        const msg = {
-                            'auth/email-already-in-use': 'This email is already registered. Try logging in.',
-                            'auth/invalid-email': 'Please enter a valid email address.',
-                            'auth/weak-password': 'Password must be at least 6 characters.',
-                        }[e.code] || `Sign Up Failed: ${e.message}`;
-                        window.showAlert(msg);
-                    });
-            } else {
-                signInWithEmailAndPassword(auth, email, password)
-                    .then(() => window.showAlert("Logged in successfully!", true))
-                    .catch(e => {
-                        const msg = {
-                            'auth/user-not-found': 'No account found with this email.',
-                            'auth/wrong-password': 'Incorrect password. Please try again.',
-                            'auth/invalid-email': 'Please enter a valid email address.',
-                            'auth/invalid-credential': 'Invalid email or password. Please check and try again.',
-                            'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
-                            'auth/unauthorized-domain': 'This domain is not authorized. Add it in Firebase Console under Auth > Settings > Authorized Domains.',
-                        }[e.code] || `Login Failed (${e.code}): ${e.message}`;
-                        window.showAlert(msg);
-                    });
-            }
-        };
-
-        // FIX 3: Google sign-in with popup, fallback to redirect on mobile/blocked
-        window.signInWithGoogle = function() {
-            signInWithPopup(auth, googleProvider)
-                .then((result) => {
-                    window.showAlert("Logged in with Google successfully!", true);
-                })
-                .catch((error) => {
-                    if (
-                        error.code === 'auth/popup-blocked' ||
-                        error.code === 'auth/popup-closed-by-user' ||
-                        error.code === 'auth/cancelled-popup-request'
-                    ) {
-                        // Fallback to redirect for mobile browsers that block popups
-                        signInWithRedirect(auth, googleProvider)
-                            .catch(redirectError => {
-                                window.showAlert(`Google Sign-In Failed: ${redirectError.message}`);
-                            });
-                    } else if (error.code === 'auth/unauthorized-domain') {
-                        window.showAlert('Domain not authorized. Add this domain in Firebase Console: Auth > Settings > Authorized Domains.');
-                    } else {
-                        window.showAlert(`Google Sign-In Failed (${error.code}): ${error.message}`);
-                    }
-                });
-        };
-
-        window.resetPassword = function() {
-            const email = document.getElementById('authEmail').value.trim();
-            if (!email) return window.showAlert("Please type your email in the box first.");
-            sendPasswordResetEmail(auth, email)
-                .then(() => window.showAlert("Password reset link sent to your email.", true))
-                .catch(e => window.showAlert(`Error: ${e.message}`));
-        };
-
-        window.logoutUser = function() {
-            if (currentRoomListener) currentRoomListener();
-            signOut(auth).then(() => {
-                window.location.search = '';
-            });
-        };
-
-        // ─── Dashboard ───────────────────────────────────────────────────────────────
-
-        function loadDashboard() {
-            showView('dashboard-view');
-            activeRoomId = null;
-            if (currentRoomListener) {
-                currentRoomListener();
-                currentRoomListener = null;
-            }
-
-            onValue(ref(db, `users/${currentUser.uid}/auctions`), (snapshot) => {
-                const container = document.getElementById('roomListContainer');
-                const rooms = snapshot.val();
-                if (!rooms) {
-                    container.innerHTML = '<p style="color:var(--text-muted)">You haven\'t created any auctions yet.</p>';
-                    return;
-                }
-                container.innerHTML = '';
-                Object.keys(rooms).forEach(key => {
-                    const room = rooms[key];
-                    container.innerHTML += `
-                        <div class="room-card">
-                            <div>
-                                <strong style="color:var(--cream);">${room.name}</strong><br>
-                                <span style="font-size:0.8rem; color:var(--text-muted);">Budget: ₹${room.budget} Cr</span>
-                            </div>
-                            <button class="action-btn" style="width:auto; margin:0;" onclick="window.location.href='?room=${key}'">Enter Room</button>
-                        </div>
-                    `;
-                });
-            });
-        }
-
-        window.createNewRoom = function() {
-            if (!currentUser) return window.showAlert("You must be logged in to create a room.");
-            const name = document.getElementById('newRoomName').value.trim() || "My League";
-            const budget = parseFloat(document.getElementById('newRoomBudget').value) || 100;
-
-            const newRoomRef = push(ref(db, 'auctions'));
-            const roomId = newRoomRef.key;
-
-            update(ref(db, `users/${currentUser.uid}/auctions/${roomId}`), {
-                name: name, budget: budget, createdAt: Date.now()
-            }).then(() => {
-                window.location.search = `?room=${roomId}`;
-            }).catch(e => window.showAlert(`Database Error: ${e.message}`));
-        };
-
-        window.copyInviteLink = function() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url)
-                .then(() => window.showAlert("Invite Link Copied! Send this to your league mates.", true))
-                .catch(() => window.showAlert("Failed to copy link. Check browser permissions."));
-        };
-
-        // ─── Auction Room ────────────────────────────────────────────────────────────
-
-        function loadAuctionRoom(roomId) {
-            showView('auction-view');
-            activeRoomId = roomId;
-            document.getElementById('roomTitleDisplay').innerText = `Room: ${roomId.substring(1, 6).toUpperCase()}`;
-
-            window.generateTeamInputs();
-
-            // Detach any previous listener
-            if (currentRoomListener) {
-                currentRoomListener();
-                currentRoomListener = null;
-            }
-
-            const unsubscribe = onValue(ref(db, `auctions/${roomId}`), (snapshot) => {
-                const data = snapshot.val();
-                if (!data) return;
-                roomState = data;
-
-                // Hide setup tab once auction is initialized
-                if (data.setup && data.setup.isStarted) {
-                    document.getElementById('setup-tab').style.display = 'none';
-                    if (document.getElementById('setup-tab').classList.contains('active')) {
-                        window.switchTab('auction');
-                    }
-                } else {
-                    document.getElementById('setup-tab').style.display = 'block';
-                }
-
-                // Render teams
-                if (data.teams) {
-                    const teamSelect = document.getElementById('winningTeamSelect');
-                    const prevSelected = teamSelect.value;
-                    teamSelect.innerHTML = '<option value="">-- Select Winner --</option>';
-                    const grid = document.getElementById('teamGrid');
-                    grid.innerHTML = '';
-
-                    Object.values(data.teams).forEach(team => {
-                        let opt = document.createElement('option');
-                        opt.value = team.name;
-                        opt.textContent = team.name;
-                        teamSelect.appendChild(opt);
-
-                        const roster = team.roster || [];
-                        let html = `<div class="team-card glass-panel">
-                            <h3 style="margin: 0 0 5px 0;">${team.name}</h3>
-                            <div class="budget-display">₹${team.budget.toFixed(2)} Cr</div>
-                            <ul>`;
-                        roster.forEach(p => {
-                            html += `<li><span>${p.name}</span><span style="font-weight:bold; color:var(--cream);">₹${p.soldPrice.toFixed(2)}</span></li>`;
-                        });
-                        html += `</ul></div>`;
-                        grid.innerHTML += html;
-                    });
-
-                    teamSelect.value = prevSelected;
-                }
-
-                // Render players
-                if (data.players) {
-                    const select = document.getElementById('manualPlayerSelect');
-                    select.innerHTML = '<option value="">-- Search / Pull Specific Player --</option>';
-                    const tbody = document.querySelector('#globalRosterTable tbody');
-                    tbody.innerHTML = '';
-
-                    let available = Object.values(data.players)
-                        .filter(p => p.status === 'available' || p.status === 'unsold')
-                        .sort((a, b) => a.name.localeCompare(b.name));
-
-                    available.forEach(p => {
-                        let opt = document.createElement('option');
-                        opt.value = p.id;
-                        opt.textContent = `${p.name} (${p.status})`;
-                        select.appendChild(opt);
-                    });
-
-                    Object.values(data.players).forEach(p => {
-                        let statusHtml = p.status === 'available'
-                            ? 'Available'
-                            : (p.status === 'unsold'
-                                ? `<span style="color:var(--danger)">Unsold</span>`
-                                : `<span style="color:var(--success)">${p.soldTo}</span>`);
-                        tbody.innerHTML += `<tr>
-                            <td style="font-weight: 600;">${p.name}</td>
-                            <td>${p.iplTeam} | ${p.role}</td>
-                            <td>₹${p.basePrice.toFixed(2)}</td>
-                            <td>${statusHtml}</td>
-                            <td style="font-weight:700; color:var(--cream);">${p.soldPrice ? '₹' + p.soldPrice.toFixed(2) : '-'}</td>
-                        </tr>`;
-                    });
-                }
-
-                // Render auction block
-                const block = document.getElementById('auctionBlockDisplay');
-                const controls = document.getElementById('biddingControls');
-
-                if (data.currentBlock && data.currentBlock.active) {
-                    const p = data.players[data.currentBlock.playerId];
-                    controls.style.display = 'block';
-                    document.getElementById('liveBidText').innerText = `₹${data.currentBlock.currentBid.toFixed(2)}`;
-
-                    const m = data.setup.budgetMultiplier;
-                    document.getElementById('quickBidGrid').innerHTML = `
-                        <button class="quick-bid-btn" onclick="window.addBid(${0.1 * m})">+ ₹${(0.1 * m).toFixed(1)}</button>
-                        <button class="quick-bid-btn" onclick="window.addBid(${0.5 * m})">+ ₹${(0.5 * m).toFixed(1)}</button>
-                        <button class="quick-bid-btn" onclick="window.addBid(${1.0 * m})">+ ₹${(1.0 * m).toFixed(1)}</button>
-                    `;
-
-                    block.innerHTML = `
-                        <h2 class="player-name-huge">${p.name}</h2>
-                        <div class="player-meta">
-                            <span class="player-tag">${p.iplTeam}</span>
-                            <span class="player-tag">${p.role}</span>
-                            <span class="player-tag">${p.isOverseas ? '✈️ Overseas' : '🇮🇳 Indian'}</span>
-                        </div>
-                        <div class="base-price">Base: ₹${p.basePrice.toFixed(2)} Cr</div>
-                    `;
-                } else {
-                    controls.style.display = 'none';
-                    if (data.currentBlock && data.currentBlock.lastAction) {
-                        if (data.currentBlock.lastAction === 'unsold') {
-                            block.innerHTML = `<h2 style="color: var(--danger); font-size: 2.2rem; margin: 0;">❌ UNSOLD</h2>`;
-                        } else if (data.currentBlock.lastAction.startsWith('sold')) {
-                            const parts = data.currentBlock.lastAction.split('_');
-                            block.innerHTML = `
-                                <h2 style="color: var(--success); font-size: 2.2rem; margin: 0;">🔨 SOLD!</h2>
-                                <p style="font-size: 1.1rem;">To ${parts[2]}</p>
-                                <p style="font-size: 1.5rem; font-weight: bold; color: var(--cream);">₹${parseFloat(parts[3]).toFixed(2)} Cr</p>
-                            `;
-                        }
-                    } else {
-                        block.innerHTML = `<h3 style="color: var(--text-muted); margin: 40px 0;">Ready to begin</h3>`;
-                    }
-                }
-            });
-
-            currentRoomListener = unsubscribe;
-        }
-
-        window.generateTeamInputs = function() {
-            const num = parseInt(document.getElementById('numTeams').value) || 4;
-            const container = document.getElementById('teamNamesContainer');
-            container.innerHTML = '';
-            for (let i = 1; i <= num; i++) {
-                container.innerHTML += `<div class="form-group"><input type="text" id="teamName${i}" value="Franchise ${i}"></div>`;
-            }
-        };
-
-        // FIX 4: Replaced onValue + {onlyOnce} with get() for a cleaner one-time read
-        window.initializeAuctionData = function() {
-            if (!activeRoomId) return window.showAlert("No active room found.");
-            if (!currentUser) return window.showAlert("You must be logged in.");
-
-            const num = parseInt(document.getElementById('numTeams').value) || 4;
-            const maxPlayers = parseInt(document.getElementById('playersPerTeam').value) || 20;
-
-            get(ref(db, `users/${currentUser.uid}/auctions/${activeRoomId}`))
-                .then((snap) => {
-                    const roomMeta = snap.val();
-                    if (!roomMeta) return window.showAlert("Error: Room metadata not found. Create the room from the dashboard first.");
-
-                    const budget = parseFloat(roomMeta.budget) || 100;
-                    const multiplier = budget / 100;
-
-                    let dbPlayers = {};
-                    rawData.forEach((p, i) => {
-                        let base = 0.2;
-                        if (p.o) base = 0.5;
-                        else if (p.r === "All-Rounder") base = 0.3;
-                        dbPlayers[i] = {
-                            id: i,
-                            name: p.n,
-                            role: p.r,
-                            isOverseas: p.o,
-                            iplTeam: p.t,
-                            basePrice: parseFloat((base * multiplier).toFixed(2)),
-                            status: 'available',
-                            soldTo: null,
-                            soldPrice: null
-                        };
-                    });
-
-                    let dbTeams = {};
-                    for (let i = 1; i <= num; i++) {
-                        const nameEl = document.getElementById(`teamName${i}`);
-                        const name = (nameEl && nameEl.value.trim()) ? nameEl.value.trim() : `Franchise ${i}`;
-                        dbTeams[name] = { name: name, budget: budget, roster: [] };
-                    }
-
-                    return set(ref(db, `auctions/${activeRoomId}`), {
-                        setup: {
-                            isStarted: true,
-                            maxPlayers: maxPlayers,
-                            budgetMultiplier: multiplier
-                        },
-                        players: dbPlayers,
-                        teams: dbTeams,
-                        currentBlock: { active: false, lastAction: null }
-                    });
-                })
-                .then(() => window.showAlert("Room initialized successfully!", true))
-                .catch(e => window.showAlert(`Initialization Error: ${e.message}`));
-        };
-
-        // ─── Auction Actions ─────────────────────────────────────────────────────────
-
-        window.pullRandomPlayer = function() {
-            if (!roomState || !roomState.players) return window.showAlert("Room not loaded yet.");
-            const avail = Object.values(roomState.players).filter(p => p.status === 'available');
-            if (avail.length === 0) return window.showAlert("No more available players.");
-            const p = avail[Math.floor(Math.random() * avail.length)];
-            update(ref(db, `auctions/${activeRoomId}/currentBlock`), {
-                active: true,
-                playerId: p.id,
-                currentBid: p.basePrice
-            });
-        };
-
-        window.pullSpecificPlayer = function() {
-            const id = document.getElementById('manualPlayerSelect').value;
-            if (!id) return window.showAlert("Please select a player first.");
-            const p = roomState.players[id];
-            if (!p) return window.showAlert("Player not found.");
-            update(ref(db, `auctions/${activeRoomId}/currentBlock`), {
-                active: true,
-                playerId: p.id,
-                currentBid: p.basePrice
-            });
-        };
-
-        window.addBid = function(inc) {
-            if (!roomState || !roomState.currentBlock) return;
-            const newBid = parseFloat((roomState.currentBlock.currentBid + inc).toFixed(2));
-            update(ref(db, `auctions/${activeRoomId}/currentBlock`), { currentBid: newBid });
-        };
-
-        window.sellPlayer = function() {
-            const teamName = document.getElementById('winningTeamSelect').value;
-            if (!teamName) return window.showAlert("Please select a winning franchise!");
-            if (!roomState || !roomState.currentBlock || !roomState.currentBlock.active) return window.showAlert("No active player on the block.");
-
-            const bidAmount = roomState.currentBlock.currentBid;
-            const pId = roomState.currentBlock.playerId;
-            const player = roomState.players[pId];
-            const team = roomState.teams[teamName];
-
-            if (!player || !team) return window.showAlert("Player or team data missing.");
-            if (team.budget < bidAmount) return window.showAlert("Insufficient budget for this team!");
-
-            const roster = Array.isArray(team.roster) ? [...team.roster] : [];
-            if (roster.length >= roomState.setup.maxPlayers) return window.showAlert("This team's roster is full!");
-
-            roster.push({
-                name: player.name,
-                role: player.role,
-                iplTeam: player.iplTeam,
-                soldPrice: bidAmount
-            });
-
-            let updates = {};
-            updates[`/teams/${teamName}/roster`] = roster;
-            updates[`/teams/${teamName}/budget`] = parseFloat((team.budget - bidAmount).toFixed(2));
-            updates[`/players/${pId}/status`] = 'sold';
-            updates[`/players/${pId}/soldTo`] = teamName;
-            updates[`/players/${pId}/soldPrice`] = bidAmount;
-            updates['/currentBlock'] = {
-                active: false,
-                lastAction: `sold_${pId}_${teamName}_${bidAmount}`
-            };
-
-            update(ref(db, `auctions/${activeRoomId}`), updates)
-                .catch(e => window.showAlert(`Sell Error: ${e.message}`));
-        };
-
-        window.markUnsold = function() {
-            if (!roomState || !roomState.currentBlock || !roomState.currentBlock.active) return;
-            const pId = roomState.currentBlock.playerId;
-            let updates = {};
-            updates[`/players/${pId}/status`] = 'unsold';
-            updates['/currentBlock'] = { active: false, lastAction: 'unsold' };
-            update(ref(db, `auctions/${activeRoomId}`), updates)
-                .catch(e => window.showAlert(`Error: ${e.message}`));
-        };
-
-    </script>
+  </div>
+
+  <div class="section-card">
+    <div class="section-head">
+      <span class="section-title">CREATE ROOM</span>
+    </div>
+    <div class="section-body">
+      <div class="create-grid">
+        <div class="field" style="margin:0;">
+          <label>Auction Name</label>
+          <input type="text" id="newRoomName" placeholder="Office League 2026">
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Budget (Cr)</label>
+          <input type="number" id="newRoomBudget" value="100">
+        </div>
+      </div>
+      <button class="btn btn-gold mt-12" onclick="window.createNewRoom()">+ Create New Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUCTION VIEW -->
+<div id="auction-view" class="view">
+
+  <div class="room-header" style="margin-top:14px;">
+    <div>
+      <div class="room-title" id="roomTitleDisplay">Loading...</div>
+      <div class="room-id" id="roomIdDisplay"></div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="window.copyInviteLink()">🔗 Copy Invite</button>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="btn-setup" onclick="window.switchTab('setup')">⚙️ Setup</button>
+    <button class="nav-tab" id="btn-auction" onclick="window.switchTab('auction')">🔨 Block</button>
+    <button class="nav-tab" id="btn-teams" onclick="window.switchTab('teams')">📋 Purses</button>
+    <button class="nav-tab" id="btn-roster" onclick="window.switchTab('roster')">📊 Ledger</button>
+  </div>
+
+  <!-- SETUP TAB -->
+  <div id="setup-tab" class="tab-pane active section-card">
+    <div class="section-head">
+      <span class="section-title">ROOM SETUP</span>
+      <span class="admin-badge">Admin Only</span>
+    </div>
+    <div class="section-body">
+      <div class="setup-grid">
+        <div class="field" style="margin:0;">
+          <label>Number of Teams</label>
+          <input type="number" id="numTeams" min="2" max="10" value="4" onchange="window.generateTeamInputs()">
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Max Players / Team</label>
+          <input type="number" id="playersPerTeam" min="1" max="30" value="20">
+        </div>
+      </div>
+      <div class="team-inputs-grid" id="teamNamesContainer"></div>
+      <button class="btn btn-gold mt-20" onclick="window.initializeAuctionData()">🚀 Initialize Auction</button>
+    </div>
+  </div>
+
+  <!-- AUCTION BLOCK TAB -->
+  <div id="auction-tab" class="tab-pane section-card" style="display:none;">
+    <div class="section-body">
+      <div class="pull-row">
+        <div class="field" style="margin:0;">
+          <label>Pull Specific Player</label>
+          <select id="manualPlayerSelect"><option value="">-- Select Player --</option></select>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="window.pullSpecificPlayer()" style="margin-bottom:0;">Call Up</button>
+      </div>
+
+      <div class="block-stage" id="auctionBlockDisplay">
+        <div style="color:var(--muted2);font-size:.95rem;">⏳ Waiting for auctioneer...</div>
+      </div>
+
+      <div id="biddingControls" style="display:none;">
+        <div class="bid-panel">
+          <div class="bid-label">Current Bid</div>
+          <div class="bid-amount" id="liveBidText">₹0.00</div>
+          <div class="quick-grid" id="quickBidGrid"></div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Winning Franchise</label>
+            <select id="winningTeamSelect"><option value="">-- Select Winner --</option></select>
+          </div>
+          <div class="sell-grid">
+            <button class="btn btn-gold" onclick="window.sellPlayer()">🔨 SOLD!</button>
+            <button class="btn btn-danger" onclick="window.markUnsold()">Pass</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost mt-12" onclick="window.pullRandomPlayer()">🎲 Random Player</button>
+    </div>
+  </div>
+
+  <!-- TEAMS TAB -->
+  <div id="teams-tab" class="tab-pane" style="display:none;">
+    <div class="teams-grid" id="teamGrid" style="padding:14px;"></div>
+  </div>
+
+  <!-- ROSTER TAB -->
+  <div id="roster-tab" class="tab-pane section-card" style="display:none;">
+    <div class="section-body" style="padding:0;">
+      <div class="table-wrap">
+        <table id="globalRosterTable">
+          <thead>
+            <tr>
+              <th>Player</th><th>Team · Role</th><th>Base</th><th>Status</th><th>Sold For</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /auction-view -->
+</div><!-- /wrap -->
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getDatabase, ref, set, onValue, update, push, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail, onAuthStateChanged, signOut,
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCjTwIQapCFbAXkHlPYBdX8Hob_gVJZs98",
+  authDomain: "ipl-auction-26.firebaseapp.com",
+  databaseURL: "https://ipl-auction-26-default-rtdb.firebaseio.com",
+  projectId: "ipl-auction-26",
+  storageBucket: "ipl-auction-26.firebasestorage.app",
+  messagingSenderId: "201005854292",
+  appId: "1:201005854292:web:c223f76d9194a2f8a047c1",
+  measurementId: "G-15NG9X7SD5"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
+let currentUser = null, activeRoomId = null, roomState = null;
+let isSignupMode = false, currentRoomListener = null;
+
+const rawData = [
+  {n:"Ruturaj Gaikwad",t:"CSK",r:"Batter",o:false},{n:"MS Dhoni",t:"CSK",r:"Wicketkeeper",o:false},{n:"Shivam Dube",t:"CSK",r:"All-Rounder",o:false},{n:"Matheesha Pathirana",t:"CSK",r:"Bowler",o:true},{n:"Ravindra Jadeja",t:"CSK",r:"All-Rounder",o:false},
+  {n:"Rohit Sharma",t:"MI",r:"Batter",o:false},{n:"Suryakumar Yadav",t:"MI",r:"Batter",o:false},{n:"Hardik Pandya",t:"MI",r:"All-Rounder",o:false},{n:"Jasprit Bumrah",t:"MI",r:"Bowler",o:false},{n:"Tim David",t:"MI",r:"Batter",o:true},
+  {n:"Shreyas Iyer",t:"KKR",r:"Batter",o:false},{n:"Sunil Narine",t:"KKR",r:"All-Rounder",o:true},{n:"Andre Russell",t:"KKR",r:"All-Rounder",o:true},{n:"Rinku Singh",t:"KKR",r:"Batter",o:false},{n:"Varun Chakaravarthy",t:"KKR",r:"Bowler",o:false},
+  {n:"Virat Kohli",t:"RCB",r:"Batter",o:false},{n:"Faf du Plessis",t:"RCB",r:"Batter",o:true},{n:"Glenn Maxwell",t:"RCB",r:"All-Rounder",o:true},{n:"Mohammed Siraj",t:"RCB",r:"Bowler",o:false},{n:"Cameron Green",t:"RCB",r:"All-Rounder",o:true},
+  {n:"Shubman Gill",t:"GT",r:"Batter",o:false},{n:"Rashid Khan",t:"GT",r:"Bowler",o:true},{n:"Kagiso Rabada",t:"GT",r:"Bowler",o:true},{n:"Pat Cummins",t:"SRH",r:"Bowler",o:true},{n:"Heinrich Klaasen",t:"SRH",r:"Wicketkeeper",o:true},
+  {n:"Rishabh Pant",t:"DC",r:"Wicketkeeper",o:false},{n:"KL Rahul",t:"LSG",r:"Wicketkeeper",o:false},{n:"Sanju Samson",t:"RR",r:"Wicketkeeper",o:false},{n:"Jos Buttler",t:"RR",r:"Wicketkeeper",o:true},{n:"Trent Boult",t:"RR",r:"Bowler",o:true}
+];
+
+// ── Toast ──────────────────────────────────────────────────
+let toastTimer;
+window.toast = function(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  const msgEl = document.getElementById('toast-msg');
+  clearTimeout(toastTimer);
+  el.className = type;
+  msgEl.textContent = msg;
+  el.classList.add('show');
+  toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+};
+window.showAlert = window.toast;
+
+// ── Views ──────────────────────────────────────────────────
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('topBar').style.display = id === 'auth-view' ? 'none' : 'flex';
+}
+
+window.switchTab = function(tabId) {
+  ['setup','auction','teams','roster'].forEach(t => {
+    const pane = document.getElementById(t+'-tab');
+    const btn = document.getElementById('btn-'+t);
+    if (pane) pane.style.display = t === tabId ? (t==='teams'?'block':'block') : 'none';
+    if (pane) pane.classList.toggle('active', t === tabId);
+    if (btn) btn.classList.toggle('active', t === tabId);
+  });
+};
+
+// ── Auth ───────────────────────────────────────────────────
+getRedirectResult(auth).then(r => {
+  if (r?.user) window.toast("Signed in with Google!", 'ok');
+}).catch(e => {
+  if (e.code !== 'auth/no-current-user') window.toast(friendlyError(e.code, e.message), 'err');
+});
+
+onAuthStateChanged(auth, user => {
+  currentUser = user;
+  const room = new URLSearchParams(window.location.search).get('room');
+  if (user) { room ? loadAuctionRoom(room) : loadDashboard(); }
+  else showView('auth-view');
+});
+
+window.toggleAuthMode = function() {
+  isSignupMode = !isSignupMode;
+  document.getElementById('authModeTitle').textContent = isSignupMode ? 'Create your account' : 'Welcome back';
+  document.getElementById('authBtn').textContent = isSignupMode ? 'Sign Up' : 'Sign In';
+  document.getElementById('authToggleBtn').textContent = isSignupMode ? 'Already have an account? Sign in' : "Don't have an account? Sign up";
+};
+
+function friendlyError(code, fallback) {
+  return ({
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/invalid-credential': 'Invalid email or password.',
+    'auth/email-already-in-use': 'This email is already registered.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/invalid-email': 'Please enter a valid email.',
+    'auth/too-many-requests': 'Too many attempts. Try again later.',
+    'auth/unauthorized-domain': 'Domain not authorized. Add it in Firebase Console under Auth > Authorized Domains.',
+    'auth/api-key-not-valid': 'Firebase API key is invalid. Check your config.',
+    'auth/popup-blocked': 'Popup was blocked. Trying redirect...',
+  })[code] || fallback;
+}
+
+window.handleAuth = function() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPassword').value;
+  if (!email || !pass) return window.toast('Please enter your email and password.', 'err');
+
+  const fn = isSignupMode
+    ? createUserWithEmailAndPassword(auth, email, pass)
+    : signInWithEmailAndPassword(auth, email, pass);
+
+  fn.then(() => window.toast(isSignupMode ? 'Account created!' : 'Signed in!', 'ok'))
+    .catch(e => window.toast(friendlyError(e.code, e.message), 'err'));
+};
+
+window.signInWithGoogle = function() {
+  signInWithPopup(auth, googleProvider)
+    .then(() => window.toast('Signed in with Google!', 'ok'))
+    .catch(e => {
+      if (['auth/popup-blocked','auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code)) {
+        signInWithRedirect(auth, googleProvider);
+      } else {
+        window.toast(friendlyError(e.code, e.message), 'err');
+      }
+    });
+};
+
+window.resetPassword = function() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) return window.toast('Enter your email above first.', 'err');
+  sendPasswordResetEmail(auth, email)
+    .then(() => window.toast('Reset link sent to your email.', 'ok'))
+    .catch(e => window.toast(e.message, 'err'));
+};
+
+window.logoutUser = function() {
+  if (currentRoomListener) { currentRoomListener(); currentRoomListener = null; }
+  signOut(auth).then(() => { window.location.search = ''; });
+};
+
+// ── Dashboard ──────────────────────────────────────────────
+function loadDashboard() {
+  showView('dashboard-view');
+  activeRoomId = null;
+  if (currentRoomListener) { currentRoomListener(); currentRoomListener = null; }
+
+  onValue(ref(db, `users/${currentUser.uid}/auctions`), snap => {
+    const c = document.getElementById('roomListContainer');
+    const rooms = snap.val();
+    if (!rooms) {
+      c.innerHTML = '<div class="empty-state"><div class="empty-icon">🏟️</div>No auction rooms yet. Create one below.</div>';
+      return;
+    }
+    c.innerHTML = Object.keys(rooms).map(key => {
+      const r = rooms[key];
+      return `<div class="room-item">
+        <div><div class="room-name">${r.name}</div><div class="room-meta">Budget: ₹${r.budget} Cr &nbsp;·&nbsp; ID: ${key.substring(1,7).toUpperCase()}</div></div>
+        <button class="btn btn-gold btn-xs" onclick="window.location.href='?room=${key}'">Enter →</button>
+      </div>`;
+    }).join('');
+  });
+}
+
+window.createNewRoom = function() {
+  if (!currentUser) return window.toast('Not signed in.', 'err');
+  const name = document.getElementById('newRoomName').value.trim() || 'My League';
+  const budget = parseFloat(document.getElementById('newRoomBudget').value) || 100;
+  const roomRef = push(ref(db, 'auctions'));
+  const roomId = roomRef.key;
+  update(ref(db, `users/${currentUser.uid}/auctions/${roomId}`), { name, budget, createdAt: Date.now() })
+    .then(() => { window.location.search = `?room=${roomId}`; })
+    .catch(e => window.toast(`Error: ${e.message}`, 'err'));
+};
+
+window.copyInviteLink = function() {
+  navigator.clipboard.writeText(window.location.href)
+    .then(() => window.toast('Invite link copied!', 'ok'))
+    .catch(() => window.toast('Could not copy. Try manually.', 'err'));
+};
+
+// ── Auction Room ───────────────────────────────────────────
+function loadAuctionRoom(roomId) {
+  showView('auction-view');
+  activeRoomId = roomId;
+  document.getElementById('roomTitleDisplay').textContent = 'Loading...';
+  document.getElementById('roomIdDisplay').textContent = `Room ID: ${roomId.substring(1,7).toUpperCase()}`;
+  window.generateTeamInputs();
+
+  if (currentRoomListener) { currentRoomListener(); currentRoomListener = null; }
+
+  const unsub = onValue(ref(db, `auctions/${roomId}`), snap => {
+    const data = snap.val();
+    if (!data) return;
+    roomState = data;
+
+    // Room title from user meta
+    if (currentUser) {
+      get(ref(db, `users/${currentUser.uid}/auctions/${roomId}`)).then(s => {
+        const meta = s.val();
+        if (meta) document.getElementById('roomTitleDisplay').textContent = meta.name;
+      });
+    }
+
+    // Hide setup if started
+    const setupTab = document.getElementById('setup-tab');
+    const setupBtn = document.getElementById('btn-setup');
+    if (data.setup?.isStarted) {
+      setupTab.style.display = 'none';
+      setupBtn.style.display = 'none';
+      if (setupTab.classList.contains('active')) window.switchTab('auction');
+    } else {
+      setupTab.style.display = 'block';
+      setupBtn.style.display = 'flex';
+    }
+
+    // Teams
+    if (data.teams) {
+      const teamSel = document.getElementById('winningTeamSelect');
+      const prev = teamSel.value;
+      teamSel.innerHTML = '<option value="">-- Select Winner --</option>';
+      document.getElementById('teamGrid').innerHTML = '';
+
+      Object.values(data.teams).forEach(team => {
+        const opt = document.createElement('option');
+        opt.value = team.name; opt.textContent = team.name;
+        teamSel.appendChild(opt);
+
+        const roster = Array.isArray(team.roster) ? team.roster : [];
+        const items = roster.map(p =>
+          `<li class="roster-item"><span class="roster-name">${p.name}</span><span class="roster-price">₹${p.soldPrice.toFixed(2)}</span></li>`
+        ).join('');
+        document.getElementById('teamGrid').innerHTML += `
+          <div class="team-card">
+            <div class="team-card-head">
+              <div class="team-card-name">${team.name}</div>
+              <div class="team-budget">₹${team.budget.toFixed(2)} Cr</div>
+              <div class="team-budget-lbl">Remaining budget</div>
+            </div>
+            <ul class="team-roster">${items || '<li class="roster-item text-muted fs-sm">No players yet</li>'}</ul>
+            <div class="roster-count">${roster.length} / ${data.setup?.maxPlayers || '?'} players</div>
+          </div>`;
+      });
+      teamSel.value = prev;
+    }
+
+    // Players ledger
+    if (data.players) {
+      const sel = document.getElementById('manualPlayerSelect');
+      sel.innerHTML = '<option value="">-- Select Player --</option>';
+      const tbody = document.querySelector('#globalRosterTable tbody');
+      tbody.innerHTML = '';
+
+      const avail = Object.values(data.players)
+        .filter(p => p.status === 'available' || p.status === 'unsold')
+        .sort((a,b) => a.name.localeCompare(b.name));
+      avail.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id; o.textContent = `${p.name} (${p.status})`;
+        sel.appendChild(o);
+      });
+
+      Object.values(data.players).forEach(p => {
+        const statusHtml = p.status === 'available'
+          ? '<span class="status-pill status-avail">Available</span>'
+          : p.status === 'unsold'
+          ? '<span class="status-pill status-unsold">Unsold</span>'
+          : `<span class="status-pill status-sold">${p.soldTo}</span>`;
+        tbody.innerHTML += `<tr>
+          <td class="fw-700">${p.name}</td>
+          <td class="text-muted">${p.iplTeam} · ${p.role}</td>
+          <td>₹${p.basePrice.toFixed(2)}</td>
+          <td>${statusHtml}</td>
+          <td class="fw-700 text-gold">${p.soldPrice ? '₹'+p.soldPrice.toFixed(2) : '—'}</td>
+        </tr>`;
+      });
+    }
+
+    // Auction block
+    const block = document.getElementById('auctionBlockDisplay');
+    const controls = document.getElementById('biddingControls');
+
+    if (data.currentBlock?.active) {
+      const p = data.players[data.currentBlock.playerId];
+      controls.style.display = 'block';
+      document.getElementById('liveBidText').textContent = `₹${data.currentBlock.currentBid.toFixed(2)}`;
+
+      const m = data.setup.budgetMultiplier;
+      document.getElementById('quickBidGrid').innerHTML = [0.1,0.5,1.0].map(x =>
+        `<button class="quick-btn" onclick="window.addBid(${x*m})">+₹${(x*m).toFixed(1)}</button>`
+      ).join('');
+
+      block.innerHTML = `
+        <div class="player-big">${p.name}</div>
+        <div class="player-tags">
+          <span class="tag tag-ipl">${p.iplTeam}</span>
+          <span class="tag tag-role">${p.role}</span>
+          <span class="tag tag-ov">${p.isOverseas ? '✈️ Overseas' : '🇮🇳 Indian'}</span>
+        </div>
+        <div class="base-lbl">Base Price: <span class="base-val">₹${p.basePrice.toFixed(2)} Cr</span></div>`;
+    } else {
+      controls.style.display = 'none';
+      if (data.currentBlock?.lastAction === 'unsold') {
+        block.innerHTML = `<div class="sold-display unsold">UNSOLD</div>`;
+      } else if (data.currentBlock?.lastAction?.startsWith('sold')) {
+        const [,, team, price] = data.currentBlock.lastAction.split('_');
+        block.innerHTML = `
+          <div class="sold-display sold">SOLD!</div>
+          <div class="sold-detail">To <strong>${team}</strong></div>
+          <div class="sold-price">₹${parseFloat(price).toFixed(2)} Cr</div>`;
+      } else {
+        block.innerHTML = `<div style="color:var(--muted2);font-size:.95rem;">⏳ Waiting for auctioneer...</div>`;
+      }
+    }
+  });
+
+  currentRoomListener = unsub;
+}
+
+window.generateTeamInputs = function() {
+  const n = parseInt(document.getElementById('numTeams')?.value) || 4;
+  document.getElementById('teamNamesContainer').innerHTML = Array.from({length:n},(_,i) =>
+    `<div class="field" style="margin:0;"><label>Team ${i+1}</label><input type="text" id="teamName${i+1}" value="Franchise ${i+1}"></div>`
+  ).join('');
+};
+
+window.initializeAuctionData = function() {
+  if (!activeRoomId || !currentUser) return window.toast('Not ready.', 'err');
+  const num = parseInt(document.getElementById('numTeams').value) || 4;
+  const maxPlayers = parseInt(document.getElementById('playersPerTeam').value) || 20;
+
+  get(ref(db, `users/${currentUser.uid}/auctions/${activeRoomId}`)).then(snap => {
+    const meta = snap.val();
+    if (!meta) return window.toast('Room metadata missing. Create from dashboard.', 'err');
+    const budget = parseFloat(meta.budget) || 100;
+    const mult = budget / 100;
+
+    const players = {};
+    rawData.forEach((p, i) => {
+      let base = p.o ? 0.5 : p.r === 'All-Rounder' ? 0.3 : 0.2;
+      players[i] = { id:i, name:p.n, role:p.r, isOverseas:p.o, iplTeam:p.t,
+        basePrice: parseFloat((base*mult).toFixed(2)), status:'available', soldTo:null, soldPrice:null };
+    });
+
+    const teams = {};
+    for (let i = 1; i <= num; i++) {
+      const el = document.getElementById(`teamName${i}`);
+      const name = el?.value.trim() || `Franchise ${i}`;
+      teams[name] = { name, budget, roster:[] };
+    }
+
+    return set(ref(db, `auctions/${activeRoomId}`), {
+      setup:{ isStarted:true, maxPlayers, budgetMultiplier:mult },
+      players, teams, currentBlock:{ active:false, lastAction:null }
+    });
+  })
+  .then(() => window.toast('Auction initialized!', 'ok'))
+  .catch(e => window.toast(`Error: ${e.message}`, 'err'));
+};
+
+// ── Auction Actions ────────────────────────────────────────
+window.pullRandomPlayer = function() {
+  if (!roomState?.players) return window.toast('Room not loaded.', 'err');
+  const avail = Object.values(roomState.players).filter(p => p.status === 'available');
+  if (!avail.length) return window.toast('No more available players!', 'info');
+  const p = avail[Math.floor(Math.random() * avail.length)];
+  update(ref(db, `auctions/${activeRoomId}/currentBlock`), { active:true, playerId:p.id, currentBid:p.basePrice });
+};
+
+window.pullSpecificPlayer = function() {
+  const id = document.getElementById('manualPlayerSelect').value;
+  if (!id) return window.toast('Select a player first.', 'err');
+  const p = roomState?.players?.[id];
+  if (!p) return window.toast('Player not found.', 'err');
+  update(ref(db, `auctions/${activeRoomId}/currentBlock`), { active:true, playerId:p.id, currentBid:p.basePrice });
+};
+
+window.addBid = function(inc) {
+  if (!roomState?.currentBlock) return;
+  const nb = parseFloat((roomState.currentBlock.currentBid + inc).toFixed(2));
+  update(ref(db, `auctions/${activeRoomId}/currentBlock`), { currentBid:nb });
+};
+
+window.sellPlayer = function() {
+  const teamName = document.getElementById('winningTeamSelect').value;
+  if (!teamName) return window.toast('Select a winning team!', 'err');
+  if (!roomState?.currentBlock?.active) return window.toast('No active player on block.', 'err');
+
+  const { currentBid:bid, playerId:pId } = roomState.currentBlock;
+  const player = roomState.players?.[pId];
+  const team = roomState.teams?.[teamName];
+  if (!player || !team) return window.toast('Missing player or team data.', 'err');
+  if (team.budget < bid) return window.toast('Insufficient budget!', 'err');
+  const roster = Array.isArray(team.roster) ? [...team.roster] : [];
+  if (roster.length >= roomState.setup.maxPlayers) return window.toast('Team roster is full!', 'err');
+
+  roster.push({ name:player.name, role:player.role, iplTeam:player.iplTeam, soldPrice:bid });
+  const updates = {
+    [`/teams/${teamName}/roster`]: roster,
+    [`/teams/${teamName}/budget`]: parseFloat((team.budget - bid).toFixed(2)),
+    [`/players/${pId}/status`]: 'sold',
+    [`/players/${pId}/soldTo`]: teamName,
+    [`/players/${pId}/soldPrice`]: bid,
+    '/currentBlock': { active:false, lastAction:`sold_${pId}_${teamName}_${bid}` }
+  };
+  update(ref(db, `auctions/${activeRoomId}`), updates)
+    .catch(e => window.toast(`Error: ${e.message}`, 'err'));
+};
+
+window.markUnsold = function() {
+  if (!roomState?.currentBlock?.active) return;
+  const pId = roomState.currentBlock.playerId;
+  update(ref(db, `auctions/${activeRoomId}`), {
+    [`/players/${pId}/status`]: 'unsold',
+    '/currentBlock': { active:false, lastAction:'unsold' }
+  }).catch(e => window.toast(`Error: ${e.message}`, 'err'));
+};
+
+// Init team inputs on load
+window.generateTeamInputs();
+</script>
 </body>
 </html>
