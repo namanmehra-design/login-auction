@@ -160,7 +160,9 @@ select option{background:#0C1018;}
 .tbudget{font-size:1.1rem;font-weight:700;color:var(--ok);}
 .tplcount{font-size:.75rem;color:var(--muted);margin-top:2px;}
 .troster{list-style:none;max-height:220px;overflow-y:auto;}
-.troster li{display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-bottom:1px solid var(--bdr);font-size:.85rem;}
+.troster li{display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-bottom:1px solid var(--bdr);font-size:.85rem;gap:8px;}
+.rel-btn{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;border-radius:6px;padding:3px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;font-family:var(--fb);}
+.rel-btn:hover{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.4);}
 .troster li:last-child{border-bottom:none;}
 .rprice{font-weight:700;color:var(--gold-l);}
 .rrole{font-size:.72rem;color:var(--muted);margin-top:1px;}
@@ -209,6 +211,19 @@ tr:hover td{background:var(--sur);}
     <div style="display:flex;gap:10px;margin-top:6px;">
       <button class="btn btn-gold" onclick="window.confirmTeamName()">Join Room →</button>
       <button class="btn btn-ghost btn-sm" onclick="window.closeTeamModal()" style="width:auto;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Release Player Modal -->
+<div class="modal-bg" id="releaseModal">
+  <div class="modal">
+    <h3>🔄 Release Player</h3>
+    <p style="color:var(--muted);font-size:.87rem;margin-bottom:8px;">This will release the player back to the auction pool and refund the bid amount to the team's purse.</p>
+    <p style="color:var(--gold);font-weight:600;font-size:.9rem;margin-bottom:20px;" id="releasePlayerDesc"></p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-success" onclick="window.confirmRelease()">✅ Confirm Release</button>
+      <button class="btn btn-ghost btn-sm" onclick="window.closeReleaseModal()" style="width:auto;">Cancel</button>
     </div>
   </div>
 </div>
@@ -501,6 +516,7 @@ const app=initializeApp(cfg),db=getDatabase(app),auth=getAuth(app),gp=new Google
 
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
+let releaseTeam='',releaseIdx=-1,releasePlayerName='',releasePrice=0;
 let cachedAllPlayers=null;
 
 // ── Player data ──
@@ -776,6 +792,57 @@ window.adminRegisterTeam=function(){
   document.getElementById('teamNameModal').classList.add('open');
 };
 
+// ── Release Player ──
+window.openReleaseModal=function(teamName,playerIdx,playerName,soldPrice){
+  releaseTeam=teamName;
+  releaseIdx=playerIdx;
+  releasePlayerName=playerName;
+  releasePrice=soldPrice;
+  document.getElementById('releasePlayerDesc').textContent=
+    `${playerName}  ·  ₹${soldPrice.toFixed(2)} Cr will be refunded to ${teamName}`;
+  document.getElementById('releaseModal').classList.add('open');
+};
+
+window.closeReleaseModal=function(){
+  document.getElementById('releaseModal').classList.remove('open');
+  releaseTeam='';releaseIdx=-1;releasePlayerName='';releasePrice=0;
+};
+
+window.confirmRelease=function(){
+  if(!isAdmin||!roomId||!roomState)return window.showAlert('Admin only.');
+  if(!releaseTeam||releaseIdx<0)return;
+  const team=roomState.teams?.[releaseTeam];
+  if(!team)return window.showAlert('Team not found.');
+  const roster=Array.isArray(team.roster)?[...team.roster]:Object.values(team.roster||[]);
+  const player=roster[releaseIdx];
+  if(!player)return window.showAlert('Player not found in roster.');
+
+  // Find the player in the players list by name to reset their status
+  const players=roomState.players?Object.values(roomState.players):[];
+  const dbPlayer=players.find(p=>(p.name||p.n||'').toLowerCase()===(player.name||player.n||'').toLowerCase());
+
+  // Remove player from roster
+  const newRoster=roster.filter((_,i)=>i!==releaseIdx);
+  const newBudget=parseFloat((team.budget+releasePrice).toFixed(2));
+
+  const upd={};
+  upd[`auctions/${roomId}/teams/${releaseTeam}/roster`]=newRoster;
+  upd[`auctions/${roomId}/teams/${releaseTeam}/budget`]=newBudget;
+
+  // Reset player status to available in the players list
+  if(dbPlayer!==undefined){
+    const pid=String(dbPlayer.id);
+    upd[`auctions/${roomId}/players/${pid}/status`]='available';
+    upd[`auctions/${roomId}/players/${pid}/soldTo`]=null;
+    upd[`auctions/${roomId}/players/${pid}/soldPrice`]=null;
+  }
+
+  update(ref(db),upd).then(()=>{
+    window.closeReleaseModal();
+    window.showAlert(`${releasePlayerName} released. ₹${releasePrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
+  }).catch(e=>window.showAlert(e.message));
+};
+
 window.backToDashboard=function(){
   if(roomListener){roomListener();roomListener=null;}
   history.replaceState({},'',window.location.pathname);
@@ -979,13 +1046,16 @@ function loadRoom(rid){
         document.getElementById('teamGrid').innerHTML+=`
           <div class="tcard">
             <div class="tcard-hdr">
-              <div><div class="tname">${team.name}</div><div class="tplcount">${roster.length} players</div></div>
-              <div class="tbudget">₹${team.budget.toFixed(2)} Cr</div>
+              <div><div class="tname">${team.name}</div><div class="tplcount">${roster.length} players · ₹${team.budget.toFixed(2)} Cr left</div></div>
+              <div class="tbudget">₹${(roster.reduce((s,p)=>s+(p.soldPrice||0),0)).toFixed(2)} spent</div>
             </div>
             ${roster.length
-              ?`<ul class="troster">${roster.map(p=>`<li>
-                  <div><div>${p.name||p.n||'—'}</div><div class="rrole">${p.role||p.r||''}</div></div>
-                  <span class="rprice">₹${(p.soldPrice||0).toFixed(2)}</span>
+              ?`<ul class="troster">${roster.map((p,pi)=>`<li>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name||p.n||'—'}</div>
+                    <div class="rrole">${p.role||p.r||''} · ₹${(p.soldPrice||0).toFixed(2)} Cr</div>
+                  </div>
+                  ${isAdmin?`<button class="rel-btn" onclick="window.openReleaseModal('${team.name}',${pi},'${(p.name||p.n||'').replace(/'/g,"\'")}',${p.soldPrice||0})">Release</button>`:''}
                 </li>`).join('')}</ul>`
               :'<div class="empty">No players yet</div>'}
           </div>`;
