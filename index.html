@@ -286,8 +286,11 @@ tr:hover td{background:var(--sur);}
               <div class="g2">
                 <div class="fld"><label>Room Name</label><input type="text" id="newRoomName" placeholder="e.g. Office League 2026"></div>
                 <div class="fld"><label>Budget / Team (Cr)</label><input type="number" id="newRoomBudget" value="100" min="50" max="500"></div>
+                <div class="fld"><label>Max Teams (2–10)</label><input type="number" id="newRoomMaxTeams" value="6" min="2" max="10"></div>
+                <div class="fld"><label>Max Players / Team</label><input type="number" id="newRoomMaxPlayers" value="20" min="10" max="30"></div>
               </div>
-              <button class="btn btn-gold" onclick="window.createNewRoom()">Generate Room</button>
+              <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px;">After creating the room you'll register your own team, then share the invite link for others to join.</p>
+              <button class="btn btn-gold" onclick="window.createNewRoom()">Create Room →</button>
             </div>
             <div id="roomListContainer"><div class="empty">No rooms yet — create one above.</div></div>
           </div>
@@ -341,13 +344,23 @@ tr:hover td{background:var(--sur);}
       <div id="setup-tab" class="card">
         <div class="card-hdr"><span class="card-title">Room Setup</span><span class="badge br">Admin Only</span></div>
         <div class="card-bdy">
-          <div class="setup-warn">⚠️ Initializing resets all data. Run once, then share the invite link so players join and register their own team names.</div>
-          <div class="g2">
-            <div class="fld"><label>Max Teams (2–10)</label><input type="number" id="numTeams" min="2" max="10" value="4"></div>
-            <div class="fld"><label>Max Players / Team</label><input type="number" id="playersPerTeam" min="10" max="30" value="20"></div>
+
+          <!-- Room config summary -->
+          <div id="setupConfigBox" style="background:rgba(0,0,0,.2);border-radius:var(--r);padding:14px;font-size:.87rem;color:var(--muted2);margin-bottom:20px;line-height:1.9;"></div>
+
+          <!-- Join progress -->
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-size:.72rem;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;">Teams Joined</span>
+              <span style="font-family:var(--ff);font-size:20px;color:var(--gold);" id="jpCount">0 / 0</span>
+            </div>
+            <div style="height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;">
+              <div id="jpBarFill" style="height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:4px;width:0%;transition:width .5s cubic-bezier(.4,0,.2,1);"></div>
+            </div>
+            <div id="jpStatus" style="font-size:.82rem;margin-top:8px;font-weight:600;color:var(--muted2);">Waiting for teams to join…</div>
           </div>
-          <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">Team names are set by each participant when they join. Once the max team count is reached, further registrations are blocked.</p>
-          <!-- Admin team registration banner (shown until admin registers) -->
+
+          <!-- Admin register banner (shown until admin registers their team) -->
           <div id="adminRegBanner" style="display:none;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div>
@@ -357,13 +370,21 @@ tr:hover td{background:var(--sur);}
               <button class="btn btn-sm" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.4);flex-shrink:0;width:auto;" onclick="window.adminRegisterTeam()">🏏 Register My Team →</button>
             </div>
           </div>
-          <button class="btn btn-gold" onclick="window.initializeAuctionData()">🚀 Initialize Auction (250 Players)</button>
-          <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--bdr);">
+
+          <!-- Initialize button — gated on all teams joined + admin registered -->
+          <button class="btn btn-gold" id="initBtn" onclick="window.initializeAuctionData()" disabled>
+            🚀 Initialize Auction — Waiting for all teams…
+          </button>
+          <p style="font-size:.78rem;color:var(--muted);margin-top:8px;" id="initHint">The button unlocks once all <strong id="initHintMax">?</strong> teams have joined and you've registered your own team.</p>
+
+          <!-- Registered teams list -->
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--bdr);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
               <div class="slbl" style="margin-bottom:0;">Registered Teams <span id="memberCountBadge" class="badge bb" style="margin-left:6px;"></span></div>
             </div>
-            <div id="membersList"><div class="empty">No teams registered yet. Share the invite link!</div></div>
+            <div id="membersList"><div class="empty">No teams yet — share the invite link!</div></div>
           </div>
+
         </div>
       </div>
 
@@ -625,13 +646,17 @@ window.createNewRoom=function(){
   if(!user)return;
   const name=document.getElementById('newRoomName').value.trim()||'My League';
   const budget=parseFloat(document.getElementById('newRoomBudget').value)||100;
+  const maxTeams=parseInt(document.getElementById('newRoomMaxTeams').value)||6;
+  const maxPlayers=parseInt(document.getElementById('newRoomMaxPlayers').value)||20;
   const nr=push(ref(db,'auctions'));
   const upd={};
   // Write to user's admin list
-  upd[`users/${user.uid}/auctions/${nr.key}`]={name,budget,createdAt:Date.now()};
-  // Write a stub to the auction path so confirmTeamName can read it before initialization
+  upd[`users/${user.uid}/auctions/${nr.key}`]={name,budget,maxTeams,maxPlayers,createdAt:Date.now()};
+  // Write full config stub to auction path — available immediately, before initialization
   upd[`auctions/${nr.key}/roomName`]=name;
   upd[`auctions/${nr.key}/budget`]=budget;
+  upd[`auctions/${nr.key}/maxTeams`]=maxTeams;
+  upd[`auctions/${nr.key}/maxPlayers`]=maxPlayers;
   upd[`auctions/${nr.key}/adminUid`]=user.uid;
   upd[`auctions/${nr.key}/createdAt`]=Date.now();
   update(ref(db),upd)
@@ -697,7 +722,7 @@ window.confirmTeamName=function(){
   get(ref(db,`auctions/${rid}`)).then(snap=>{
     const data=snap.val();
     if(!data)return window.showAlert('Room not found. Please reload the page and try again.');
-    const maxTeams=data.setup?.maxTeams||null; // null = not initialized yet
+    const maxTeams=data.maxTeams||data.setup?.maxTeams||null; // reads from stub OR setup
     const amAdmin=data.adminUid===user.uid||data.setup?.adminUid===user.uid||isAdmin;
     const existingMembers=data.members?Object.values(data.members):[];
     const existingTeams=data.teams?Object.keys(data.teams):[];
@@ -793,6 +818,23 @@ function loadRoom(rid){
       document.getElementById('roomRoleBadge').textContent=isAdmin?'👑 Admin · '+myTeamName:'🤝 '+myTeamName;
     }
 
+    // Populate setupConfigBox and initHintMax from admin record (available immediately)
+    if(isAdmin){
+      const adminMeta=adminSnap.val();
+      const mt=adminMeta?.maxTeams||4;
+      const mp=adminMeta?.maxPlayers||20;
+      const bg=adminMeta?.budget||100;
+      const rn=adminMeta?.name||`Room ${rid.substring(0,5).toUpperCase()}`;
+      const cfgBox=document.getElementById('setupConfigBox');
+      if(cfgBox) cfgBox.innerHTML=
+        `Room: <strong style="color:var(--txt)">${rn}</strong> &nbsp;·&nbsp; `+
+        `Budget: <strong style="color:var(--gold)">₹${bg} Cr/team</strong> &nbsp;·&nbsp; `+
+        `Max Teams: <strong style="color:var(--gold)">${mt}</strong> &nbsp;·&nbsp; `+
+        `Max Players/Team: <strong style="color:var(--gold)">${mp}</strong>`;
+      const ihm=document.getElementById('initHintMax');
+      if(ihm) ihm.textContent=mt;
+    }
+
     // Both admin AND members get the team name modal if they haven't registered yet
     if(!memberSnap.exists()){
       setTimeout(()=>{
@@ -835,28 +877,91 @@ function loadRoom(rid){
       document.getElementById('stat-teams').textContent=data.teams?Object.keys(data.teams).length:'—';
     }
 
-    // Members list (in setup tab for admin) + count badge
-    if(data.members||data.setup){
+    // ── Setup tab: join progress + config summary + init button gating ──
+    {
       const members=data.members?Object.values(data.members):[];
-      const maxTeams=data.setup?.maxTeams||4;
+      // maxTeams reads from stub (top-level) OR setup (post-init)
+      const maxTeams=data.maxTeams||data.setup?.maxTeams||4;
+      const maxPlayers=data.maxPlayers||data.setup?.maxPlayers||20;
+      const budget=data.budget||data.setup?.budget||100;
+      const roomName=data.roomName||`Room ${roomId.substring(0,5).toUpperCase()}`;
+
+      // Count badge
       const badge=document.getElementById('memberCountBadge');
-      if(badge)badge.textContent=`${members.length} / ${maxTeams}`;
+      if(badge) badge.textContent=`${members.length} / ${maxTeams}`;
+
       if(isAdmin){
-        // Show/hide admin register banner based on whether admin has a team
+        // Config summary box
+        const cfgBox=document.getElementById('setupConfigBox');
+        if(cfgBox) cfgBox.innerHTML=
+          `Room: <strong style="color:var(--txt)">${roomName}</strong> &nbsp;·&nbsp; `+
+          `Budget: <strong style="color:var(--gold)">₹${budget} Cr/team</strong> &nbsp;·&nbsp; `+
+          `Max Teams: <strong style="color:var(--gold)">${maxTeams}</strong> &nbsp;·&nbsp; `+
+          `Max Players/Team: <strong style="color:var(--gold)">${maxPlayers}</strong>`;
+
+        // Admin slot: admin counts even before registering their name
         const adminHasTeam=data.members?.[user.uid];
+        const effectiveJoined=adminHasTeam?members.length:members.length+1;
+        const full=effectiveJoined>=maxTeams;
+        const canInit=full&&!!adminHasTeam&&!data.setup?.isStarted;
+        const pct=maxTeams>0?Math.min(100,Math.round(effectiveJoined/maxTeams*100)):0;
+
+        // Progress bar
+        const jpCount=document.getElementById('jpCount');
+        const jpFill=document.getElementById('jpBarFill');
+        const jpStatus=document.getElementById('jpStatus');
+        if(jpCount) jpCount.textContent=`${effectiveJoined} / ${maxTeams}`;
+        if(jpFill) jpFill.style.width=pct+'%';
+        if(jpStatus){
+          if(data.setup?.isStarted){
+            jpStatus.style.color='var(--ok)';
+            jpStatus.textContent='✅ Auction is live!';
+          } else if(full&&!adminHasTeam){
+            jpStatus.style.color='var(--gold)';
+            jpStatus.textContent='⬆️ All teams joined — register your team above to unlock!';
+          } else if(full){
+            jpStatus.style.color='var(--ok)';
+            jpStatus.textContent=`✅ All ${maxTeams} teams joined — ready to initialize!`;
+          } else {
+            jpStatus.style.color='var(--muted2)';
+            const waiting=maxTeams-effectiveJoined;
+            jpStatus.textContent=`Waiting for ${waiting} more team${waiting===1?'':'s'} to join…`;
+          }
+        }
+
+        // Init button state
+        const initBtn=document.getElementById('initBtn');
+        const initHintMax=document.getElementById('initHintMax');
+        if(initHintMax) initHintMax.textContent=maxTeams;
+        if(initBtn){
+          initBtn.disabled=!canInit;
+          if(data.setup?.isStarted){
+            initBtn.textContent='✅ Auction Initialized — Live';
+          } else if(full&&!adminHasTeam){
+            initBtn.textContent='🚀 Initialize Auction — Register your team first';
+          } else if(full){
+            initBtn.textContent=`🚀 Initialize Auction (${maxTeams} teams ready)`;
+          } else {
+            initBtn.textContent=`🚀 Initialize Auction — Waiting (${effectiveJoined}/${maxTeams} joined)`;
+          }
+        }
+
+        // Admin register banner
         const banner=document.getElementById('adminRegBanner');
         if(banner) banner.style.display=(!data.setup?.isStarted&&!adminHasTeam)?'block':'none';
 
+        // Members list
         const ml=document.getElementById('membersList');
         if(ml){
           if(members.length){
-            ml.innerHTML=members.map(m=>`
+            ml.innerHTML=members.map((m,i)=>`
               <div class="member-row">
+                <span style="font-size:.78rem;color:var(--muted);min-width:20px;">${i+1}.</span>
                 <span class="member-team">🏏 ${m.teamName}${m.uid===user.uid?' <span class="badge bpu" style="font-size:.68rem;margin-left:4px;">You</span>':''}</span>
                 <span class="member-email">${m.email||''}</span>
               </div>`).join('');
           } else {
-            ml.innerHTML='<div class="empty">No teams registered yet. Share the invite link!</div>';
+            ml.innerHTML='<div class="empty">No teams yet — share the invite link!</div>';
           }
         }
       }
@@ -1067,13 +1172,15 @@ window.switchTab=function(t){
 
 window.initializeAuctionData=function(){
   if(!roomId||!user)return;
-  if(!confirm('This will reset ALL auction data. Are you sure?'))return;
-  const maxTeams=parseInt(document.getElementById('numTeams').value)||4;
-  const maxP=parseInt(document.getElementById('playersPerTeam').value)||20;
-  get(ref(db,`users/${user.uid}/auctions/${roomId}`)).then(snap=>{
-    const meta=snap.val();
-    if(!meta)return window.showAlert('Room metadata missing. Re-create from dashboard.');
-    const budget=parseFloat(meta.budget)||100,mul=budget/100;
+  if(!confirm('This will initialize the auction and load 250 players. Are you sure?'))return;
+  // Read config from the auction stub (written at room creation)
+  get(ref(db,`auctions/${roomId}`)).then(snap=>{
+    const stub=snap.val()||{};
+    const maxTeams=stub.maxTeams||4;
+    const maxP=stub.maxPlayers||20;
+    const meta=stub; // stub IS the meta now
+    if(!stub.roomName&&!stub.adminUid)return window.showAlert('Room data missing. Please reload.');
+    const budget=parseFloat(stub.budget)||100,mul=budget/100;
     const dbP={};
     rawData.forEach((p,i)=>{
       const base=p.o?0.5:(p.r==='All-rounder'||p.r==='All-Rounder')?0.3:0.2;
@@ -1091,7 +1198,9 @@ window.initializeAuctionData=function(){
         }
       });
       return set(ref(db,`auctions/${roomId}`),{
-        roomName:meta.name||`Room ${roomId.substring(0,5).toUpperCase()}`,
+        roomName:stub.roomName||stub.name||`Room ${roomId.substring(0,5).toUpperCase()}`,
+        // Preserve top-level stub fields so confirmTeamName always finds them
+        budget,maxTeams,maxPlayers:maxP,adminUid:user.uid,
         setup:{isStarted:true,maxPlayers:maxP,maxTeams,budgetMultiplier:mul,budget,adminUid:user.uid},
         players:dbP,
         teams:Object.keys(dbT).length?dbT:{},
