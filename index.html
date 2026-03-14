@@ -626,7 +626,15 @@ window.createNewRoom=function(){
   const name=document.getElementById('newRoomName').value.trim()||'My League';
   const budget=parseFloat(document.getElementById('newRoomBudget').value)||100;
   const nr=push(ref(db,'auctions'));
-  update(ref(db,`users/${user.uid}/auctions/${nr.key}`),{name,budget,createdAt:Date.now()})
+  const upd={};
+  // Write to user's admin list
+  upd[`users/${user.uid}/auctions/${nr.key}`]={name,budget,createdAt:Date.now()};
+  // Write a stub to the auction path so confirmTeamName can read it before initialization
+  upd[`auctions/${nr.key}/roomName`]=name;
+  upd[`auctions/${nr.key}/budget`]=budget;
+  upd[`auctions/${nr.key}/adminUid`]=user.uid;
+  upd[`auctions/${nr.key}/createdAt`]=Date.now();
+  update(ref(db),upd)
     .then(()=>window.location.search=`?room=${nr.key}`)
     .catch(e=>window.showAlert(e.message));
 };
@@ -688,9 +696,9 @@ window.confirmTeamName=function(){
   const rid=pendingJoinRoomId;
   get(ref(db,`auctions/${rid}`)).then(snap=>{
     const data=snap.val();
-    if(!data)return window.showAlert('Room not found.');
-    const maxTeams=data.setup?.maxTeams||4;
-    const amAdmin=data.setup?.adminUid===user.uid||isAdmin;
+    if(!data)return window.showAlert('Room not found. Please reload the page and try again.');
+    const maxTeams=data.setup?.maxTeams||null; // null = not initialized yet
+    const amAdmin=data.adminUid===user.uid||data.setup?.adminUid===user.uid||isAdmin;
     const existingMembers=data.members?Object.values(data.members):[];
     const existingTeams=data.teams?Object.keys(data.teams):[];
     // Already registered — update in memory, close modal, refresh UI (no page reload)
@@ -701,15 +709,16 @@ window.confirmTeamName=function(){
       updateMyTeamUI();
       return;
     }
-    // Capacity check — admin is exempt (they own the room)
-    if(!amAdmin&&existingTeams.length>=maxTeams){
+    // Capacity check — skip if auction not yet initialized (maxTeams unknown)
+    // Admin is always exempt regardless
+    if(!amAdmin&&maxTeams!==null&&existingTeams.length>=maxTeams){
       return window.showAlert(`This room is full — max ${maxTeams} teams allowed.`);
     }
     // Name uniqueness
     if(existingMembers.some(m=>m.teamName?.toLowerCase()===tn.toLowerCase())){
       return window.showAlert('That team name is already taken. Choose another.');
     }
-    const budget=data.setup?.budget||100;
+    const budget=data.setup?.budget||data.budget||100;
     const upd={};
     upd[`auctions/${rid}/members/${user.uid}`]={teamName:tn,email:user.email||'',uid:user.uid,joinedAt:Date.now()};
     upd[`auctions/${rid}/teams/${tn}`]={name:tn,budget,roster:[]};
