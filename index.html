@@ -1075,7 +1075,7 @@ function loadRoom(rid){
       document.getElementById('teamGrid').innerHTML='';
       Object.values(data.teams).forEach(team=>{
         if(ts){const o=document.createElement('option');o.value=team.name;o.textContent=team.name;ts.appendChild(o);}
-        const roster=Array.isArray(team.roster)?team.roster:[];
+        const roster=Array.isArray(team.roster)?team.roster:(team.roster&&typeof team.roster==='object'?Object.values(team.roster):[]);
         document.getElementById('teamGrid').innerHTML+=`
           <div class="tcard">
             <div class="tcard-hdr">
@@ -1358,7 +1358,7 @@ window.sellPlayer=function(){
   const team=roomState.teams[tn];
   if(!p||!team)return window.showAlert(`Team "${tn}" not found. Ensure teams have joined the room.`);
   if(team.budget<bid)return window.showAlert(`Insufficient budget! ${tn} only has ₹${team.budget.toFixed(2)} Cr left.`);
-  const roster=Array.isArray(team.roster)?[...team.roster]:[];
+  const roster=Array.isArray(team.roster)?[...team.roster]:(team.roster&&typeof team.roster==='object'?Object.values(team.roster):[]);
   if(roster.length>=roomState.setup.maxPlayers)return window.showAlert(`${tn}'s roster is full!`);
   roster.push({name:p.name||p.n,role:p.role||p.r,iplTeam:p.iplTeam||p.t,soldPrice:bid});
   const upd={};
