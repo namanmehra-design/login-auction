@@ -573,40 +573,33 @@ tr:hover td{background:var(--sur);}
             <span class="badge bb">Admin Only</span>
           </div>
 
-          <!-- ── AI SCORECARD PARSER ── -->
+          <!-- ── SCORECARD IMPORT ── -->
           <div class="ai-parse-box" style="margin:16px 20px 0;">
-            <div class="ai-parse-title">🤖 AI Scorecard Parser</div>
-            <div class="ai-parse-sub">Paste scorecard text from Cricinfo / any source, or upload a screenshot / photo. Claude will extract all batting, bowling and fielding data and fill the form automatically.</div>
-
-            <!-- API Key (stored in memory only, never sent anywhere except Anthropic) -->
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;background:rgba(0,0,0,.2);border-radius:var(--r);padding:10px 12px;">
-              <span style="font-size:.75rem;color:var(--muted2);white-space:nowrap;flex-shrink:0;">🔑 Anthropic API Key</span>
-              <input type="password" id="aiApiKey" placeholder="sk-ant-..." style="flex:1;padding:7px 10px;font-size:.82rem;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;color:var(--txt);font-family:var(--fb);outline:none;" oninput="localStorage.setItem('sc_api_key',this.value)">
-              <span style="font-size:.7rem;color:var(--muted);white-space:nowrap;">Stored locally</span>
+            <div class="ai-parse-title">📥 Import Scorecard</div>
+            <div class="ai-parse-sub">
+              Two ways to add a match: <strong style="color:#a5b4fc;">1)</strong> Share screenshots with Claude in chat — Claude will generate the import JSON for you to paste below. &nbsp;<strong style="color:#a5b4fc;">2)</strong> Fill the form manually using the expand button below.
             </div>
 
-            <!-- Input type toggle -->
-            <div style="display:flex;gap:8px;margin-bottom:12px;">
-              <button class="btn btn-sm" id="aiModeText" onclick="window.setAiMode('text')" style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);">📋 Paste Text</button>
-              <button class="btn btn-sm" id="aiModeImg" onclick="window.setAiMode('img')" style="background:var(--sur);color:var(--muted2);border:1px solid var(--bdr);">📷 Upload Image</button>
+            <!-- How-to hint -->
+            <div style="background:rgba(0,0,0,.2);border-radius:var(--r);padding:10px 14px;font-size:.78rem;color:var(--muted2);margin-bottom:14px;line-height:1.7;">
+              📸 <strong style="color:var(--txt);">To use screenshots:</strong> Upload your Cricinfo scorecard screenshots to Claude in this chat. Claude will read them and reply with a JSON block. Paste that JSON here and click <strong style="color:#a5b4fc;">Import</strong>.
             </div>
 
-            <!-- Text input -->
-            <div id="aiTextInput">
-              <textarea id="scTextarea" class="sc-textarea" placeholder="Paste the full scorecard here — e.g. from Cricinfo (copy the batting table + bowling table + match info). The more complete the text, the better the extraction."></textarea>
-            </div>
+            <!-- JSON paste area -->
+            <textarea id="scJsonInput" class="sc-textarea" style="min-height:120px;font-family:monospace;font-size:.78rem;" placeholder='Paste Claude-generated JSON here, e.g.:
+{
+  "matchLabel": "CSK vs MI – Mar 23",
+  "winner": "CSK",
+  "motm": "Noor Ahmad",
+  "result": "normal",
+  "batting": [{"name":"Rohit Sharma","runs":0,"balls":4,"sixes":0,"dismissal":"duck"}, ...],
+  "bowling": [{"name":"Noor Ahmad","overs":4,"runs":18,"wickets":4,"dots":12,"maidens":0}, ...],
+  "fielding": [{"name":"MS Dhoni","catches":0,"stumpings":1,"runouts":0}, ...]
+}'></textarea>
 
-            <!-- Image input -->
-            <div id="aiImgInput" style="display:none;">
-              <input type="file" id="scImageFile" accept="image/*" onchange="window.handleScImage(event)" style="display:none;">
-              <button class="btn btn-outline btn-sm" onclick="document.getElementById('scImageFile').click()" style="width:auto;">📎 Choose Image / Screenshot</button>
-              <div style="font-size:.75rem;color:var(--muted);margin-top:6px;">Supports PNG, JPG, WEBP. Works with screenshots of Cricinfo, photos of printed scorecards, etc.</div>
-              <img id="scImgPreview" class="img-preview">
-            </div>
-
-            <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
-              <input type="text" id="matchLabel" placeholder="Match label e.g. MI vs CSK – Apr 5" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;">
-              <button class="btn btn-sm" id="aiParseBtn" onclick="window.parseWithAI()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 20px;white-space:nowrap;">✨ Parse with AI</button>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+              <input type="text" id="matchLabel" placeholder="Match label e.g. CSK vs MI – Mar 23 (auto-filled from JSON)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;">
+              <button class="btn btn-sm" onclick="window.importFromJson()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 20px;white-space:nowrap;flex-shrink:0;">📥 Import & Fill Form</button>
             </div>
             <div class="ai-status" id="aiStatus"></div>
           </div>
@@ -2220,159 +2213,39 @@ window.downloadPointsCSV=function(){
 };
 
 // ═══════════════════════════════════════════════════════════════
-// AI SCORECARD PARSER
+// SCORECARD JSON IMPORTER
 // ═══════════════════════════════════════════════════════════════
 
-let scImageBase64=null;
-let scImageMime='image/png';
-
-// Load saved API key on page load
+// Load saved API key on page load (kept for backwards compat)
 window.addEventListener('load',()=>{
   const saved=localStorage.getItem('sc_api_key')||'';
-  const keyEl=document.getElementById('aiApiKey');
-  if(keyEl&&saved) keyEl.value=saved;
-  const keyElD=document.getElementById('aiApiKeyD');
-  if(keyElD&&saved) keyElD.value=saved;
+  ['aiApiKey','aiApiKeyD'].forEach(id=>{const el=document.getElementById(id);if(el&&saved)el.value=saved;});
 });
 
-window.setAiMode=function(mode){
-  const textBtn=document.getElementById('aiModeText');
-  const imgBtn=document.getElementById('aiModeImg');
-  const textDiv=document.getElementById('aiTextInput');
-  const imgDiv=document.getElementById('aiImgInput');
-  const active='background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);';
-  const inactive='background:var(--sur);color:var(--muted2);border:1px solid var(--bdr);';
-  if(mode==='text'){
-    textDiv.style.display='block';imgDiv.style.display='none';
-    textBtn.style.cssText=active;imgBtn.style.cssText=inactive;
-  } else {
-    textDiv.style.display='none';imgDiv.style.display='block';
-    textBtn.style.cssText=inactive;imgBtn.style.cssText=active;
-  }
-};
-
-window.handleScImage=function(e){
-  const file=e.target.files[0];
-  if(!file)return;
-  scImageMime=file.type||'image/png';
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    const result=ev.target.result;
-    scImageBase64=result.split(',')[1];
-    const preview=document.getElementById('scImgPreview');
-    preview.src=result;
-    preview.style.display='block';
-  };
-  reader.readAsDataURL(file);
-};
-
-window.parseWithAI=function(){
+window.importFromJson=function(){
   const statusEl=document.getElementById('aiStatus');
-  const parseBtn=document.getElementById('aiParseBtn');
-  const isImgMode=document.getElementById('aiImgInput').style.display!=='none';
-
-  // Gather input
-  const text=document.getElementById('scTextarea')?.value?.trim()||'';
-  if(isImgMode&&!scImageBase64){
+  const raw=(document.getElementById('scJsonInput')?.value||'').trim();
+  if(!raw){
     statusEl.className='ai-status fail';
-    statusEl.textContent='⚠️ Please upload a scorecard image first.';
+    statusEl.textContent='⚠️ Paste the JSON from Claude first.';
     return;
   }
-  if(!isImgMode&&!text){
+  let parsed;
+  try{
+    // Handle if user pasted with surrounding text — extract JSON object
+    const match=raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('No JSON object found');
+    parsed=JSON.parse(match[0]);
+  } catch(e){
     statusEl.className='ai-status fail';
-    statusEl.textContent='⚠️ Please paste scorecard text first.';
+    statusEl.textContent='❌ Invalid JSON — copy the full JSON block from Claude exactly.';
     return;
   }
-
-  statusEl.className='ai-status parsing';
-  statusEl.textContent='🤖 Claude is reading the scorecard…';
-  parseBtn.disabled=true;
-  parseBtn.textContent='Parsing…';
-
-  const systemPrompt=`You are a cricket scorecard parser. Extract all batting, bowling, and fielding data from the provided scorecard and return ONLY a valid JSON object with NO extra text, no markdown, no explanation. Follow this exact structure:
-
-{
-  "matchLabel": "Team A vs Team B - Date",
-  "winner": "SHORT_TEAM_CODE e.g. MI, CSK, RCB",
-  "motm": "Full Player Name",
-  "result": "normal | noresult | superover",
-  "batting": [
-    {"name": "Player Name", "runs": 0, "balls": 0, "sixes": 0, "dismissal": "out|notout|duck"},
-    ...
-  ],
-  "bowling": [
-    {"name": "Player Name", "overs": 0.0, "runs": 0, "wickets": 0, "dots": 0, "maidens": 0},
-    ...
-  ],
-  "fielding": [
-    {"name": "Player Name", "catches": 0, "stumpings": 0, "runouts": 0},
-    ...
-  ]
-}
-
-Rules:
-- Include ALL batters and bowlers from BOTH innings combined.
-- If a player both batted and bowled, include them in both arrays.
-- For fielding, extract catches from dismissal descriptions like "c PlayerName b Bowler" — add that fielder. Extract stumpings from "st WKName b Bowler". Run-outs from "run out (FielderName)".
-- dismissal is "duck" if runs===0 and player was out (not retired/not out). dismissal is "notout" if player was not out, retired hurt, or retired.
-- overs: use decimal e.g. 3.4 for 3 overs 4 balls.
-- dots: count dot balls from bowling data if available, else estimate as (balls_bowled - runs_per_ball) if not provided.
-- If result is a super over, set result to "superover".
-- If match was abandoned/no result, set result to "noresult".
-- winner should be the SHORT code of the winning team (e.g. "MI" not "Mumbai Indians").
-- If Man of the Match is not specified, set motm to "".
-- Return ONLY the JSON. No other text.`;
-
-  const userContent=isImgMode
-    ?[{type:'image',source:{type:'base64',media_type:scImageMime,data:scImageBase64}},{type:'text',text:'Parse this cricket scorecard image and return the JSON as instructed.'}]
-    :[{type:'text',text:`Parse this cricket scorecard:\n\n${text}`}];
-
-  const apiKey=(document.getElementById('aiApiKey')?.value||localStorage.getItem('sc_api_key')||'').trim();
-  if(!apiKey){
-    statusEl.className='ai-status fail';
-    statusEl.textContent='⚠️ Enter your Anthropic API key above first.';
-    parseBtn.disabled=false;parseBtn.textContent='✨ Parse with AI';
-    return;
-  }
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':apiKey,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify({
-      model:'claude-sonnet-4-20250514',
-      max_tokens:2000,
-      system:systemPrompt,
-      messages:[{role:'user',content:userContent}]
-    })
-  })
-  .then(r=>{
-    if(!r.ok) throw new Error(`API error ${r.status}`);
-    return r.json();
-  })
-  .then(data=>{
-    const raw=data.content?.find(b=>b.type==='text')?.text||'';
-    // Strip any accidental markdown code fences
-    const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    let parsed;
-    try{parsed=JSON.parse(clean);}
-    catch(e){throw new Error('Claude returned invalid JSON. Try again or paste more complete scorecard data.');}
-    populateFormFromAI(parsed);
-    statusEl.className='ai-status done';
-    statusEl.textContent=`✅ Extracted ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders. Review below and save.`;
-  })
-  .catch(err=>{
-    statusEl.className='ai-status fail';
-    statusEl.textContent=`❌ ${err.message}`;
-  })
-  .finally(()=>{
-    parseBtn.disabled=false;
-    parseBtn.textContent='✨ Parse with AI';
-  });
+  populateFormFromAI(parsed);
+  statusEl.className='ai-status done';
+  statusEl.textContent=`✅ Imported: ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders. Review below and save.`;
 };
+
 
 function populateFormFromAI(parsed){
   // Set match meta fields
