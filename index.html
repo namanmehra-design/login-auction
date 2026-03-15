@@ -748,8 +748,18 @@ import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPas
 
 const cfg={apiKey:"AIzaSyCjTwIQapCFbAXkHlPYBdX8Hob_gVJZs98",authDomain:"ipl-auction-26.firebaseapp.com",databaseURL:"https://ipl-auction-26-default-rtdb.firebaseio.com",projectId:"ipl-auction-26",storageBucket:"ipl-auction-26.firebasestorage.app",messagingSenderId:"201005854292",appId:"1:201005854292:web:c223f76d9194a2f8a047c1"};
 const app=initializeApp(cfg),db=getDatabase(app),auth=getAuth(app),gp=new GoogleAuthProvider();
-const firebaseAI=getAI(app,{backend:new GoogleAIBackend()});
-const geminiModel=getGenerativeModel(firebaseAI,{model:"gemini-2.5-flash"});
+// Firebase AI Logic — lazy init so a missing console setup never blocks auth
+let _geminiModel=null;
+function getGeminiModel(){
+  if(_geminiModel) return _geminiModel;
+  try{
+    const ai=getAI(app,{backend:new GoogleAIBackend()});
+    _geminiModel=getGenerativeModel(ai,{model:"gemini-2.5-flash"});
+    return _geminiModel;
+  }catch(e){
+    throw new Error("Firebase AI Logic not set up yet. Enable it in your Firebase Console → Build → AI Logic, then reload.");
+  }
+}
 
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
@@ -2358,7 +2368,7 @@ window.parseWithGemini=async function(){
       {text:`Parse ${scImageFiles.length>1?'these '+scImageFiles.length+' scorecard screenshots':'this scorecard screenshot'} and return the JSON as instructed.`}
     ];
 
-    const result=await geminiModel.generateContent({
+    const result=await getGeminiModel().generateContent({
       systemInstruction:SCORECARD_SYSTEM_PROMPT,
       contents:[{role:'user',parts:contentParts}]
     });
