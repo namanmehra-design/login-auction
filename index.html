@@ -812,9 +812,9 @@ window.confirmRelease=function(){
   if(!isAdmin||!roomId)return window.showAlert('Admin only.');
   if(!releaseTeam||!releasePlayerName)return;
   const pricePaid=parseFloat(releasePrice)||0;
-  const targetName=releasePlayerName.toLowerCase();
+  const targetName=releasePlayerName.toLowerCase().trim();
 
-  // Always re-fetch live data — never trust stale roomState for destructive ops
+  // Always re-fetch live data from Firebase — never use stale roomState
   get(ref(db,`auctions/${roomId}`)).then(snap=>{
     const data=snap.val();
     if(!data)return window.showAlert('Room data not found. Please reload.');
@@ -822,49 +822,58 @@ window.confirmRelease=function(){
     const team=data.teams?.[releaseTeam];
     if(!team)return window.showAlert(`Team "${releaseTeam}" not found.`);
 
-    // Normalise roster — Firebase may store array as keyed object {0:{},1:{}}
-    // Convert to a plain array regardless of storage format
+    // Normalise roster — Firebase stores JS arrays as keyed objects {0:{},1:{},2:{}}
+    // We must read ALL keys (not just Object.values order) and rebuild with explicit keys
     const rawRoster=team.roster;
-    let roster=[];
-    if(Array.isArray(rawRoster)){
-      roster=[...rawRoster];
-    } else if(rawRoster&&typeof rawRoster==='object'){
-      // Object format from Firebase: keys are "0","1",... or arbitrary
-      roster=Object.values(rawRoster);
+    let rosterEntries=[]; // [{key, value}]
+    if(!rawRoster){
+      return window.showAlert(`${releaseTeam} has no players to release.`);
+    } else if(Array.isArray(rawRoster)){
+      rosterEntries=rawRoster.map((v,i)=>({key:String(i),value:v}));
+    } else {
+      rosterEntries=Object.entries(rawRoster).map(([k,v])=>({key:k,value:v}));
     }
 
-    // Find the player by name match (remove FIRST match to handle duplicates safely)
-    const matchIdx=roster.findIndex(p=>(p.name||p.n||'').toLowerCase()===targetName);
-    if(matchIdx<0)return window.showAlert(`Could not find ${releasePlayerName} in ${releaseTeam}'s roster. The roster may have changed — please reload.`);
+    // Find the player by name — match against the stored name
+    const matchEntry=rosterEntries.find(e=>(e.value?.name||e.value?.n||'').toLowerCase().trim()===targetName);
+    if(!matchEntry)return window.showAlert(`"${releasePlayerName}" not found in ${releaseTeam}'s roster. Try reloading the page.`);
 
-    const releasedPlayer=roster[matchIdx];
-    const actualPrice=releasedPlayer.soldPrice||pricePaid;
-
-    // Build new roster without the released player
-    const newRoster=roster.filter((_,i)=>i!==matchIdx);
+    const actualPrice=matchEntry.value.soldPrice||pricePaid;
     const newBudget=parseFloat((team.budget+actualPrice).toFixed(2));
 
-    // Find the player in the players list by name to reset their status
+    // Build the new roster object WITHOUT the released player key
+    // Using explicit null on the old key removes it; remaining keys stay indexed
+    const rosterRef=ref(db,`auctions/${roomId}/teams/${releaseTeam}/roster`);
+    // Rebuild as a clean indexed object (re-index from 0 to avoid gaps)
+    const remaining=rosterEntries.filter(e=>e.key!==matchEntry.key).map(e=>e.value);
+    // remaining is a JS array — use set() to REPLACE (not merge) the roster entirely
+    // This eliminates the stale-key merge bug that update() has with arrays/objects
+
+    // Find the player in the global players list to reset their auction status
     const allPlayers=data.players?Object.values(data.players):[];
-    const dbPlayer=allPlayers.find(p=>(p.name||p.n||'').toLowerCase()===targetName);
+    const dbPlayer=allPlayers.find(p=>(p.name||p.n||'').toLowerCase().trim()===targetName);
 
-    // Use the same relative-path pattern as sellPlayer for consistency
-    const upd={};
-    upd[`auctions/${roomId}/teams/${releaseTeam}/roster`]=newRoster;
-    upd[`auctions/${roomId}/teams/${releaseTeam}/budget`]=newBudget;
+    // Step 1: set() the roster (full replace — eliminates merge issues)
+    const rosterWrite = remaining.length > 0
+      ? set(rosterRef, remaining)
+      : remove(rosterRef); // empty roster = delete the key entirely
 
-    if(dbPlayer!==undefined){
-      const pid=String(dbPlayer.id);
-      upd[`auctions/${roomId}/players/${pid}/status`]='available';
-      upd[`auctions/${roomId}/players/${pid}/soldTo`]=null;
-      upd[`auctions/${roomId}/players/${pid}/soldPrice`]=null;
-    }
-
-    return update(ref(db),upd).then(()=>{
+    rosterWrite.then(()=>{
+      // Step 2: update budget + player status atomically
+      const upd={};
+      upd[`auctions/${roomId}/teams/${releaseTeam}/budget`]=newBudget;
+      if(dbPlayer!==undefined){
+        const pid=String(dbPlayer.id);
+        upd[`auctions/${roomId}/players/${pid}/status`]='available';
+        upd[`auctions/${roomId}/players/${pid}/soldTo`]=null;
+        upd[`auctions/${roomId}/players/${pid}/soldPrice`]=null;
+      }
+      return update(ref(db),upd);
+    }).then(()=>{
       window.closeReleaseModal();
       window.showAlert(`${releasePlayerName} released. ₹${actualPrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
-    });
-  }).catch(e=>window.showAlert(e.message));
+    }).catch(e=>window.showAlert('Release failed: '+e.message));
+  }).catch(e=>window.showAlert('Could not read room data: '+e.message));
 };
 
 window.backToDashboard=function(){
