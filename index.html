@@ -949,11 +949,10 @@ function loadRoom(rid){
       document.getElementById('setup-tab').style.display='none';
       window.switchTab('auction');
     }
-  });
 
-  if(roomListener){roomListener();roomListener=null;}
-
-  roomListener=onValue(ref(db,`auctions/${rid}`),snap=>{
+    // Attach onValue INSIDE Promise.all so isAdmin is always set before first render
+    if(roomListener){roomListener();roomListener=null;}
+    roomListener=onValue(ref(db,`auctions/${rid}`),snap=>{
     const data=snap.val();
     if(!data)return;
     roomState=data;
@@ -1115,7 +1114,8 @@ function loadRoom(rid){
 
     // Auction block
     renderBlock(data);
-  });
+    });
+  });  // end Promise.all .then()
 }
 
 function renderBlock(data){
