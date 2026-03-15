@@ -231,6 +231,18 @@ tr:hover td{background:var(--sur);}
 .match-hist-btn{background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:3px 9px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:var(--fb);}
 .match-hist-btn:hover{background:rgba(59,130,246,.2);}
 .section-hdr{padding:12px 20px;background:rgba(0,0,0,.2);border-bottom:1px solid var(--bdr);font-size:.72rem;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;}
+.ai-parse-box{background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:var(--rl);padding:18px 20px;margin-bottom:16px;}
+.ai-parse-title{font-family:var(--ff);font-size:18px;color:#a5b4fc;letter-spacing:.04em;margin-bottom:4px;}
+.ai-parse-sub{font-size:.8rem;color:var(--muted);margin-bottom:14px;}
+.ai-status{font-size:.83rem;font-weight:600;min-height:22px;margin-top:10px;transition:color .2s;}
+.ai-status.parsing{color:#a5b4fc;animation:blink .9s ease-in-out infinite;}
+.ai-status.done{color:var(--ok);}
+.ai-status.fail{color:var(--err);}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.4;}}
+.sc-textarea{width:100%;min-height:140px;padding:12px 14px;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:.83rem;resize:vertical;outline:none;transition:border-color .2s;}
+.sc-textarea:focus{border-color:rgba(99,102,241,.5);box-shadow:0 0 0 3px rgba(99,102,241,.07);}
+.sc-textarea::placeholder{color:var(--muted);}
+.img-preview{max-width:100%;max-height:180px;border-radius:var(--r);border:1px solid var(--bdr);margin-top:8px;display:none;}
 </style>
 </head>
 <body>
@@ -558,10 +570,51 @@ tr:hover td{background:var(--sur);}
         <div class="pts-card" id="addMatchCard" style="display:none;">
           <div class="pts-hdr">
             <span class="pts-title">📥 Enter Match Scorecard</span>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="text" id="matchLabel" placeholder="Match label e.g. MI vs CSK – Apr 5" style="width:220px;padding:9px 12px;font-size:.85rem;">
-              <button class="btn btn-ghost btn-sm" onclick="window.toggleMatchForm()">▼ Expand</button>
+            <span class="badge bb">Admin Only</span>
+          </div>
+
+          <!-- ── AI SCORECARD PARSER ── -->
+          <div class="ai-parse-box" style="margin:16px 20px 0;">
+            <div class="ai-parse-title">🤖 AI Scorecard Parser</div>
+            <div class="ai-parse-sub">Paste scorecard text from Cricinfo / any source, or upload a screenshot / photo. Claude will extract all batting, bowling and fielding data and fill the form automatically.</div>
+
+            <!-- API Key (stored in memory only, never sent anywhere except Anthropic) -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;background:rgba(0,0,0,.2);border-radius:var(--r);padding:10px 12px;">
+              <span style="font-size:.75rem;color:var(--muted2);white-space:nowrap;flex-shrink:0;">🔑 Anthropic API Key</span>
+              <input type="password" id="aiApiKey" placeholder="sk-ant-..." style="flex:1;padding:7px 10px;font-size:.82rem;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;color:var(--txt);font-family:var(--fb);outline:none;" oninput="localStorage.setItem('sc_api_key',this.value)">
+              <span style="font-size:.7rem;color:var(--muted);white-space:nowrap;">Stored locally</span>
             </div>
+
+            <!-- Input type toggle -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <button class="btn btn-sm" id="aiModeText" onclick="window.setAiMode('text')" style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);">📋 Paste Text</button>
+              <button class="btn btn-sm" id="aiModeImg" onclick="window.setAiMode('img')" style="background:var(--sur);color:var(--muted2);border:1px solid var(--bdr);">📷 Upload Image</button>
+            </div>
+
+            <!-- Text input -->
+            <div id="aiTextInput">
+              <textarea id="scTextarea" class="sc-textarea" placeholder="Paste the full scorecard here — e.g. from Cricinfo (copy the batting table + bowling table + match info). The more complete the text, the better the extraction."></textarea>
+            </div>
+
+            <!-- Image input -->
+            <div id="aiImgInput" style="display:none;">
+              <input type="file" id="scImageFile" accept="image/*" onchange="window.handleScImage(event)" style="display:none;">
+              <button class="btn btn-outline btn-sm" onclick="document.getElementById('scImageFile').click()" style="width:auto;">📎 Choose Image / Screenshot</button>
+              <div style="font-size:.75rem;color:var(--muted);margin-top:6px;">Supports PNG, JPG, WEBP. Works with screenshots of Cricinfo, photos of printed scorecards, etc.</div>
+              <img id="scImgPreview" class="img-preview">
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+              <input type="text" id="matchLabel" placeholder="Match label e.g. MI vs CSK – Apr 5" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;">
+              <button class="btn btn-sm" id="aiParseBtn" onclick="window.parseWithAI()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 20px;white-space:nowrap;">✨ Parse with AI</button>
+            </div>
+            <div class="ai-status" id="aiStatus"></div>
+          </div>
+
+          <!-- Manual form (auto-populated by AI, also editable manually) -->
+          <div style="padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;">
+            <span style="font-size:.8rem;color:var(--muted);">Review and edit the data below before saving.</span>
+            <button class="btn btn-ghost btn-sm" onclick="window.toggleMatchForm()">▼ Expand / Collapse form</button>
           </div>
 
           <div id="matchFormBody" style="display:none;">
@@ -2165,6 +2218,230 @@ window.downloadPointsCSV=function(){
   a.click();
   window.showAlert('CSV downloaded!','ok');
 };
+
+// ═══════════════════════════════════════════════════════════════
+// AI SCORECARD PARSER
+// ═══════════════════════════════════════════════════════════════
+
+let scImageBase64=null;
+let scImageMime='image/png';
+
+// Load saved API key on page load
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('sc_api_key')||'';
+  const keyEl=document.getElementById('aiApiKey');
+  if(keyEl&&saved) keyEl.value=saved;
+  const keyElD=document.getElementById('aiApiKeyD');
+  if(keyElD&&saved) keyElD.value=saved;
+});
+
+window.setAiMode=function(mode){
+  const textBtn=document.getElementById('aiModeText');
+  const imgBtn=document.getElementById('aiModeImg');
+  const textDiv=document.getElementById('aiTextInput');
+  const imgDiv=document.getElementById('aiImgInput');
+  const active='background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);';
+  const inactive='background:var(--sur);color:var(--muted2);border:1px solid var(--bdr);';
+  if(mode==='text'){
+    textDiv.style.display='block';imgDiv.style.display='none';
+    textBtn.style.cssText=active;imgBtn.style.cssText=inactive;
+  } else {
+    textDiv.style.display='none';imgDiv.style.display='block';
+    textBtn.style.cssText=inactive;imgBtn.style.cssText=active;
+  }
+};
+
+window.handleScImage=function(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  scImageMime=file.type||'image/png';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const result=ev.target.result;
+    scImageBase64=result.split(',')[1];
+    const preview=document.getElementById('scImgPreview');
+    preview.src=result;
+    preview.style.display='block';
+  };
+  reader.readAsDataURL(file);
+};
+
+window.parseWithAI=function(){
+  const statusEl=document.getElementById('aiStatus');
+  const parseBtn=document.getElementById('aiParseBtn');
+  const isImgMode=document.getElementById('aiImgInput').style.display!=='none';
+
+  // Gather input
+  const text=document.getElementById('scTextarea')?.value?.trim()||'';
+  if(isImgMode&&!scImageBase64){
+    statusEl.className='ai-status fail';
+    statusEl.textContent='⚠️ Please upload a scorecard image first.';
+    return;
+  }
+  if(!isImgMode&&!text){
+    statusEl.className='ai-status fail';
+    statusEl.textContent='⚠️ Please paste scorecard text first.';
+    return;
+  }
+
+  statusEl.className='ai-status parsing';
+  statusEl.textContent='🤖 Claude is reading the scorecard…';
+  parseBtn.disabled=true;
+  parseBtn.textContent='Parsing…';
+
+  const systemPrompt=`You are a cricket scorecard parser. Extract all batting, bowling, and fielding data from the provided scorecard and return ONLY a valid JSON object with NO extra text, no markdown, no explanation. Follow this exact structure:
+
+{
+  "matchLabel": "Team A vs Team B - Date",
+  "winner": "SHORT_TEAM_CODE e.g. MI, CSK, RCB",
+  "motm": "Full Player Name",
+  "result": "normal | noresult | superover",
+  "batting": [
+    {"name": "Player Name", "runs": 0, "balls": 0, "sixes": 0, "dismissal": "out|notout|duck"},
+    ...
+  ],
+  "bowling": [
+    {"name": "Player Name", "overs": 0.0, "runs": 0, "wickets": 0, "dots": 0, "maidens": 0},
+    ...
+  ],
+  "fielding": [
+    {"name": "Player Name", "catches": 0, "stumpings": 0, "runouts": 0},
+    ...
+  ]
+}
+
+Rules:
+- Include ALL batters and bowlers from BOTH innings combined.
+- If a player both batted and bowled, include them in both arrays.
+- For fielding, extract catches from dismissal descriptions like "c PlayerName b Bowler" — add that fielder. Extract stumpings from "st WKName b Bowler". Run-outs from "run out (FielderName)".
+- dismissal is "duck" if runs===0 and player was out (not retired/not out). dismissal is "notout" if player was not out, retired hurt, or retired.
+- overs: use decimal e.g. 3.4 for 3 overs 4 balls.
+- dots: count dot balls from bowling data if available, else estimate as (balls_bowled - runs_per_ball) if not provided.
+- If result is a super over, set result to "superover".
+- If match was abandoned/no result, set result to "noresult".
+- winner should be the SHORT code of the winning team (e.g. "MI" not "Mumbai Indians").
+- If Man of the Match is not specified, set motm to "".
+- Return ONLY the JSON. No other text.`;
+
+  const userContent=isImgMode
+    ?[{type:'image',source:{type:'base64',media_type:scImageMime,data:scImageBase64}},{type:'text',text:'Parse this cricket scorecard image and return the JSON as instructed.'}]
+    :[{type:'text',text:`Parse this cricket scorecard:\n\n${text}`}];
+
+  const apiKey=(document.getElementById('aiApiKey')?.value||localStorage.getItem('sc_api_key')||'').trim();
+  if(!apiKey){
+    statusEl.className='ai-status fail';
+    statusEl.textContent='⚠️ Enter your Anthropic API key above first.';
+    parseBtn.disabled=false;parseBtn.textContent='✨ Parse with AI';
+    return;
+  }
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:2000,
+      system:systemPrompt,
+      messages:[{role:'user',content:userContent}]
+    })
+  })
+  .then(r=>{
+    if(!r.ok) throw new Error(`API error ${r.status}`);
+    return r.json();
+  })
+  .then(data=>{
+    const raw=data.content?.find(b=>b.type==='text')?.text||'';
+    // Strip any accidental markdown code fences
+    const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    let parsed;
+    try{parsed=JSON.parse(clean);}
+    catch(e){throw new Error('Claude returned invalid JSON. Try again or paste more complete scorecard data.');}
+    populateFormFromAI(parsed);
+    statusEl.className='ai-status done';
+    statusEl.textContent=`✅ Extracted ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders. Review below and save.`;
+  })
+  .catch(err=>{
+    statusEl.className='ai-status fail';
+    statusEl.textContent=`❌ ${err.message}`;
+  })
+  .finally(()=>{
+    parseBtn.disabled=false;
+    parseBtn.textContent='✨ Parse with AI';
+  });
+};
+
+function populateFormFromAI(parsed){
+  // Set match meta fields
+  if(parsed.matchLabel) document.getElementById('matchLabel').value=parsed.matchLabel;
+  if(parsed.winner) document.getElementById('mfWinner').value=parsed.winner;
+  if(parsed.motm) document.getElementById('mfMotm').value=parsed.motm;
+  if(parsed.result){
+    const sel=document.getElementById('mfResult');
+    if(sel){
+      [...sel.options].forEach(o=>{if(o.value===parsed.result)o.selected=true;});
+    }
+  }
+
+  // Clear existing rows
+  document.getElementById('battingRows').innerHTML='';
+  document.getElementById('bowlingRows').innerHTML='';
+  document.getElementById('fieldingRows').innerHTML='';
+  battingRowCount=0;bowlingRowCount=0;fieldingRowCount=0;
+
+  // Open form so user can see the populated data
+  const body=document.getElementById('matchFormBody');
+  if(body) body.style.display='block';
+
+  // Populate batting rows
+  (parsed.batting||[]).forEach(batter=>{
+    window.addBattingRow();
+    const id=battingRowCount-1;
+    const setVal=(fld,val)=>{const el=document.getElementById(`br${id}${fld}`);if(el)el.value=val;};
+    setVal('name',batter.name||'');
+    setVal('runs',batter.runs??'');
+    setVal('balls',batter.balls??'');
+    setVal('sixes',batter.sixes??'');
+    // Set dismissal select
+    const dis=document.getElementById(`br${id}dis`);
+    if(dis){
+      const dv=batter.dismissal||'out';
+      [...dis.options].forEach(o=>{if(o.value===dv)o.selected=true;});
+    }
+  });
+
+  // Populate bowling rows
+  (parsed.bowling||[]).forEach(bowler=>{
+    window.addBowlingRow();
+    const id=bowlingRowCount-1;
+    const setVal=(fld,val)=>{const el=document.getElementById(`bow${id}${fld}`);if(el)el.value=val;};
+    setVal('name',bowler.name||'');
+    setVal('overs',bowler.overs??'');
+    setVal('runs',bowler.runs??'');
+    setVal('wkts',bowler.wickets??'');
+    setVal('dots',bowler.dots??'');
+    setVal('maidens',bowler.maidens??'');
+  });
+
+  // Populate fielding rows (only if catches/stumpings/runouts > 0)
+  const fieldingMap={};
+  (parsed.fielding||[]).forEach(f=>{
+    if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)>0){
+      fieldingMap[f.name]=f;
+    }
+  });
+  Object.values(fieldingMap).forEach(f=>{
+    window.addFieldingRow();
+    const id=fieldingRowCount-1;
+    document.getElementById(`fld${id}name`).value=f.name||'';
+    document.getElementById(`fld${id}catches`).value=f.catches||'';
+    document.getElementById(`fld${id}stumpings`).value=f.stumpings||'';
+    document.getElementById(`fld${id}runouts`).value=f.runouts||'';
+  });
+}
 
 </script>
 </body>
