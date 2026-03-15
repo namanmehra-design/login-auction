@@ -741,10 +741,10 @@ tr:hover td{background:var(--sur);}
 </div><!-- /app-shell -->
 
 <script type="module">
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import{getAI,getGenerativeModel,GoogleAIBackend}from"https://www.gstatic.com/firebasejs/10.8.1/firebase-ai.js";
-import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,onAuthStateChanged,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult}from"https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import{getAI,getGenerativeModel,GoogleAIBackend}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-ai.js";
+import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,onAuthStateChanged,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
 const cfg={apiKey:"AIzaSyCjTwIQapCFbAXkHlPYBdX8Hob_gVJZs98",authDomain:"ipl-auction-26.firebaseapp.com",databaseURL:"https://ipl-auction-26-default-rtdb.firebaseio.com",projectId:"ipl-auction-26",storageBucket:"ipl-auction-26.firebasestorage.app",messagingSenderId:"201005854292",appId:"1:201005854292:web:c223f76d9194a2f8a047c1"};
 const app=initializeApp(cfg),db=getDatabase(app),auth=getAuth(app),gp=new GoogleAuthProvider();
