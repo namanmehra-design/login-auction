@@ -163,6 +163,12 @@ select option{background:#0C1018;}
 .troster li{display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-bottom:1px solid var(--bdr);font-size:.85rem;gap:8px;}
 .rel-btn{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;border-radius:6px;padding:3px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;font-family:var(--fb);}
 .rel-btn:hover{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.4);}
+.ni-btn{width:100%;padding:12px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);color:#f87171;border-radius:var(--r);font-family:var(--fb);font-size:.9rem;font-weight:600;cursor:pointer;transition:all .18s;margin-top:8px;}
+.ni-btn:hover{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.5);}
+.ni-btn.pressed{background:rgba(239,68,68,.18);border-color:var(--err);color:#fff;cursor:default;}
+.ni-strip{display:none;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:var(--r);padding:9px 14px;margin-top:8px;font-size:.82rem;}
+.ni-strip.show{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.ni-team-badge{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);border-radius:20px;padding:3px 9px;font-size:.75rem;font-weight:600;}
 .troster li:last-child{border-bottom:none;}
 .rprice{font-weight:700;color:var(--gold-l);}
 .rrole{font-size:.72rem;color:var(--muted);margin-top:1px;}
@@ -448,6 +454,17 @@ tr:hover td{background:var(--sur);}
             </div>
             <div class="qgrid" id="quickBidGrid"></div>
 
+            <!-- Not Interested strip — shows who has opted out -->
+            <div class="ni-strip" id="niStrip">
+              <span style="color:var(--muted);font-size:.78rem;font-weight:600;white-space:nowrap;">Not interested:</span>
+              <div id="niTeamsList" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+
+            <!-- Not Interested button — for non-admin members (hidden for admin) -->
+            <div id="niControls" style="display:none;">
+              <button class="ni-btn" id="niBtn" onclick="window.pressNotInterested()">🙅 Not Interested</button>
+            </div>
+
             <!-- SOLD/Pass: admin only — winner auto-assigned to last bidder -->
             <div id="adminSoldControls" style="display:none;">
               <div id="soldPreview" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:10px 14px;font-size:.85rem;color:var(--ok);margin-bottom:12px;display:none;">
@@ -517,6 +534,7 @@ const app=initializeApp(cfg),db=getDatabase(app),auth=getAuth(app),gp=new Google
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
 let releaseTeam='',releaseIdx=-1,releasePlayerName='',releasePrice=0;
+let autoSellInProgress=false;
 let cachedAllPlayers=null;
 
 // ── Player data ──
@@ -809,7 +827,7 @@ window.closeReleaseModal=function(){
 };
 
 window.confirmRelease=function(){
-  if(!isAdmin||!roomId)return window.showAlert('Admin only.');
+  if(!roomId)return window.showAlert('You must be in a room to release a player.');
   if(!releaseTeam||!releasePlayerName)return;
   const pricePaid=parseFloat(releasePrice)||0;
   const targetName=releasePlayerName.toLowerCase().trim();
@@ -1087,7 +1105,7 @@ function loadRoom(rid){
                     <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name||p.n||'—'}</div>
                     <div class="rrole">${p.role||p.r||''} · ₹${(p.soldPrice||0).toFixed(2)} Cr</div>
                   </div>
-                  ${isAdmin?`<button class="rel-btn" onclick="window.openReleaseModal('${team.name}',${pi},'${(p.name||p.n||'').replace(/'/g,"\'")}',${p.soldPrice||0})">Release</button>`:''}
+                  <button class="rel-btn" onclick="window.openReleaseModal('${team.name}',${pi},'${(p.name||p.n||'').replace(/'/g,"\'")}',${p.soldPrice||0})">Release</button>
                 </li>`).join('')}</ul>`
               :'<div class="empty">No players yet</div>'}
           </div>`;
@@ -1169,6 +1187,67 @@ function renderBlock(data){
       strip.classList.remove('show');
     }
 
+    // ── Not Interested logic ──
+    const allMembers=data.members?Object.values(data.members):[];
+    const totalTeams=allMembers.length;
+    const niRaw=data.currentBlock.notInterested||{};
+    // notInterested stored as {teamName: true, ...}
+    const niTeams=Object.keys(niRaw).filter(k=>niRaw[k]===true);
+    const hasBid=!!data.currentBlock.lastBidderTeam; // at least one bid placed
+
+    // Show Not Interested strip
+    const niStrip=document.getElementById('niStrip');
+    const niTeamsList=document.getElementById('niTeamsList');
+    if(niTeams.length>0){
+      niStrip.classList.add('show');
+      niTeamsList.innerHTML=niTeams.map(t=>`<span class="ni-team-badge">🙅 ${t}</span>`).join('');
+    } else {
+      niStrip.classList.remove('show');
+      if(niTeamsList)niTeamsList.innerHTML='';
+    }
+
+    // Show/hide Not Interested button (everyone except admin sees it)
+    const niControls=document.getElementById('niControls');
+    const niBtn=document.getElementById('niBtn');
+    if(!isAdmin&&myTeamName){
+      niControls.style.display='block';
+      const alreadyPressed=niRaw[myTeamName]===true;
+      const iAmLastBidder=data.currentBlock.lastBidderTeam===myTeamName;
+      if(alreadyPressed){
+        niBtn.textContent='🙅 Not Interested (opted out)';
+        niBtn.className='ni-btn pressed';
+        niBtn.onclick=null;
+      } else if(iAmLastBidder){
+        // Current highest bidder can't press not interested
+        niBtn.textContent='🏆 You are the highest bidder';
+        niBtn.className='ni-btn pressed';
+        niBtn.style.background='rgba(16,185,129,.1)';
+        niBtn.style.color='var(--ok)';
+        niBtn.style.borderColor='rgba(16,185,129,.3)';
+        niBtn.onclick=null;
+      } else {
+        niBtn.textContent='🙅 Not Interested';
+        niBtn.className='ni-btn';
+        niBtn.style.background='';niBtn.style.color='';niBtn.style.borderColor='';
+        niBtn.onclick=window.pressNotInterested;
+      }
+    } else {
+      if(niControls)niControls.style.display='none';
+    }
+
+    // ── Auto-sell check: if bid placed AND only 1 team left not opted out ──
+    if(hasBid&&isAdmin&&totalTeams>0){
+      const lastBidder=data.currentBlock.lastBidderTeam;
+      const interestedTeams=allMembers.filter(m=>!niRaw[m.teamName]&&m.teamName);
+      // If exactly 1 team is interested AND they are the last bidder → auto sell
+      if(interestedTeams.length===1&&interestedTeams[0].teamName===lastBidder&&!autoSellInProgress){
+        // Trigger auto-sell once — flag prevents re-triggering on subsequent onValue fires
+        autoSellInProgress=true;
+        window.showAlert(`All others opted out — auto-selling to ${lastBidder}!`,'ok');
+        setTimeout(()=>{ window.sellPlayer(true); autoSellInProgress=false; },800);
+      }
+    }
+
     // Sold preview for admin — shows who will get the player
     if(isAdmin){
       const preview=document.getElementById('soldPreview');
@@ -1184,6 +1263,10 @@ function renderBlock(data){
     blk.classList.remove('live');
     ctrl.style.display='none';
     strip.classList.remove('show');
+    autoSellInProgress=false;
+    // Hide NI controls when no active block
+    const niC=document.getElementById('niControls');if(niC)niC.style.display='none';
+    const niS=document.getElementById('niStrip');if(niS)niS.classList.remove('show');
     if(isAdmin){const p=document.getElementById('soldPreview');if(p)p.style.display='none';}
     const la=data.currentBlock?.lastAction;
     if(la==='unsold'){
@@ -1320,7 +1403,7 @@ window.pullRandomPlayer=function(){
   const av=Object.values(roomState.players).filter(p=>p.status==='available');
   if(!av.length)return window.showAlert('No available players left!');
   const p=av[Math.floor(Math.random()*av.length)];
-  update(ref(db,`auctions/${roomId}/currentBlock`),{active:true,playerId:p.id,currentBid:p.basePrice,lastBidderName:null,lastBidderTeam:null});
+  update(ref(db,`auctions/${roomId}/currentBlock`),{active:true,playerId:p.id,currentBid:p.basePrice,lastBidderName:null,lastBidderTeam:null,notInterested:null});
 };
 
 window.pullSpecificPlayer=function(){
@@ -1329,7 +1412,18 @@ window.pullSpecificPlayer=function(){
   if(!roomState?.players)return;
   const p=roomState.players[sid]||roomState.players[parseInt(sid)];
   if(!p)return window.showAlert('Player not found.');
-  update(ref(db,`auctions/${roomId}/currentBlock`),{active:true,playerId:p.id,currentBid:p.basePrice,lastBidderName:null,lastBidderTeam:null});
+  update(ref(db,`auctions/${roomId}/currentBlock`),{active:true,playerId:p.id,currentBid:p.basePrice,lastBidderName:null,lastBidderTeam:null,notInterested:null});
+};
+
+// ── Not Interested ──
+window.pressNotInterested=function(){
+  if(!roomState?.currentBlock?.active)return;
+  if(!myTeamName)return window.showAlert('Register your team first.','err');
+  const lastBidder=roomState.currentBlock?.lastBidderTeam;
+  if(lastBidder===myTeamName)return window.showAlert("You are the highest bidder — you can't opt out!","err");
+  // Write notInterested flag for this team
+  update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true})
+    .catch(e=>window.showAlert(e.message));
 };
 
 // ── Bid (everyone can bid — writes team name to Firebase for live display + auto-sell) ──
@@ -1348,8 +1442,8 @@ window.addBid=function(inc){
 };
 
 // ── Sell (admin only — winner = last bidder team) ──
-window.sellPlayer=function(){
-  if(!isAdmin)return window.showAlert('Only the admin can finalize a sale.');
+window.sellPlayer=function(autoSell=false){
+  if(!autoSell&&!isAdmin)return window.showAlert('Only the admin can finalize a sale.');
   if(!roomState?.currentBlock?.active)return window.showAlert('No active player on the block.');
   const{currentBid:bid,playerId:rawPid,lastBidderTeam:tn}=roomState.currentBlock;
   if(!tn)return window.showAlert('No bids placed yet — someone must bid before selling.');
@@ -1367,7 +1461,7 @@ window.sellPlayer=function(){
   upd[`/players/${pid}/status`]='sold';
   upd[`/players/${pid}/soldTo`]=tn;
   upd[`/players/${pid}/soldPrice`]=bid;
-  upd['/currentBlock']={active:false,lastAction:`sold_${pid}_${tn}_${bid}`,lastBidderName:null,lastBidderTeam:null};
+  upd['/currentBlock']={active:false,lastAction:`sold_${pid}_${tn}_${bid}`,lastBidderName:null,lastBidderTeam:null,notInterested:null};
   update(ref(db,`auctions/${roomId}`),upd).catch(e=>window.showAlert(e.message));
 };
 
@@ -1377,7 +1471,7 @@ window.markUnsold=function(){
   const pid=String(roomState.currentBlock.playerId);
   const upd={};
   upd[`/players/${pid}/status`]='unsold';
-  upd['/currentBlock']={active:false,lastAction:'unsold',lastBidderName:null,lastBidderTeam:null};
+  upd['/currentBlock']={active:false,lastAction:'unsold',lastBidderName:null,lastBidderTeam:null,notInterested:null};
   update(ref(db,`auctions/${roomId}`),upd);
 };
 
