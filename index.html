@@ -1729,8 +1729,10 @@ function calcBattingPoints(runs, balls, sixes, dismissal, isWinningTeam, isMotm)
   pts += Math.floor(runs / 25) * 10;        // 10pts every 25 runs
   pts += sixes * 2;                         // 2pts per six
   if(dismissal==='duck') pts -= 5;          // -5 duck
-  // Strike rate (only if faced >= 5 balls to avoid 200sr from 1 ball)
-  if(balls >= 5){
+  // Strike rate — eligible if balls faced >= 10 OR runs scored >= 10
+  // e.g. 9 off 12 → eligible (12 balls). 9 off 8 → not eligible (< 10 balls AND < 10 runs).
+  // 12 off 3 → eligible (12 runs). Virat 9(12) counts. Virat 9(8) doesn't.
+  if(balls >= 10 || runs >= 10){
     const sr = (runs / balls) * 100;
     if(sr < 75) pts -= 15;
     else if(sr < 100) pts -= 10;
@@ -1824,7 +1826,7 @@ window.addBowlingRow=function(){
     <input type="number" placeholder="Overs" id="bow${id}overs" min="0" step="0.1" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Runs" id="bow${id}runs" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Wkts" id="bow${id}wkts" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
-    <input type="number" placeholder="Dots" id="bow${id}dots" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+    <input type="number" placeholder="0s / dot balls" id="bow${id}dots" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Maidens" id="bow${id}maidens" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <button onclick="document.getElementById('bow${id}').remove();bowlingRowCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
   document.getElementById('bowlingRows').appendChild(div);
@@ -2325,7 +2327,7 @@ Required JSON structure:
     {"name":"Player Name","runs":0,"balls":0,"sixes":0,"dismissal":"out|notout|duck"}
   ],
   "bowling": [
-    {"name":"Player Name","overs":0.0,"runs":0,"wickets":0,"dots":0,"maidens":0}
+    {"name":"Player Name","overs":0.0,"runs":0,"wickets":0,"dots":0,"maidens":0}  // dots = 0-run deliveries (dot balls)
   ],
   "fielding": [
     {"name":"Player Name","catches":0,"stumpings":0,"runouts":0}
@@ -2337,7 +2339,7 @@ Rules:
 - Duck = dismissed for 0 runs. notout = not out or retired hurt. Otherwise "out".
 - Extract fielders from dismissal text: "c Rohit b Bumrah" → Rohit +1 catch; "st †Dhoni b Chahal" → Dhoni +1 stumping; "run out (Jadeja/†Dhoni)" → Jadeja +1 runout AND Dhoni +1 runout.
 - Overs as decimal: 3 overs 4 balls = 3.4.
-- If dots column missing, estimate: balls_bowled - runs_conceded (floor 0).
+- dots = dot balls (0s) bowled. If not shown, estimate as balls_bowled minus runs_conceded (minimum 0).
 - winner = short IPL team code only.
 - Return ONLY the JSON object. Nothing else.`;
 
