@@ -901,7 +901,17 @@ window.switchDashTab=function(tab){
     document.getElementById(`dt-${t}`).classList.toggle('active',t===tab);
     document.getElementById(`tab-${t}`).style.display=t===tab?'block':'none';
   });
-  if(tab==='scorecards') renderGlobalScorecardHistory();
+  if(tab==='scorecards'){
+    renderGlobalScorecardHistory();
+    // Pre-build the player datalist from rawData so it's ready immediately
+    if(!document.getElementById('gscDlPlayers')){
+      const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
+      [...new Set((rawData||[]).map(p=>p.n||'').filter(Boolean))].sort().forEach(n=>{
+        const o=document.createElement('option'); o.value=n; dl.appendChild(o);
+      });
+      document.body.appendChild(dl);
+    }
+  }
 };
 
 window.toggleCreateForm=function(){
@@ -1541,10 +1551,10 @@ function renderBlock(data){
       if(niTeamsList)niTeamsList.innerHTML='';
     }
 
-    // Show/hide Not Interested button (everyone except admin sees it)
+    // Show/hide Not Interested button (ALL registered teams including admin)
     const niControls=document.getElementById('niControls');
     const niBtn=document.getElementById('niBtn');
-    if(!isAdmin&&myTeamName){
+    if(myTeamName){
       niControls.style.display='block';
       const alreadyPressed=niRaw[myTeamName]===true;
       const iAmLastBidder=data.currentBlock.lastBidderTeam===myTeamName;
@@ -1573,9 +1583,12 @@ function renderBlock(data){
     // ── Auto-sell check: if bid placed AND only 1 team left not opted out ──
     if(hasBid&&isAdmin&&totalTeams>0){
       const lastBidder=data.currentBlock.lastBidderTeam;
-      const interestedTeams=allMembers.filter(m=>!niRaw[m.teamName]&&m.teamName);
+      // Build full interested list: all members + admin team (if registered) who haven't pressed NI
+      const allTeamNames=new Set(allMembers.map(m=>m.teamName).filter(Boolean));
+      if(myTeamName) allTeamNames.add(myTeamName); // include admin's team
+      const interestedTeams=[...allTeamNames].filter(tn=>!niRaw[tn]);
       // If exactly 1 team is interested AND they are the last bidder → auto sell
-      if(interestedTeams.length===1&&interestedTeams[0].teamName===lastBidder&&!autoSellInProgress){
+      if(interestedTeams.length===1&&interestedTeams[0]===lastBidder&&!autoSellInProgress){
         // Trigger auto-sell once — flag prevents re-triggering on subsequent onValue fires
         autoSellInProgress=true;
         window.showAlert(`All others opted out — auto-selling to ${lastBidder}!`,'ok');
@@ -1874,9 +1887,14 @@ function calcFieldingPoints(catches, stumpings, runouts, isWinningTeam, isMotm){
 let battingRowCount=0, bowlingRowCount=0, fieldingRowCount=0;
 
 function playerDatalist(){
-  // Returns a datalist of all 250 player names for autocomplete
-  const players = roomState?.players ? Object.values(roomState.players) : [];
-  const names = [...new Set(players.map(p=>p.name||p.n||''))].filter(Boolean);
+  // Prefer roomState players (have full names), fall back to rawData
+  let names;
+  if(roomState?.players && Object.keys(roomState.players).length>0){
+    names=[...new Set(Object.values(roomState.players).map(p=>p.name||p.n||''))].filter(Boolean);
+  } else {
+    names=[...new Set((rawData||[]).map(p=>p.n||''))].filter(Boolean);
+  }
+  names.sort();
   return `<datalist id="dlPlayers">${names.map(n=>`<option value="${n}">`).join('')}</datalist>`;
 }
 
