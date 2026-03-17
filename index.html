@@ -356,8 +356,92 @@ tr:hover td{background:var(--sur);}
     <!-- DASHBOARD -->
     <div id="dashboard-view" class="view">
       <div class="dtabs">
+        <button class="dtab" id="dt-scorecards" onclick="switchDashTab('scorecards')">📋 Scorecards</button>
         <button class="dtab active" id="dt-created" onclick="switchDashTab('created')">🏟️ My Rooms</button>
         <button class="dtab" id="dt-joined" onclick="switchDashTab('joined')">🤝 Joined Rooms</button>
+      </div>
+
+      <!-- ════ SCORECARDS TAB (Global — pushes to all owned rooms) ════ -->
+      <div id="tab-scorecards" style="display:none;">
+
+        <!-- Gemini parser card (same as in-room, but global) -->
+        <div class="card" id="globalScorecardCard">
+          <div class="card-hdr">
+            <span class="card-title">📋 Global Scorecard Entry</span>
+            <span class="badge bb" style="font-size:.68rem;">Pushes to ALL your rooms</span>
+          </div>
+          <div class="card-bdy">
+            <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">
+              Enter a match scorecard here once and it will be saved to <strong style="color:var(--gold)">every room you own</strong> — both auction and draft — simultaneously. All your leagues update in one go.
+            </p>
+
+            <!-- Gemini parser UI (global instance) -->
+            <div class="ai-parse-box" style="margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                <div class="ai-parse-title">🤖 Gemini Scorecard Parser</div>
+                <span class="badge bb" style="font-size:.68rem;">Firebase AI Logic</span>
+              </div>
+              <div class="ai-parse-sub">Upload 1–4 scorecard screenshots. Gemini reads them and fills the form below.</div>
+              <div id="gscDropZone" onclick="document.getElementById('gscFiles').click()"
+                style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
+                ondragover="event.preventDefault();this.style.borderColor='rgba(99,102,241,.7)'"
+                ondragleave="this.style.borderColor='rgba(99,102,241,.35)'"
+                ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleGscFiles(event.dataTransfer.files)">
+                <div style="font-size:1.8rem;margin-bottom:4px;">📸</div>
+                <div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots</div>
+                <div id="gscDropHint" style="font-size:.75rem;color:var(--muted);margin-top:4px;">PNG · JPG · WEBP · up to 4 files</div>
+              </div>
+              <input type="file" id="gscFiles" accept="image/*" multiple style="display:none" onchange="window.handleGscFiles(this.files)">
+              <div id="gscThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="gscMatchLabel" placeholder="Match label e.g. CSK vs MI – Apr 6 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;">
+                <button id="gscParseBtn" onclick="window.parseGlobalScorecard()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--ff);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;">✨ Parse with Gemini</button>
+              </div>
+              <div class="ai-status" id="gscParseStatus" style="margin-top:8px;"></div>
+            </div>
+
+            <!-- Match meta form -->
+            <div id="gscFormBody" style="display:none;">
+              <div class="match-form" style="margin-bottom:0;">
+                <div class="fld"><label>Winning IPL Team</label><input type="text" id="gscWinner" placeholder="e.g. CSK"></div>
+                <div class="fld"><label>Man of the Match</label><input type="text" id="gscMotm" placeholder="Player name"></div>
+                <div class="fld"><label>Result</label>
+                  <select id="gscResult"><option value="normal">Normal Result</option><option value="noresult">No Result</option><option value="superover">Super Over</option></select>
+                </div>
+              </div>
+
+              <div class="section-hdr">BATTING</div>
+              <div id="gscBattingRows"></div>
+              <div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBattingRow()">+ Add Batter</button></div>
+
+              <div class="section-hdr">BOWLING</div>
+              <div id="gscBowlingRows"></div>
+              <div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBowlingRow()">+ Add Bowler</button></div>
+
+              <div class="section-hdr">FIELDING</div>
+              <div id="gscFieldingRows"></div>
+              <div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addGscFieldingRow()">+ Add Fielder</button></div>
+
+              <!-- Preview & save -->
+              <div id="gscPreviewBox" style="display:none;background:var(--bg2);border:1px solid var(--bdr-g);border-radius:var(--rl);padding:16px 20px;margin:16px 20px 0;">
+                <div style="font-family:var(--ff);font-size:18px;color:var(--gold);margin-bottom:10px;">Points Preview</div>
+                <div id="gscPreviewContent"></div>
+              </div>
+
+              <div style="padding:16px 20px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="window.previewGlobalPoints()">👁 Preview Points</button>
+                <button class="btn btn-gold" onclick="window.saveGlobalScorecard()" style="max-width:260px;">💾 Save &amp; Push to All My Rooms</button>
+              </div>
+              <div class="ai-status" id="gscSaveStatus" style="margin:0 20px 16px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Match history -->
+        <div class="card">
+          <div class="card-hdr"><span class="card-title">📅 Saved Matches</span></div>
+          <div id="gscHistoryList" style="padding:0;"><div class="empty" style="padding:20px;">No matches saved yet.</div></div>
+        </div>
       </div>
 
       <div id="tab-created">
@@ -813,10 +897,11 @@ function showApp(){document.getElementById('auth-view').classList.remove('active
 function showInner(id){['dashboard-view','auction-view'].forEach(v=>document.getElementById(v).classList.remove('active'));document.getElementById(id).classList.add('active');}
 
 window.switchDashTab=function(tab){
-  ['created','joined'].forEach(t=>{
+  ['scorecards','created','joined'].forEach(t=>{
     document.getElementById(`dt-${t}`).classList.toggle('active',t===tab);
     document.getElementById(`tab-${t}`).style.display=t===tab?'block':'none';
   });
+  if(tab==='scorecards') renderGlobalScorecardHistory();
 };
 
 window.toggleCreateForm=function(){
@@ -2685,6 +2770,398 @@ window.deleteMatch=function(mid,label){
       expandedMatches.delete(mid);
       window.showAlert(`Match "${label}" deleted.`,'ok');
     })
+    .catch(e=>window.showAlert(e.message));
+};
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL SCORECARD TAB — pushes to ALL owned rooms
+// ═══════════════════════════════════════════════════════════════
+
+let gscImageFiles=[];
+let gscBattingCount=0, gscBowlingCount=0, gscFieldingCount=0;
+
+// ── File handling (same pattern as in-room parser) ──
+window.handleGscFiles=function(files){
+  if(!files||!files.length) return;
+  gscImageFiles=[...gscImageFiles,...Array.from(files)].slice(0,4);
+  renderGscThumbs();
+};
+
+function renderGscThumbs(){
+  const row=document.getElementById('gscThumbRow');
+  if(!row) return;
+  row.innerHTML='';
+  gscImageFiles.forEach((file,i)=>{
+    const url=URL.createObjectURL(file);
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:relative;display:inline-block;';
+    const img=document.createElement('img');
+    img.src=url;
+    img.style.cssText='height:72px;width:auto;border-radius:6px;border:1px solid var(--bdr);object-fit:cover;display:block;';
+    const del=document.createElement('button');
+    del.textContent='✕';
+    del.style.cssText='position:absolute;top:-6px;right:-6px;background:var(--err);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:.65rem;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;';
+    del.onclick=()=>{gscImageFiles.splice(i,1);renderGscThumbs();};
+    wrap.appendChild(img);wrap.appendChild(del);
+    row.appendChild(wrap);
+  });
+  const hint=document.getElementById('gscDropHint');
+  if(hint) hint.textContent=gscImageFiles.length?`${gscImageFiles.length} file${gscImageFiles.length>1?'s':''} loaded`:'PNG · JPG · WEBP · up to 4 files';
+}
+
+// ── Gemini parse for global scorecard ──
+window.parseGlobalScorecard=async function(){
+  const statusEl=document.getElementById('gscParseStatus');
+  const btn=document.getElementById('gscParseBtn');
+  if(!gscImageFiles.length){
+    statusEl.className='ai-status fail';
+    statusEl.textContent='⚠️ Upload at least one screenshot first.';
+    return;
+  }
+  statusEl.className='ai-status parsing';
+  statusEl.textContent='🤖 Gemini is reading the scorecard…';
+  btn.disabled=true; btn.textContent='Parsing…';
+  try{
+    const imageParts=await Promise.all(gscImageFiles.map(file=>new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload=e=>res({inlineData:{data:e.target.result.split(',')[1],mimeType:file.type||'image/png'}});
+      reader.onerror=rej;
+      reader.readAsDataURL(file);
+    })));
+    const result=await getGeminiModel().generateContent({
+      systemInstruction:SCORECARD_SYSTEM_PROMPT,
+      contents:[{role:'user',parts:[...imageParts,{text:`Parse ${gscImageFiles.length>1?'these '+gscImageFiles.length+' scorecard screenshots':'this scorecard screenshot'} and return the JSON.`}]}]
+    });
+    const raw=result.response.text();
+    const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const m=clean.match(/\{[\s\S]*\}/);
+    if(!m) throw new Error('No valid JSON returned. Try clearer screenshots.');
+    const parsed=JSON.parse(m[0]);
+    populateGscForm(parsed);
+    statusEl.className='ai-status done';
+    statusEl.textContent=`✅ Parsed: ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders. Review and save.`;
+  }catch(e){
+    statusEl.className='ai-status fail';
+    statusEl.textContent=`❌ ${e.message}`;
+  }finally{
+    btn.disabled=false; btn.textContent='✨ Parse with Gemini';
+  }
+};
+
+// ── Row builders for global scorecard form ──
+function gscInputStyle(){ return 'padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);'; }
+
+window.addGscBattingRow=function(){
+  const id=gscBattingCount++;
+  const div=document.createElement('div');
+  div.id=`gscbr${id}`;
+  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+  div.innerHTML=`
+    <input list="gscDlPlayers" placeholder="Player name" id="gscbr${id}name" style="${gscInputStyle()}">
+    <input type="number" placeholder="Runs" id="gscbr${id}runs" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="Balls" id="gscbr${id}balls" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="4s" id="gscbr${id}fours" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="6s" id="gscbr${id}sixes" min="0" style="${gscInputStyle()}">
+    <select id="gscbr${id}dis" style="${gscInputStyle()}">
+      <option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option>
+    </select>
+    <button onclick="document.getElementById('gscbr${id}').remove();gscBattingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+  document.getElementById('gscBattingRows').appendChild(div);
+  if(!document.getElementById('gscDlPlayers')){
+    const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
+    document.getElementById('gscBattingRows').insertAdjacentElement('beforebegin',dl);
+  }
+};
+
+window.addGscBowlingRow=function(){
+  const id=gscBowlingCount++;
+  const div=document.createElement('div');
+  div.id=`gscbow${id}`;
+  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+  div.innerHTML=`
+    <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" style="${gscInputStyle()}">
+    <input type="number" placeholder="Overs" id="gscbow${id}overs" min="0" step="0.1" style="${gscInputStyle()}">
+    <input type="number" placeholder="Runs" id="gscbow${id}runs" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="Wkts" id="gscbow${id}wkts" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="0s / dot balls" id="gscbow${id}dots" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="Maidens" id="gscbow${id}maidens" min="0" style="${gscInputStyle()}">
+    <button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+  document.getElementById('gscBowlingRows').appendChild(div);
+};
+
+window.addGscFieldingRow=function(){
+  const id=gscFieldingCount++;
+  const div=document.createElement('div');
+  div.id=`gscfld${id}`;
+  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+  div.innerHTML=`
+    <input list="gscDlPlayers" placeholder="Player name" id="gscfld${id}name" style="${gscInputStyle()}">
+    <input type="number" placeholder="Catches" id="gscfld${id}catches" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="Stumpings" id="gscfld${id}stumpings" min="0" style="${gscInputStyle()}">
+    <input type="number" placeholder="Run-outs" id="gscfld${id}runouts" min="0" style="${gscInputStyle()}">
+    <button onclick="document.getElementById('gscfld${id}').remove();gscFieldingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+  document.getElementById('gscFieldingRows').appendChild(div);
+};
+
+// ── Populate form from Gemini output ──
+function populateGscForm(parsed){
+  if(parsed.matchLabel) document.getElementById('gscMatchLabel').value=parsed.matchLabel;
+  if(parsed.winner) document.getElementById('gscWinner').value=parsed.winner;
+  if(parsed.motm) document.getElementById('gscMotm').value=parsed.motm;
+  if(parsed.result){
+    const sel=document.getElementById('gscResult');
+    if(sel)[...sel.options].forEach(o=>{if(o.value===parsed.result)o.selected=true;});
+  }
+  document.getElementById('gscBattingRows').innerHTML='';
+  document.getElementById('gscBowlingRows').innerHTML='';
+  document.getElementById('gscFieldingRows').innerHTML='';
+  gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
+  document.getElementById('gscFormBody').style.display='block';
+
+  (parsed.batting||[]).forEach(b=>{
+    window.addGscBattingRow();
+    const id=gscBattingCount-1;
+    const sv=(f,v)=>{const el=document.getElementById(`gscbr${id}${f}`);if(el)el.value=v;};
+    sv('name',b.name||''); sv('runs',b.runs??''); sv('balls',b.balls??'');
+    sv('fours',b.fours??''); sv('sixes',b.sixes??'');
+    const dis=document.getElementById(`gscbr${id}dis`);
+    if(dis)[...dis.options].forEach(o=>{if(o.value===(b.dismissal||'out'))o.selected=true;});
+  });
+  (parsed.bowling||[]).forEach(b=>{
+    window.addGscBowlingRow();
+    const id=gscBowlingCount-1;
+    const sv=(f,v)=>{const el=document.getElementById(`gscbow${id}${f}`);if(el)el.value=v;};
+    sv('name',b.name||''); sv('overs',b.overs??''); sv('runs',b.runs??'');
+    sv('wkts',b.wickets??''); sv('dots',b.dots??''); sv('maidens',b.maidens??'');
+  });
+  const fm={};
+  (parsed.fielding||[]).forEach(f=>{if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)>0)fm[f.name]=f;});
+  Object.values(fm).forEach(f=>{
+    window.addGscFieldingRow();
+    const id=gscFieldingCount-1;
+    const sv=(f2,v)=>{const el=document.getElementById(`gscfld${id}${f2}`);if(el)el.value=v;};
+    sv('name',f.name||''); sv('catches',f.catches||'');
+    sv('stumpings',f.stumpings||''); sv('runouts',f.runouts||'');
+  });
+}
+
+// ── Collect global form data ──
+function collectGscData(){
+  const label=document.getElementById('gscMatchLabel').value.trim()||`Match ${Date.now()}`;
+  const winner=(document.getElementById('gscWinner').value||'').trim().toUpperCase();
+  const motm=(document.getElementById('gscMotm').value||'').trim().toLowerCase();
+  const result=document.getElementById('gscResult').value;
+  if(result==='noresult') return {label,result,playerPts:{}};
+  const playerPts={};
+  function addP(name,pts,src){
+    const key=name.trim().toLowerCase();
+    if(!key) return;
+    if(!playerPts[key]) playerPts[key]={name:name.trim(),pts:0,breakdown:[]};
+    playerPts[key].pts+=pts;
+    playerPts[key].breakdown.push(`${src}: ${pts>=0?'+':''}${pts}`);
+  }
+  // Batting
+  document.querySelectorAll('[id^="gscbr"][id$="name"]').forEach(inp=>{
+    const id=inp.id.replace('name','');
+    const name=inp.value.trim(); if(!name) return;
+    const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
+    const balls=parseInt(document.getElementById(`${id}balls`)?.value)||0;
+    const fours=parseInt(document.getElementById(`${id}fours`)?.value)||0;
+    const sixes=parseInt(document.getElementById(`${id}sixes`)?.value)||0;
+    const dis=document.getElementById(`${id}dis`)?.value||'out';
+    const isMot=name.toLowerCase()===motm;
+    const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot);
+    addP(name,pts,`Bat(${runs}r ${balls}b ${fours}×4 ${sixes}×6${dis==='duck'?' DUCK':''})`);
+  });
+  // Bowling
+  document.querySelectorAll('[id^="gscbow"][id$="name"]').forEach(inp=>{
+    const id=inp.id.replace('name','');
+    const name=inp.value.trim(); if(!name) return;
+    const overs=parseFloat(document.getElementById(`${id}overs`)?.value)||0;
+    const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
+    const wkts=parseInt(document.getElementById(`${id}wkts`)?.value)||0;
+    const dots=parseInt(document.getElementById(`${id}dots`)?.value)||0;
+    const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
+    const isMot=name.toLowerCase()===motm;
+    const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
+    addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${overs>0?(runs/overs).toFixed(1):'—'})`);
+  });
+  // Fielding
+  document.querySelectorAll('[id^="gscfld"][id$="name"]').forEach(inp=>{
+    const id=inp.id.replace('name','');
+    const name=inp.value.trim(); if(!name) return;
+    const catches=parseInt(document.getElementById(`${id}catches`)?.value)||0;
+    const stumpings=parseInt(document.getElementById(`${id}stumpings`)?.value)||0;
+    const runouts=parseInt(document.getElementById(`${id}runouts`)?.value)||0;
+    if(catches+stumpings+runouts===0) return;
+    const isMot=name.toLowerCase()===motm;
+    const pts=calcFieldingPoints(catches,stumpings,runouts,false,isMot);
+    addP(name,pts,`Field(${catches}c ${stumpings}st ${runouts}ro)`);
+  });
+  // Winning team bonus
+  if(winner){
+    // Apply +5 to players in the scorecard whose IPL team matches winner
+    // We don't have team info in the global form so just mark winner for later
+    // Each room's scoring engine handles the +5 from the winner field
+  }
+  return {label,result,winner,motm,playerPts};
+}
+
+// ── Preview global points ──
+window.previewGlobalPoints=function(){
+  const data=collectGscData();
+  if(data.result==='noresult'){window.showAlert('No Result — no points awarded.','info');return;}
+  const entries=Object.values(data.playerPts).sort((a,b)=>b.pts-a.pts);
+  if(!entries.length){window.showAlert('No player data entered.','err');return;}
+  const box=document.getElementById('gscPreviewBox');
+  const content=document.getElementById('gscPreviewContent');
+  content.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+    <thead><tr style="background:rgba(0,0,0,.3);">
+      <th style="padding:8px 12px;text-align:left;color:var(--gold);">Player</th>
+      <th style="padding:8px 12px;text-align:right;color:var(--gold);">Points</th>
+      <th style="padding:8px 12px;text-align:left;color:var(--gold);">Breakdown</th>
+    </tr></thead>
+    <tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--bdr);">
+      <td style="padding:8px 12px;font-weight:600;">${e.name}</td>
+      <td style="padding:8px 12px;text-align:right;font-family:var(--ff);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td>
+      <td style="padding:8px 12px;font-size:.78rem;color:var(--muted2);">${e.breakdown.join(' · ')}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+  box.style.display='block';
+};
+
+// ── Save & fan-out to all owned rooms ──
+window.saveGlobalScorecard=async function(){
+  if(!user) return;
+  const statusEl=document.getElementById('gscSaveStatus');
+  const data=collectGscData();
+  if(!data.label){statusEl.className='ai-status fail';statusEl.textContent='⚠️ Enter a match label first.';return;}
+
+  statusEl.className='ai-status parsing';
+  statusEl.textContent='💾 Saving and pushing to all your rooms…';
+
+  // Build match record
+  const matchId=`m${Date.now()}`;
+  const matchRecord={
+    label:data.label,
+    result:data.result,
+    winner:data.winner||'',
+    motm:data.motm||'',
+    timestamp:Date.now(),
+    players:{}
+  };
+  Object.entries(data.playerPts).forEach(([key,val])=>{
+    matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
+  });
+
+  try{
+    // 1. Save to user's global scorecard store (source of truth)
+    await set(ref(db,`users/${user.uid}/scorecards/${matchId}`),matchRecord);
+
+    // 2. Fan-out: get all owned auction rooms
+    const [aSnap,dSnap]=await Promise.all([
+      get(ref(db,`users/${user.uid}/auctions`)),
+      get(ref(db,`users/${user.uid}/drafts`))
+    ]);
+
+    const fanOutWrites={};
+    const aRooms=aSnap.val()||{};
+    const dRooms=dSnap.val()||{};
+
+    Object.keys(aRooms).forEach(rid=>{
+      fanOutWrites[`auctions/${rid}/matches/${matchId}`]=matchRecord;
+    });
+    Object.keys(dRooms).forEach(rid=>{
+      fanOutWrites[`drafts/${rid}/matches/${matchId}`]=matchRecord;
+    });
+
+    const totalRooms=Object.keys(aRooms).length+Object.keys(dRooms).length;
+
+    if(totalRooms>0){
+      await update(ref(db),fanOutWrites);
+    }
+
+    statusEl.className='ai-status done';
+    statusEl.textContent=`✅ "${data.label}" saved and pushed to ${totalRooms} room${totalRooms===1?'':'s'} (${Object.keys(aRooms).length} auction · ${Object.keys(dRooms).length} draft).`;
+
+    // Reset form
+    document.getElementById('gscBattingRows').innerHTML='';
+    document.getElementById('gscBowlingRows').innerHTML='';
+    document.getElementById('gscFieldingRows').innerHTML='';
+    document.getElementById('gscMatchLabel').value='';
+    document.getElementById('gscWinner').value='';
+    document.getElementById('gscMotm').value='';
+    document.getElementById('gscPreviewBox').style.display='none';
+    gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
+    gscImageFiles=[];
+    renderGscThumbs();
+    document.getElementById('gscFormBody').style.display='none';
+    renderGlobalScorecardHistory();
+
+  }catch(e){
+    statusEl.className='ai-status fail';
+    statusEl.textContent=`❌ Save failed: ${e.message}`;
+  }
+};
+
+// ── Render global scorecard history ──
+function renderGlobalScorecardHistory(){
+  if(!user) return;
+  const list=document.getElementById('gscHistoryList');
+  if(!list) return;
+  get(ref(db,`users/${user.uid}/scorecards`)).then(snap=>{
+    const data=snap.val();
+    if(!data){list.innerHTML='<div class="empty" style="padding:20px;">No matches saved yet.</div>';return;}
+    const entries=Object.entries(data).sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0));
+    list.innerHTML=entries.map(([mid,m])=>{
+      const playerCount=m.players?Object.keys(m.players).length:0;
+      const topPlayer=m.players?Object.values(m.players).sort((a,b)=>(b.pts||0)-(a.pts||0))[0]:null;
+      const resultLabel=m.result==='noresult'?'No Result':m.result==='superover'?'Super Over':'Completed';
+      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--bdr);gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:var(--ff);font-size:17px;color:var(--gold);">${m.label||mid}</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">
+            ${m.winner?`Winner: <strong>${m.winner}</strong> · `:''}
+            ${m.motm?`MOTM: ${m.motm} · `:''}
+            ${resultLabel} · ${playerCount} players scored
+            ${topPlayer?` · Top: <strong>${topPlayer.name}</strong> (${topPlayer.pts>=0?'+':''}${topPlayer.pts} pts)`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          <button class="btn btn-ghost btn-sm" onclick="window.repushScorecard('${mid}')">🔄 Re-push</button>
+          <button class="btn btn-danger btn-sm" onclick="window.deleteGlobalScorecard('${mid}','${(m.label||mid).replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }).catch(e=>{ list.innerHTML=`<div class="empty" style="padding:20px;">Error loading: ${e.message}</div>`; });
+}
+
+// ── Re-push a previously saved scorecard to all rooms ──
+window.repushScorecard=async function(mid){
+  if(!user) return;
+  try{
+    const snap=await get(ref(db,`users/${user.uid}/scorecards/${mid}`));
+    if(!snap.exists()){window.showAlert('Scorecard not found.','err');return;}
+    const matchRecord=snap.val();
+    const [aSnap,dSnap]=await Promise.all([
+      get(ref(db,`users/${user.uid}/auctions`)),
+      get(ref(db,`users/${user.uid}/drafts`))
+    ]);
+    const fanOut={};
+    Object.keys(aSnap.val()||{}).forEach(rid=>{fanOut[`auctions/${rid}/matches/${mid}`]=matchRecord;});
+    Object.keys(dSnap.val()||{}).forEach(rid=>{fanOut[`drafts/${rid}/matches/${mid}`]=matchRecord;});
+    await update(ref(db),fanOut);
+    const total=Object.keys(aSnap.val()||{}).length+Object.keys(dSnap.val()||{}).length;
+    window.showAlert(`✅ Re-pushed "${matchRecord.label}" to ${total} room${total===1?'':'s'}.`,'ok');
+  }catch(e){ window.showAlert('Re-push failed: '+e.message); }
+};
+
+// ── Delete a global scorecard ──
+window.deleteGlobalScorecard=function(mid,label){
+  if(!user) return;
+  if(!confirm(`Delete "${label}" from your global scorecards?\n\nNote: points already pushed to rooms will remain. Use Re-push after editing to update rooms.`)) return;
+  remove(ref(db,`users/${user.uid}/scorecards/${mid}`))
+    .then(()=>{ window.showAlert(`Deleted "${label}".`,'ok'); renderGlobalScorecardHistory(); })
     .catch(e=>window.showAlert(e.message));
 };
 
