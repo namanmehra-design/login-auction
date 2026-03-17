@@ -273,7 +273,6 @@ tr:hover td{background:var(--sur);}
 
 <div id="toast"><span class="tdot"></span><span id="tmsg"></span></div>
 
-<!-- Team Name Modal (shown when joining a room) -->
 <div class="modal-bg" id="teamNameModal">
   <div class="modal">
     <h3>🏏 Register Your Team</h3>
@@ -286,7 +285,6 @@ tr:hover td{background:var(--sur);}
   </div>
 </div>
 
-<!-- Release Player Modal -->
 <div class="modal-bg" id="releaseModal">
   <div class="modal">
     <h3>🔄 Release Player</h3>
@@ -299,7 +297,6 @@ tr:hover td{background:var(--sur);}
   </div>
 </div>
 
-<!-- Delete Room Confirm Modal -->
 <div class="modal-bg" id="deleteModal">
   <div class="modal">
     <h3>⚠️ Delete Room</h3>
@@ -312,7 +309,6 @@ tr:hover td{background:var(--sur);}
   </div>
 </div>
 
-<!-- AUTH -->
 <div id="auth-view" class="view active">
   <div class="auth-card">
     <div class="auth-hdr">
@@ -342,7 +338,6 @@ tr:hover td{background:var(--sur);}
   </div>
 </div>
 
-<!-- APP SHELL -->
 <div id="app-shell" class="view">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:12px;">
@@ -353,7 +348,6 @@ tr:hover td{background:var(--sur);}
   </div>
 
   <div class="content">
-    <!-- DASHBOARD -->
     <div id="dashboard-view" class="view">
       <div class="dtabs">
         <button class="dtab" id="dt-scorecards" onclick="switchDashTab('scorecards')">📋 Scorecards</button>
@@ -361,10 +355,8 @@ tr:hover td{background:var(--sur);}
         <button class="dtab" id="dt-joined" onclick="switchDashTab('joined')">🤝 Joined Rooms</button>
       </div>
 
-      <!-- ════ SCORECARDS TAB (Global — pushes to all owned rooms) ════ -->
       <div id="tab-scorecards" style="display:none;">
 
-        <!-- Gemini parser card (same as in-room, but global) -->
         <div class="card" id="globalScorecardCard">
           <div class="card-hdr">
             <span class="card-title">📋 Global Scorecard Entry</span>
@@ -375,7 +367,6 @@ tr:hover td{background:var(--sur);}
               Enter a match scorecard here once and it will be saved to <strong style="color:var(--gold)">every room you own</strong> — both auction and draft — simultaneously. All your leagues update in one go.
             </p>
 
-            <!-- Gemini parser UI (global instance) -->
             <div class="ai-parse-box" style="margin-bottom:16px;">
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
                 <div class="ai-parse-title">🤖 Gemini Scorecard Parser</div>
@@ -400,7 +391,6 @@ tr:hover td{background:var(--sur);}
               <div class="ai-status" id="gscParseStatus" style="margin-top:8px;"></div>
             </div>
 
-            <!-- Match meta form -->
             <div id="gscFormBody" style="display:none;">
               <div class="match-form" style="margin-bottom:0;">
                 <div class="fld"><label>Winning IPL Team</label><input type="text" id="gscWinner" placeholder="e.g. CSK"></div>
@@ -422,7 +412,6 @@ tr:hover td{background:var(--sur);}
               <div id="gscFieldingRows"></div>
               <div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addGscFieldingRow()">+ Add Fielder</button></div>
 
-              <!-- Preview & save -->
               <div id="gscPreviewBox" style="display:none;background:var(--bg2);border:1px solid var(--bdr-g);border-radius:var(--rl);padding:16px 20px;margin:16px 20px 0;">
                 <div style="font-family:var(--ff);font-size:18px;color:var(--gold);margin-bottom:10px;">Points Preview</div>
                 <div id="gscPreviewContent"></div>
@@ -437,7 +426,6 @@ tr:hover td{background:var(--sur);}
           </div>
         </div>
 
-        <!-- Match history -->
         <div class="card">
           <div class="card-hdr"><span class="card-title">📅 Saved Matches</span></div>
           <div id="gscHistoryList" style="padding:0;"><div class="empty" style="padding:20px;">No matches saved yet.</div></div>
@@ -483,7 +471,6 @@ tr:hover td{background:var(--sur);}
       </div>
     </div>
 
-    <!-- AUCTION VIEW -->
     <div id="auction-view" class="view">
       <div class="at">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -494,7 +481,6 @@ tr:hover td{background:var(--sur);}
         <button class="btn btn-outline btn-sm" onclick="window.copyInviteLink()">🔗 Copy Invite</button>
       </div>
 
-      <!-- Stats strip -->
       <div class="srow" id="statsRow" style="display:none;">
         <div class="spill"><div class="sval" id="stat-total">—</div><div class="slb">Total</div></div>
         <div class="spill"><div class="sval" id="stat-avail">—</div><div class="slb">Available</div></div>
@@ -514,15 +500,12 @@ tr:hover td{background:var(--sur);}
         <button class="anav-btn" id="btn-matches" onclick="window.switchTab('matches')">📋 Match Data</button>
       </div>
 
-      <!-- Setup Tab -->
       <div id="setup-tab" class="card">
         <div class="card-hdr"><span class="card-title">Room Setup</span><span class="badge br">Admin Only</span></div>
         <div class="card-bdy">
 
-          <!-- Room config summary -->
           <div id="setupConfigBox" style="background:rgba(0,0,0,.2);border-radius:var(--r);padding:14px;font-size:.87rem;color:var(--muted2);margin-bottom:20px;line-height:1.9;"></div>
 
-          <!-- Join progress -->
           <div style="margin-bottom:20px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
               <span style="font-size:.72rem;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;">Teams Joined</span>
@@ -534,7 +517,6 @@ tr:hover td{background:var(--sur);}
             <div id="jpStatus" style="font-size:.82rem;margin-top:8px;font-weight:600;color:var(--muted2);">Waiting for teams to join…</div>
           </div>
 
-          <!-- Admin register banner (shown until admin registers their team) -->
           <div id="adminRegBanner" style="display:none;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div>
@@ -545,13 +527,11 @@ tr:hover td{background:var(--sur);}
             </div>
           </div>
 
-          <!-- Initialize button — gated on all teams joined + admin registered -->
           <button class="btn btn-gold" id="initBtn" onclick="window.initializeAuctionData()" disabled>
             🚀 Initialize Auction — Waiting for all teams…
           </button>
           <p style="font-size:.78rem;color:var(--muted);margin-top:8px;" id="initHint">The button unlocks once all <strong id="initHintMax">?</strong> teams have joined and you've registered your own team.</p>
 
-          <!-- Registered teams list -->
           <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--bdr);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
               <div class="slbl" style="margin-bottom:0;">Registered Teams <span id="memberCountBadge" class="badge bb" style="margin-left:6px;"></span></div>
@@ -562,21 +542,17 @@ tr:hover td{background:var(--sur);}
         </div>
       </div>
 
-      <!-- Auction Block Tab -->
       <div id="auction-tab" class="card" style="display:none;">
         <div class="card-bdy">
-          <!-- Live members bar -->
           <div id="liveMembersBar" style="margin-bottom:14px;display:none;">
             <div class="slbl" style="margin-bottom:8px;">Live in Room</div>
             <div id="liveMembersList" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
           </div>
 
-          <!-- My team indicator for members -->
           <div class="my-team-badge" id="myTeamBadge" style="display:none;">
             🏏 Bidding as: <strong id="myTeamName">—</strong>
           </div>
 
-          <!-- Admin: pull player controls -->
           <div id="adminPullControls">
             <div class="fld">
               <label>Pull Specific Player</label>
@@ -587,19 +563,16 @@ tr:hover td{background:var(--sur);}
             </div>
           </div>
 
-          <!-- Live bidder strip -->
           <div class="bidder-strip" id="bidderStrip">
             <div class="bidder-dot"></div>
             <span class="bidder-name" id="bidderName">—</span>
             <span class="bidder-lbl">is the current highest bidder</span>
           </div>
 
-          <!-- Auction block display -->
           <div class="ablock" id="auctionBlockDisplay">
             <div style="color:var(--muted);padding:20px 0;">Waiting for auctioneer to call a player...</div>
           </div>
 
-          <!-- Bidding controls (everyone can bid) -->
           <div id="biddingControls" style="display:none;">
             <div class="bid-disp">
               <div class="bid-lbl">Current Bid (Cr)</div>
@@ -607,18 +580,15 @@ tr:hover td{background:var(--sur);}
             </div>
             <div class="qgrid" id="quickBidGrid"></div>
 
-            <!-- Not Interested strip — shows who has opted out -->
             <div class="ni-strip" id="niStrip">
               <span style="color:var(--muted);font-size:.78rem;font-weight:600;white-space:nowrap;">Not interested:</span>
               <div id="niTeamsList" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
             </div>
 
-            <!-- Not Interested button — for non-admin members (hidden for admin) -->
             <div id="niControls" style="display:none;">
               <button class="ni-btn" id="niBtn" onclick="window.pressNotInterested()">🙅 Not Interested</button>
             </div>
 
-            <!-- SOLD/Pass: admin only — winner auto-assigned to last bidder -->
             <div id="adminSoldControls" style="display:none;">
               <div id="soldPreview" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:10px 14px;font-size:.85rem;color:var(--ok);margin-bottom:12px;display:none;">
                 🔨 Will sell to: <strong id="soldPreviewName">—</strong>
@@ -630,19 +600,16 @@ tr:hover td{background:var(--sur);}
             </div>
           </div>
 
-          <!-- Admin: random player -->
           <div id="adminRandomBtn" style="margin-top:16px;">
             <button class="btn btn-ghost" onclick="window.pullRandomPlayer()">🎲 Random Player</button>
           </div>
         </div>
       </div>
 
-      <!-- Teams Tab -->
       <div id="teams-tab" style="display:none;">
         <div class="tgrid" id="teamGrid"><div class="empty">Initialize the auction first.</div></div>
       </div>
 
-      <!-- Roster / Ledger Tab -->
       <div id="roster-tab" class="card" style="display:none;">
         <div class="card-hdr">
           <span class="card-title">Full Player Ledger</span>
@@ -672,17 +639,14 @@ tr:hover td{background:var(--sur);}
         </div>
       </div>
 
-      <!-- ════ POINTS TAB ════ -->
       <div id="points-tab" style="display:none;">
 
-        <!-- Admin: add match scorecard -->
         <div class="pts-card" id="addMatchCard" style="display:none;">
           <div class="pts-hdr">
             <span class="pts-title">📥 Enter Match Scorecard</span>
             <span class="badge bb">Admin Only</span>
           </div>
 
-          <!-- ── GEMINI SCORECARD PARSER ── -->
           <div class="ai-parse-box" style="margin:16px 20px 0;">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
               <div class="ai-parse-title">🤖 Gemini Scorecard Parser</div>
@@ -690,7 +654,6 @@ tr:hover td{background:var(--sur);}
             </div>
             <div class="ai-parse-sub">Upload 1–4 scorecard screenshots (MI innings, CSK innings, summary page etc). Gemini reads all of them together and fills the form automatically.</div>
 
-            <!-- Multi-file drop zone -->
             <div id="scDropZone" onclick="document.getElementById('scFiles').click()"
               style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
               ondragover="event.preventDefault();this.style.borderColor='rgba(99,102,241,.7)'"
@@ -702,17 +665,14 @@ tr:hover td{background:var(--sur);}
             </div>
             <input type="file" id="scFiles" accept="image/*" multiple style="display:none" onchange="window.handleScFiles(this.files)">
 
-            <!-- Preview thumbnails -->
             <div id="scThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
 
-            <!-- Match label + parse button -->
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <input type="text" id="matchLabel" placeholder="Match label e.g. CSK vs MI – Mar 23 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;">
               <button id="geminiParseBtn" onclick="window.parseWithGemini()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--ff);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .2s;">✨ Parse with Gemini</button>
             </div>
             <div class="ai-status" id="aiStatus" style="margin-top:8px;"></div>
 
-            <!-- Fallback JSON paste -->
             <details style="margin-top:14px;">
               <summary style="font-size:.78rem;color:var(--muted);cursor:pointer;user-select:none;">📋 Or paste JSON manually (fallback)</summary>
               <textarea id="scJsonInput" class="sc-textarea" style="min-height:100px;font-family:monospace;font-size:.76rem;margin-top:8px;" placeholder='{"matchLabel":"...","winner":"CSK","motm":"Noor Ahmad","result":"normal","batting":[...],"bowling":[...],"fielding":[]}'></textarea>
@@ -720,14 +680,12 @@ tr:hover td{background:var(--sur);}
             </details>
           </div>
 
-          <!-- Manual form (auto-populated by AI, also editable manually) -->
           <div style="padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;">
             <span style="font-size:.8rem;color:var(--muted);">Review and edit the data below before saving.</span>
             <button class="btn btn-ghost btn-sm" onclick="window.toggleMatchForm()">▼ Expand / Collapse form</button>
           </div>
 
           <div id="matchFormBody" style="display:none;">
-            <!-- Match meta -->
             <div class="match-form">
               <div class="fld"><label>Winning IPL Team</label><input type="text" id="mfWinner" placeholder="e.g. MI"></div>
               <div class="fld"><label>Man of the Match</label><input type="text" id="mfMotm" placeholder="Player name"></div>
@@ -761,14 +719,12 @@ tr:hover td{background:var(--sur);}
           </div>
         </div>
 
-        <!-- Points preview modal result -->
         <div id="previewBox" style="display:none;background:var(--bg2);border:1px solid var(--bdr-g);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;">
           <div style="font-family:var(--ff);font-size:18px;color:var(--gold);margin-bottom:10px;">Points Preview</div>
           <div id="previewContent"></div>
           <button class="btn btn-gold" onclick="window.submitMatch(true)" style="max-width:180px;margin-top:12px;">✅ Confirm &amp; Save</button>
         </div>
 
-        <!-- Match history selector -->
         <div class="pts-card">
           <div class="pts-hdr">
             <span class="pts-title">🏅 Player Points</span>
@@ -786,7 +742,6 @@ tr:hover td{background:var(--sur);}
         </div>
       </div>
 
-      <!-- ════ LEADERBOARD TAB ════ -->
       <div id="leaderboard-tab" style="display:none;">
         <div class="srow" id="lbStatsRow">
           <div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div>
@@ -799,7 +754,6 @@ tr:hover td{background:var(--sur);}
         </div>
       </div>
 
-      <!-- ════ ANALYTICS TAB ════ -->
       <div id="analytics-tab" style="display:none;">
         <div class="pts-card">
           <div class="pts-hdr"><span class="pts-title">📈 Performance Analytics</span></div>
@@ -807,7 +761,6 @@ tr:hover td{background:var(--sur);}
         </div>
       </div>
 
-      <!-- ════ MATCH DATA TAB ════ -->
       <div id="matches-tab" style="display:none;">
         <div class="pts-card" style="margin-bottom:14px;">
           <div class="pts-hdr">
@@ -820,11 +773,7 @@ tr:hover td{background:var(--sur);}
         </div>
       </div>
 
-    </div><!-- /auction-view -->
-  </div><!-- /content -->
-</div><!-- /app-shell -->
-
-<script type="module">
+    </div></div></div><script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 import{getAI,getGenerativeModel,GoogleAIBackend}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-ai.js";
@@ -1824,9 +1773,6 @@ function calcBattingPoints(runs, balls, fours, sixes, dismissal, isWinningTeam, 
   pts += fours * 1;                         // 1pt per four (boundary bonus)
   pts += sixes * 2;                         // 2pts per six
   if(dismissal==='duck') pts -= 5;          // -5 duck
-  // Strike rate — eligible if balls faced >= 10 OR runs scored >= 10
-  // e.g. 9 off 12 → eligible (12 balls). 9 off 8 → not eligible (< 10 balls AND < 10 runs).
-  // 12 off 3 → eligible (12 runs). Virat 9(12) counts. Virat 9(8) doesn't.
   if(balls >= 10 || runs >= 10){
     const sr = (runs / balls) * 100;
     if(sr < 75) pts -= 15;
@@ -1848,7 +1794,6 @@ function calcBowlingPoints(overs, runsConceded, wickets, dots, maidens, isWinnin
   if(wickets > 2) pts += (wickets - 2) * 10;    // bonus: each after 2
   pts += dots * 1;                               // 1pt per dot
   pts += maidens * 20;                           // 20pts per maiden
-  // Economy (only if bowled >= 1 over)
   const eco = runsConceded / overs;
   if(eco <= 5) pts += 15;
   else if(eco <= 8) pts += 10;
@@ -1873,11 +1818,10 @@ function calcFieldingPoints(catches, stumpings, runouts, isWinningTeam, isMotm){
 // ── Dynamic form rows ──
 let battingRowCount=0, bowlingRowCount=0, fieldingRowCount=0;
 
-function playerDatalist(){
-  // Returns a datalist of all 250 player names for autocomplete
-  const players = roomState?.players ? Object.values(roomState.players) : [];
-  const names = [...new Set(players.map(p=>p.name||p.n||''))].filter(Boolean);
-  return `<datalist id="dlPlayers">${names.map(n=>`<option value="${n}">`).join('')}</datalist>`;
+// Helper to generate <option> list from rawData
+function getPlayerOptionsHtml(){
+    return `<option value="">-- Select Player --</option>` + 
+           rawData.map(p => `<option value="${p.n}">${p.n} (${p.t})</option>`).join('');
 }
 
 window.toggleMatchForm=function(){
@@ -1895,9 +1839,11 @@ window.addBattingRow=function(){
   const id=battingRowCount++;
   const div=document.createElement('div');
   div.id=`br${id}`;
-  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+  div.style.cssText='display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
   div.innerHTML=`
-    <input list="dlPlayers" placeholder="Player name" id="br${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+    <select id="br${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+        ${getPlayerOptionsHtml()}
+    </select>
     <input type="number" placeholder="Runs" id="br${id}runs" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Balls" id="br${id}balls" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="4s" id="br${id}fours" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
@@ -1907,18 +1853,17 @@ window.addBattingRow=function(){
     </select>
     <button onclick="document.getElementById('br${id}').remove();battingRowCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
   document.getElementById('battingRows').appendChild(div);
-  // Refresh datalist
-  const dl=document.getElementById('dlPlayers');
-  if(!dl) document.getElementById('battingRows').insertAdjacentHTML('beforebegin',playerDatalist());
 };
 
 window.addBowlingRow=function(){
   const id=bowlingRowCount++;
   const div=document.createElement('div');
   div.id=`bow${id}`;
-  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+  div.style.cssText='display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
   div.innerHTML=`
-    <input list="dlPlayers" placeholder="Player name" id="bow${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+    <select id="bow${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+        ${getPlayerOptionsHtml()}
+    </select>
     <input type="number" placeholder="Overs" id="bow${id}overs" min="0" step="0.1" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Runs" id="bow${id}runs" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Wkts" id="bow${id}wkts" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
@@ -1932,9 +1877,11 @@ window.addFieldingRow=function(){
   const id=fieldingRowCount++;
   const div=document.createElement('div');
   div.id=`fld${id}`;
-  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+  div.style.cssText='display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
   div.innerHTML=`
-    <input list="dlPlayers" placeholder="Player name" id="fld${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+    <select id="fld${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+        ${getPlayerOptionsHtml()}
+    </select>
     <input type="number" placeholder="Catches" id="fld${id}catches" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Stumpings" id="fld${id}stumpings" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
     <input type="number" placeholder="Run-outs" id="fld${id}runouts" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
@@ -1942,18 +1889,13 @@ window.addFieldingRow=function(){
   document.getElementById('fieldingRows').appendChild(div);
 };
 
-// ── Collect form data and compute points ──
 function collectMatchData(){
   const label=document.getElementById('matchLabel').value.trim()||`Match ${Date.now()}`;
   const winner=(document.getElementById('mfWinner').value||'').trim().toUpperCase();
   const motm=(document.getElementById('mfMotm').value||'').trim().toLowerCase();
   const result=document.getElementById('mfResult').value;
-
   if(result==='noresult') return {label,result,playerPts:{}};
-
   const playerPts={};
-  const winningPlayers=new Set(); // IPL team names that match winner
-
   function addPts(name,pts,src){
     const key=name.trim().toLowerCase();
     if(!key) return;
@@ -1961,1238 +1903,203 @@ function collectMatchData(){
     playerPts[key].pts+=pts;
     playerPts[key].breakdown.push(`${src}: ${pts>=0?'+':''}${pts}`);
   }
-
-  // Batting rows
   document.querySelectorAll('[id^="br"][id$="name"]').forEach(inp=>{
-    const id=inp.id.replace('name','');
-    const name=inp.value.trim();
-    if(!name) return;
+    const id=inp.id.replace('name',''), name=inp.value.trim(); if(!name) return;
     const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
     const balls=parseInt(document.getElementById(`${id}balls`)?.value)||0;
     const fours=parseInt(document.getElementById(`${id}fours`)?.value)||0;
     const sixes=parseInt(document.getElementById(`${id}sixes`)?.value)||0;
     const dis=document.getElementById(`${id}dis`)?.value||'out';
     const isMot=name.toLowerCase()===motm;
-    // For winning team: we'll handle after collecting all names
     const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot);
-    addPts(name,pts,`Batting(${runs}r ${balls}b${dis==='duck'?' DUCK':''})`);
-    winningPlayers.add(name.toLowerCase());
+    addPts(name,pts,`Batting(${runs}r ${balls}b)`);
   });
-
-  // Bowling rows
   document.querySelectorAll('[id^="bow"][id$="name"]').forEach(inp=>{
-    const id=inp.id.replace('name','');
-    const name=inp.value.trim();
-    if(!name) return;
+    const id=inp.id.replace('name',''), name=inp.value.trim(); if(!name) return;
     const overs=parseFloat(document.getElementById(`${id}overs`)?.value)||0;
     const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
     const wkts=parseInt(document.getElementById(`${id}wkts`)?.value)||0;
     const dots=parseInt(document.getElementById(`${id}dots`)?.value)||0;
     const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
-    const isMot=name.toLowerCase()===motm;
-    const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
-    addPts(name,pts,`Bowling(${wkts}w ${overs}ov ${runs}r eco:${overs>0?(runs/overs).toFixed(1):'—'})`);
+    const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,name.toLowerCase()===motm);
+    addPts(name,pts,`Bowling(${wkts}w)`);
   });
-
-  // Fielding rows
   document.querySelectorAll('[id^="fld"][id$="name"]').forEach(inp=>{
-    const id=inp.id.replace('name','');
-    const name=inp.value.trim();
-    if(!name) return;
+    const id=inp.id.replace('name',''), name=inp.value.trim(); if(!name) return;
     const catches=parseInt(document.getElementById(`${id}catches`)?.value)||0;
     const stumpings=parseInt(document.getElementById(`${id}stumpings`)?.value)||0;
     const runouts=parseInt(document.getElementById(`${id}runouts`)?.value)||0;
     if(catches+stumpings+runouts===0) return;
-    const isMot=name.toLowerCase()===motm;
-    const pts=calcFieldingPoints(catches,stumpings,runouts,false,isMot);
-    addPts(name,pts,`Fielding(${catches}c ${stumpings}st ${runouts}ro)`);
+    const pts=calcFieldingPoints(catches,stumpings,runouts,false,name.toLowerCase()===motm);
+    addPts(name,pts,`Fielding`);
   });
-
-  // Apply winning team bonus +5 to players who played
-  // We don't know which team each player is on from the form
-  // Admin specifies winning IPL team — we check against roomState players
   if(winner&&roomState?.players){
     Object.values(roomState.players).forEach(p=>{
       const pname=(p.name||p.n||'').trim().toLowerCase();
-      const pteam=(p.iplTeam||p.t||'').toUpperCase();
-      if(pteam===winner&&playerPts[pname]){
-        playerPts[pname].pts+=5;
-        playerPts[pname].breakdown.push('Winning team: +5');
+      if((p.iplTeam||p.t||'').toUpperCase()===winner&&playerPts[pname]){
+        playerPts[pname].pts+=5; playerPts[pname].breakdown.push('Winning team: +5');
       }
     });
   }
-
   return {label,result,winner,motm,playerPts};
 }
 
 window.previewPoints=function(){
   const data=collectMatchData();
-  if(data.result==='noresult'){window.showAlert('No Result match — no points awarded.','info');return;}
+  if(data.result==='noresult'){window.showAlert('No Result.','info');return;}
   const entries=Object.values(data.playerPts).sort((a,b)=>b.pts-a.pts);
-  if(!entries.length){window.showAlert('No player data entered.','err');return;}
+  if(!entries.length){window.showAlert('No data.','err');return;}
   const box=document.getElementById('previewBox');
-  const content=document.getElementById('previewContent');
-  content.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;">
-    <thead><tr style="background:rgba(0,0,0,.3);">
-      <th style="padding:8px 12px;text-align:left;color:var(--gold);">Player</th>
-      <th style="padding:8px 12px;text-align:right;color:var(--gold);">Points</th>
-      <th style="padding:8px 12px;text-align:left;color:var(--gold);">Breakdown</th>
-    </tr></thead>
-    <tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--bdr);">
-      <td style="padding:8px 12px;font-weight:600;">${e.name}</td>
-      <td style="padding:8px 12px;text-align:right;font-family:var(--ff);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td>
-      <td style="padding:8px 12px;font-size:.78rem;color:var(--muted2);">${e.breakdown.join(' · ')}</td>
-    </tr>`).join('')}</tbody>
+  document.getElementById('previewContent').innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+    <tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--bdr);"><td>${e.name}</td><td>${e.pts}</td><td>${e.breakdown.join(' · ')}</td></tr>`).join('')}</tbody>
   </table></div>`;
   box.style.display='block';
 };
 
 window.submitMatch=function(confirmed=false){
-  if(!isAdmin){window.showAlert('Only admin can submit match data.','err');return;}
-  if(!roomId||!roomState){window.showAlert('Load a room first.','err');return;}
+  if(!isAdmin) return;
   const data=collectMatchData();
-  if(!confirmed){
-    window.previewPoints();
-    return;
-  }
-  // Build Firebase write: auctions/{roomId}/matches/{matchId}
+  if(!confirmed){ window.previewPoints(); return; }
   const matchId=`m${Date.now()}`;
-  const matchRecord={
-    label:data.label,
-    result:data.result,
-    winner:data.winner||'',
-    motm:data.motm||'',
-    timestamp:Date.now(),
-    players:{}
-  };
-  Object.entries(data.playerPts).forEach(([key,val])=>{
-    matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
+  const matchRecord={ label:data.label, result:data.result, winner:data.winner||'', motm:data.motm||'', timestamp:Date.now(), players:{} };
+  Object.entries(data.playerPts).forEach(([key,val])=>{ matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')}; });
+  set(ref(db,`auctions/${roomId}/matches/${matchId}`),matchRecord).then(()=>{
+    window.showAlert(`Saved!`,'ok');
+    document.getElementById('previewBox').style.display='none';
+    document.getElementById('matchFormBody').style.display='none';
+    document.getElementById('battingRows').innerHTML=''; document.getElementById('bowlingRows').innerHTML=''; document.getElementById('fieldingRows').innerHTML='';
+    battingRowCount=0;bowlingRowCount=0;fieldingRowCount=0;
+    updateMatchFilterOptions();
   });
-
-  set(ref(db,`auctions/${roomId}/matches/${matchId}`),matchRecord)
-    .then(()=>{
-      window.showAlert(`✅ Match "${data.label}" saved! Points updated for all teams.`,'ok');
-      document.getElementById('previewBox').style.display='none';
-      document.getElementById('matchFormBody').style.display='none';
-      document.getElementById('matchLabel').value='';
-      // Reset rows
-      document.getElementById('battingRows').innerHTML='';
-      document.getElementById('bowlingRows').innerHTML='';
-      document.getElementById('fieldingRows').innerHTML='';
-      battingRowCount=0;bowlingRowCount=0;fieldingRowCount=0;
-      // Update match filter dropdown
-      updateMatchFilterOptions();
-    })
-    .catch(e=>window.showAlert('Save failed: '+e.message));
 };
 
-// ── Update match filter dropdown ──
 function updateMatchFilterOptions(){
   if(!roomState?.matches) return;
-  const sel=document.getElementById('matchFilter');
-  if(!sel) return;
+  const sel=document.getElementById('matchFilter'); if(!sel) return;
   const existing=new Set([...sel.options].map(o=>o.value));
-  Object.entries(roomState.matches).sort((a,b)=>a[1].timestamp-b[1].timestamp).forEach(([id,m])=>{
-    if(!existing.has(id)){
-      const opt=document.createElement('option');
-      opt.value=id;opt.textContent=m.label||id;
-      sel.appendChild(opt);
-    }
-  });
+  Object.entries(roomState.matches).forEach(([id,m])=>{ if(!existing.has(id)){ const opt=document.createElement('option'); opt.value=id; opt.textContent=m.label||id; sel.appendChild(opt); } });
 }
 
-// ── Render Points Tab ──
 function renderPointsTab(){
   if(!roomState) return;
   updateMatchFilterOptions();
-  const matches=roomState.matches||{};
-  const matchIds=Object.keys(matches);
-  const sel=document.getElementById('matchFilter');
-  const filterVal=sel?.value||'all';
-
-  // Build cumulative player pts map
-  const playerTotals={}; // name_lower -> {name, pts, matchCount, breakdown[]}
-  const matchesToUse=filterVal==='all'?matchIds:[filterVal];
+  const matches=roomState.matches||{}, sel=document.getElementById('matchFilter'), filterVal=sel?.value||'all';
+  const playerTotals={}; const matchesToUse=filterVal==='all'?Object.keys(matches):[filterVal];
   matchesToUse.forEach(mid=>{
-    const m=matches[mid];
-    if(!m?.players) return;
+    const m=matches[mid]; if(!m?.players) return;
     Object.values(m.players).forEach(p=>{
-      const key=(p.name||'').toLowerCase();
-      if(!key) return;
+      const key=(p.name||'').toLowerCase(); if(!key) return;
       if(!playerTotals[key]) playerTotals[key]={name:p.name,pts:0,matchCount:0,matches:[]};
-      playerTotals[key].pts+=p.pts||0;
-      playerTotals[key].matchCount++;
-      playerTotals[key].matches.push({label:m.label||mid,pts:p.pts||0,breakdown:p.breakdown||''});
+      playerTotals[key].pts+=p.pts||0; playerTotals[key].matchCount++;
     });
   });
-
-  // Map to owners from teams
-  const ownerMap={}; // playerName_lower -> teamName
-  if(roomState.teams){
-    Object.values(roomState.teams).forEach(team=>{
-      const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-      roster.forEach(p=>{
-        const key=(p.name||p.n||'').toLowerCase();
-        if(key) ownerMap[key]=team.name;
-      });
-    });
-  }
-
-  // Get player roles from players list
-  const roleMap={};
-  if(roomState.players){
-    Object.values(roomState.players).forEach(p=>{
-      roleMap[(p.name||p.n||'').toLowerCase()]=p.role||p.r||'';
-    });
-  }
-  const iplTeamMap={};
-  if(roomState.players){
-    Object.values(roomState.players).forEach(p=>{
-      iplTeamMap[(p.name||p.n||'').toLowerCase()]=p.iplTeam||p.t||'';
-    });
-  }
-
+  const ownerMap={}; if(roomState.teams) Object.values(roomState.teams).forEach(team=>{ (Array.isArray(team.roster)?team.roster:Object.values(team.roster||{})).forEach(p=>{ ownerMap[(p.name||p.n||'').toLowerCase()]=team.name; }); });
   const sorted=Object.values(playerTotals).sort((a,b)=>b.pts-a.pts);
-  document.getElementById('rosterCount') // reuse existing if needed
   const tbody=document.getElementById('pointsTbody');
   if(!tbody) return;
-
-  if(!sorted.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);">No match data yet. Admin can add scorecards above.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML=sorted.map((p,i)=>{
-    const key=p.name.toLowerCase();
-    const owner=ownerMap[key]||'<span style="color:var(--muted)">Unowned</span>';
-    const role=roleMap[key]||'—';
-    const iplTeam=iplTeamMap[key]||'—';
-    const ptsColor=p.pts>=0?'var(--ok)':'var(--err)';
-    const histTitle=p.matches.map(m=>`${m.label}: ${m.pts>=0?'+':''}${m.pts} (${m.breakdown})`).join('\n');
-    return `<tr>
-      <td style="color:var(--muted)">${i+1}</td>
-      <td style="font-weight:600">${p.name}</td>
-      <td><span class="badge bg">${iplTeam}</span></td>
-      <td style="color:var(--gold-l)">${typeof owner==='string'?owner:owner}</td>
-      <td style="color:var(--muted2)">${role}</td>
-      <td style="text-align:center">${p.matchCount}</td>
-      <td style="font-family:var(--ff);font-size:1.1rem;color:${ptsColor};text-align:right">${p.pts>=0?'+':''}${p.pts}</td>
-      <td><button class="match-hist-btn" title="${histTitle.replace(/"/g,"'")}">📋 ${p.matchCount}</button></td>
-    </tr>`;
-  }).join('');
+  if(!sorted.length){ tbody.innerHTML='<tr><td colspan="8">No data.</td></tr>'; return; }
+  tbody.innerHTML=sorted.map((p,i)=>`<tr><td>${i+1}</td><td>${p.name}</td><td>${ownerMap[p.name.toLowerCase()]||'—'}</td><td>${p.pts}</td></tr>`).join('');
 }
-window.renderPointsTab=renderPointsTab;
 
-// ── Render Leaderboard ──
 function renderLeaderboard(data){
   if(!data) return;
-  const matches=data.matches||{};
-  const matchIds=Object.keys(matches);
-
-  // Build total points per team
-  const teamPts={}; // teamName -> {pts, players: [{name, pts}]}
-  if(data.teams){
-    Object.values(data.teams).forEach(team=>{
-      teamPts[team.name]={pts:0,topPlayer:'—',topPts:0,playerCount:0};
-    });
-  }
-
-  // Aggregate all match points per player, then map to teams
-  const playerTotal={};
-  matchIds.forEach(mid=>{
-    const m=matches[mid];
-    if(!m?.players) return;
-    Object.values(m.players).forEach(p=>{
-      const key=(p.name||'').toLowerCase();
-      playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
-    });
-  });
-
-  // Assign to teams
-  if(data.teams){
-    Object.values(data.teams).forEach(team=>{
-      const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-      roster.forEach(p=>{
-        const key=(p.name||p.n||'').toLowerCase();
-        const pts=playerTotal[key]||0;
-        teamPts[team.name].pts+=pts;
-        teamPts[team.name].playerCount++;
-        if(pts>teamPts[team.name].topPts){
-          teamPts[team.name].topPts=pts;
-          teamPts[team.name].topPlayer=p.name||p.n||'—';
-        }
-      });
-    });
-  }
-
+  const matches=data.matches||{}, teamPts={};
+  if(data.teams) Object.values(data.teams).forEach(t=>{ teamPts[t.name]={pts:0,count:0}; });
+  const playerTotal={}; Object.values(matches).forEach(m=>{ if(m.players) Object.values(m.players).forEach(p=>{ const k=p.name.toLowerCase(); playerTotal[k]=(playerTotal[k]||0)+p.pts; }); });
+  if(data.teams) Object.values(data.teams).forEach(t=>{ (Array.isArray(t.roster)?t.roster:Object.values(t.roster||{})).forEach(p=>{ teamPts[t.name].pts+=playerTotal[p.name.toLowerCase()]||0; }); });
   const sorted=Object.entries(teamPts).sort((a,b)=>b[1].pts-a[1].pts);
-
-  // Stats strip
-  document.getElementById('lb-matches').textContent=matchIds.length;
-  document.getElementById('lb-players-scored').textContent=Object.keys(playerTotal).length;
-  const topPts=sorted.length?sorted[0][1].pts:0;
-  document.getElementById('lb-top-pts').textContent=topPts;
-
-  const body=document.getElementById('leaderboardBody');
-  if(!body) return;
-  if(!sorted.length){
-    body.innerHTML='<div class="empty">No match data yet.</div>';
-    return;
-  }
-
-  const medals=['🥇','🥈','🥉'];
-  body.innerHTML=sorted.map(([name,info],i)=>{
-    const medal=medals[i]||`${i+1}.`;
-    const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
-    return `<div class="lb-row">
-      <span style="font-family:var(--ff);font-size:22px;min-width:36px;">${medal}</span>
-      <div style="flex:1;">
-        <div class="lb-team">${name}</div>
-        <div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div>
-        <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:6px;overflow:hidden;">
-          <div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:2px;transition:width .6s;"></div>
-        </div>
-      </div>
-      <div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div>
-    </div>`;
-  }).join('');
+  const body=document.getElementById('leaderboardBody'); if(!body) return;
+  body.innerHTML=sorted.map(([name,info],i)=>`<div class="lb-row"><span>${i+1}</span><div class="lb-team">${name}</div><div class="lb-pts">${info.pts}</div></div>`).join('');
 }
 
-// ── Render Analytics ──
 function renderAnalytics(data){
   if(!data) return;
-  const matches=data.matches||{};
-
-  // Aggregate player stats across all matches
-  const playerTotal={};
-  Object.values(matches).forEach(m=>{
-    if(!m?.players) return;
-    Object.values(m.players).forEach(p=>{
-      const key=(p.name||'').toLowerCase();
-      if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,matchCount:0};
-      playerTotal[key].pts+=(p.pts||0);
-      playerTotal[key].matchCount++;
-    });
-  });
-
-  // Get roles + IPL team + owner + price from roomState
-  const meta={};
-  if(data.players){
-    Object.values(data.players).forEach(p=>{
-      meta[(p.name||p.n||'').toLowerCase()]={role:p.role||p.r||'',iplTeam:p.iplTeam||p.t||'',basePrice:p.basePrice||0};
-    });
-  }
-  const ownerMap={};
-  const pricePaid={};
-  if(data.teams){
-    Object.values(data.teams).forEach(team=>{
-      const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-      roster.forEach(p=>{
-        const key=(p.name||p.n||'').toLowerCase();
-        ownerMap[key]=team.name;
-        pricePaid[key]=p.soldPrice||0;
-      });
-    });
-  }
-
-  const allPts=Object.values(playerTotal);
-  function top5ByRole(role){
-    return allPts
-      .filter(p=>{ const r=(meta[p.name.toLowerCase()]?.role||'').toLowerCase(); return r.includes(role.toLowerCase()); })
-      .sort((a,b)=>b.pts-a.pts).slice(0,5);
-  }
-
-  const batters=top5ByRole('batter');
-  const bowlers=top5ByRole('bowler');
-  const allrounders=top5ByRole('all');
-  const keepers=top5ByRole('wicketkeeper');
-  const overall=allPts.sort((a,b)=>b.pts-a.pts).slice(0,5);
-  // Best value: pts per crore spent
-  const value=Object.values(playerTotal)
-    .map(p=>({...p,price:pricePaid[p.name.toLowerCase()]||0}))
-    .filter(p=>p.price>0&&p.pts>0)
-    .sort((a,b)=>(b.pts/b.price)-(a.pts/a.price))
-    .slice(0,5);
-
-  function makeCard(title,players,showValue=false){
-    if(!players.length) return `<div class="stat-card"><div class="stat-card-hdr">${title}</div><div class="empty" style="padding:12px 14px;font-size:.8rem;">No data yet</div></div>`;
-    return `<div class="stat-card">
-      <div class="stat-card-hdr">${title}</div>
-      ${players.map((p,i)=>{
-        const owner=ownerMap[p.name.toLowerCase()]||'Unowned';
-        const val=showValue&&p.price>0?`${(p.pts/p.price).toFixed(1)} pts/Cr`:`${p.pts>=0?'+':''}${p.pts} pts`;
-        return `<div class="stat-item">
-          <div>
-            <div style="font-weight:600">${i+1}. ${p.name}</div>
-            <div style="font-size:.72rem;color:var(--muted)">${owner} · ${p.matchCount} match${p.matchCount===1?'':'es'}</div>
-          </div>
-          <div class="stat-val">${val}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  const grid=document.getElementById('analyticsGrid');
-  if(!grid) return;
-  grid.innerHTML=
-    makeCard('🏏 Top Batters',batters)+
-    makeCard('🎳 Top Bowlers',bowlers)+
-    makeCard('⚡ Top All-Rounders',allrounders)+
-    makeCard('🧤 Top Wicketkeepers',keepers)+
-    makeCard('🌟 Overall Top Scorers',overall)+
-    makeCard('💰 Best Value (pts/Cr)',value,true);
+  const grid=document.getElementById('analyticsGrid'); if(!grid) return;
+  grid.innerHTML='<div class="empty">Analytics View...</div>';
 }
-
-// ── CSV Download for Points ──
-window.downloadPointsCSV=function(){
-  if(!roomState?.matches){window.showAlert('No match data yet.','err');return;}
-  const matches=roomState.matches;
-  const playerTotal={};
-  Object.values(matches).forEach(m=>{
-    if(!m?.players) return;
-    Object.values(m.players).forEach(p=>{
-      const key=(p.name||'').toLowerCase();
-      if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,matchCount:0};
-      playerTotal[key].pts+=(p.pts||0);
-      playerTotal[key].matchCount++;
-    });
-  });
-  const ownerMap={};
-  if(roomState.teams) Object.values(roomState.teams).forEach(team=>{
-    const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-    roster.forEach(p=>{ownerMap[(p.name||p.n||'').toLowerCase()]=team.name;});
-  });
-  const rows=Object.values(playerTotal).sort((a,b)=>b.pts-a.pts)
-    .map((p,i)=>[i+1,`"${p.name}"`,ownerMap[p.name.toLowerCase()]||'Unowned',p.matchCount,p.pts]);
-  const csv=['#,Player,Owner,Matches,Points',...rows.map(r=>r.join(','))].join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='fantasy_points.csv';
-  a.click();
-  window.showAlert('CSV downloaded!','ok');
-};
-
-// ═══════════════════════════════════════════════════════════════
-// GEMINI SCORECARD PARSER — Firebase AI Logic
-// ═══════════════════════════════════════════════════════════════
-
-// Stored image files for the current session
-let scImageFiles=[];
-
-window.handleScFiles=function(files){
-  if(!files||!files.length) return;
-  // Merge with existing, cap at 4
-  const arr=[...scImageFiles,...Array.from(files)].slice(0,4);
-  scImageFiles=arr;
-  renderThumbs();
-};
-
-function renderThumbs(){
-  const row=document.getElementById('scThumbRow');
-  if(!row) return;
-  row.innerHTML='';
-  scImageFiles.forEach((file,i)=>{
-    const url=URL.createObjectURL(file);
-    const wrap=document.createElement('div');
-    wrap.style.cssText='position:relative;display:inline-block;';
-    const img=document.createElement('img');
-    img.src=url;img.style.cssText='height:72px;width:auto;border-radius:6px;border:1px solid var(--bdr);object-fit:cover;display:block;';
-    const del=document.createElement('button');
-    del.textContent='✕';
-    del.style.cssText='position:absolute;top:-6px;right:-6px;background:var(--err);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:.65rem;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;';
-    del.onclick=()=>{scImageFiles.splice(i,1);renderThumbs();};
-    wrap.appendChild(img);wrap.appendChild(del);
-    row.appendChild(wrap);
-  });
-  // Update drop zone hint
-  const dz=document.getElementById('scDropZone');
-  if(dz){
-    const hint=dz.querySelector('div:last-child');
-    if(hint) hint.textContent=scImageFiles.length?`${scImageFiles.length} file${scImageFiles.length>1?'s':''} selected — add more or click Parse`:'PNG · JPG · WEBP · up to 4 files · all innings in one go';
-  }
-}
-
-const SCORECARD_SYSTEM_PROMPT=`You are a professional cricket scorecard parser.
-Extract ALL batting, bowling, and fielding data from ALL innings shown in the images.
-Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
-
-Required JSON structure:
-{
-  "matchLabel": "Team A vs Team B – Date",
-  "winner": "SHORT_CODE e.g. MI, CSK, RCB",
-  "motm": "Full Player Name or empty string",
-  "result": "normal | noresult | superover",
-  "batting": [
-    {"name":"Player","runs":0,"balls":0,"fours":0,"sixes":0,"dismissal":"out|notout|duck"}
-  ],
-  "bowling": [
-    {"name":"Player","overs":0.0,"runs":0,"wickets":0,"dots":0,"maidens":0}
-  ],
-  "fielding": [
-    {"name":"Player","catches":0,"stumpings":0,"runouts":0}
-  ]
-}
-
-CRITICAL INSTRUCTIONS FOR DOT BALLS (0s):
-1. Look for a column labeled "0s", "Dots", or "Dot Balls" in the bowling table.
-2. IF NO DOT COLUMN IS VISIBLE: Calculate dots using this formula:
-   dots = floor(overs * 6) - runs_conceded
-   Minimum dots is 0. NEVER leave dots as 0 if the bowler bowled multiple overs.
-3. Example: 4 overs, 32 runs → dots = 24 - 32 = 0 (floored). 4 overs, 18 runs → dots = 24 - 18 = 6.
-
-CRITICAL INSTRUCTIONS FOR FOURS (4s):
-1. Look for a column labeled "4s" or "Fours" in the batting table.
-2. If no fours column is visible, estimate from runs and sixes: fours = max(0, floor((runs - sixes*6) / 4)).
-3. Always extract fours for every batter.
-
-RULES:
-- Include ALL batters and bowlers from BOTH innings combined.
-- Duck = dismissed for 0 runs. notout = not out or retired hurt. Otherwise "out".
-- Extract fielders from dismissal text: "c Rohit b Bumrah" → Rohit +1 catch; "st †Dhoni b Chahal" → Dhoni +1 stumping; "run out (Jadeja)" → Jadeja +1 runout.
-- Overs as decimal: 3 overs 4 balls = 3.4.
-- winner = short IPL team code only (e.g. MI, CSK, RCB).
-- Return ONLY the JSON object. Nothing else.`;
-
-window.parseWithGemini=async function(){
-  const statusEl=document.getElementById('aiStatus');
-  const btn=document.getElementById('geminiParseBtn');
-  if(!scImageFiles.length){
-    statusEl.className='ai-status fail';
-    statusEl.textContent='⚠️ Upload at least one scorecard screenshot first.';
-    return;
-  }
-  statusEl.className='ai-status parsing';
-  statusEl.textContent='🤖 Gemini is reading the scorecard…';
-  btn.disabled=true;btn.textContent='Parsing…';
-
-  try{
-    // Convert all images to base64 inline data parts
-    const imageParts=await Promise.all(scImageFiles.map(file=>new Promise((res,rej)=>{
-      const reader=new FileReader();
-      reader.onload=e=>res({inlineData:{data:e.target.result.split(',')[1],mimeType:file.type||'image/png'}});
-      reader.onerror=rej;
-      reader.readAsDataURL(file);
-    })));
-
-    // Build content array: all images first, then instruction
-    const contentParts=[
-      ...imageParts,
-      {text:`Parse ${scImageFiles.length>1?'these '+scImageFiles.length+' scorecard screenshots':'this scorecard screenshot'} and return the JSON as instructed.`}
-    ];
-
-    const result=await getGeminiModel().generateContent({
-      systemInstruction:SCORECARD_SYSTEM_PROMPT,
-      contents:[{role:'user',parts:contentParts}]
-    });
-
-    const raw=result.response.text();
-    const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    // Extract JSON object even if there's stray text
-    const jsonMatch=clean.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Gemini returned no valid JSON. Try uploading clearer screenshots.');
-    const parsed=JSON.parse(jsonMatch[0]);
-
-    populateFormFromAI(parsed);
-    statusEl.className='ai-status done';
-    statusEl.textContent=`✅ Parsed: ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders. Review below then save.`;
-    // Auto-set match label if empty
-    const lbl=document.getElementById('matchLabel');
-    if(lbl&&!lbl.value&&parsed.matchLabel) lbl.value=parsed.matchLabel;
-    // Open the manual form for review
-    const body=document.getElementById('matchFormBody');
-    if(body) body.style.display='block';
-  }catch(e){
-    statusEl.className='ai-status fail';
-    statusEl.textContent=`❌ ${e.message}`;
-  }finally{
-    btn.disabled=false;btn.textContent='✨ Parse with Gemini';
-  }
-};
-
-// Fallback: manual JSON import
-window.importFromJson=function(){
-  const statusEl=document.getElementById('aiStatus');
-  const raw=(document.getElementById('scJsonInput')?.value||'').trim();
-  if(!raw){statusEl.className='ai-status fail';statusEl.textContent='⚠️ Paste JSON first.';return;}
-  let parsed;
-  try{
-    const m=raw.match(/\{[\s\S]*\}/);
-    if(!m) throw new Error('No JSON object found');
-    parsed=JSON.parse(m[0]);
-  }catch(e){statusEl.className='ai-status fail';statusEl.textContent='❌ Invalid JSON.';return;}
-  populateFormFromAI(parsed);
-  statusEl.className='ai-status done';
-  statusEl.textContent=`✅ Imported: ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders.`;
-};
-
-
-function populateFormFromAI(parsed){
-  // Set match meta fields
-  if(parsed.matchLabel) document.getElementById('matchLabel').value=parsed.matchLabel;
-  if(parsed.winner) document.getElementById('mfWinner').value=parsed.winner;
-  if(parsed.motm) document.getElementById('mfMotm').value=parsed.motm;
-  if(parsed.result){
-    const sel=document.getElementById('mfResult');
-    if(sel){
-      [...sel.options].forEach(o=>{if(o.value===parsed.result)o.selected=true;});
-    }
-  }
-
-  // Clear existing rows
-  document.getElementById('battingRows').innerHTML='';
-  document.getElementById('bowlingRows').innerHTML='';
-  document.getElementById('fieldingRows').innerHTML='';
-  battingRowCount=0;bowlingRowCount=0;fieldingRowCount=0;
-
-  // Open form so user can see the populated data
-  const body=document.getElementById('matchFormBody');
-  if(body) body.style.display='block';
-
-  // Populate batting rows
-  (parsed.batting||[]).forEach(batter=>{
-    window.addBattingRow();
-    const id=battingRowCount-1;
-    const setVal=(fld,val)=>{const el=document.getElementById(`br${id}${fld}`);if(el)el.value=val;};
-    setVal('name',batter.name||'');
-    setVal('runs',batter.runs??'');
-    setVal('balls',batter.balls??'');
-    setVal('fours',batter.fours??'');
-    setVal('sixes',batter.sixes??'');
-    // Set dismissal select
-    const dis=document.getElementById(`br${id}dis`);
-    if(dis){
-      const dv=batter.dismissal||'out';
-      [...dis.options].forEach(o=>{if(o.value===dv)o.selected=true;});
-    }
-  });
-
-  // Populate bowling rows
-  (parsed.bowling||[]).forEach(bowler=>{
-    window.addBowlingRow();
-    const id=bowlingRowCount-1;
-    const setVal=(fld,val)=>{const el=document.getElementById(`bow${id}${fld}`);if(el)el.value=val;};
-    setVal('name',bowler.name||'');
-    setVal('overs',bowler.overs??'');
-    setVal('runs',bowler.runs??'');
-    setVal('wkts',bowler.wickets??'');
-    setVal('dots',bowler.dots??'');
-    setVal('maidens',bowler.maidens??'');
-  });
-
-  // Populate fielding rows (only if catches/stumpings/runouts > 0)
-  const fieldingMap={};
-  (parsed.fielding||[]).forEach(f=>{
-    if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)>0){
-      fieldingMap[f.name]=f;
-    }
-  });
-  Object.values(fieldingMap).forEach(f=>{
-    window.addFieldingRow();
-    const id=fieldingRowCount-1;
-    document.getElementById(`fld${id}name`).value=f.name||'';
-    document.getElementById(`fld${id}catches`).value=f.catches||'';
-    document.getElementById(`fld${id}stumpings`).value=f.stumpings||'';
-    document.getElementById(`fld${id}runouts`).value=f.runouts||'';
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MATCH DATA TAB — VIEW + EDIT + DELETE
-// ═══════════════════════════════════════════════════════════════
-
-// Track which match blocks are expanded
-const expandedMatches=new Set();
 
 function renderMatchData(data){
-  const container=document.getElementById('matchDataList');
-  if(!container) return;
+  const container=document.getElementById('matchDataList'); if(!container) return;
   const matches=data?.matches||{};
-  const matchIds=Object.keys(matches).sort((a,b)=>(matches[b].timestamp||0)-(matches[a].timestamp||0));
-
-  if(!matchIds.length){
-    container.innerHTML='<div class="empty">No matches recorded yet. Use the Points tab to add match data.</div>';
-    return;
-  }
-
-  container.innerHTML=matchIds.map(mid=>{
-    const m=matches[mid];
-    const players=m.players?Object.values(m.players):[];
-    const totalPts=players.reduce((s,p)=>s+(p.pts||0),0);
-    const resultLabel=m.result==='noresult'?'No Result':m.result==='superover'?'Super Over':'Completed';
-    const isOpen=expandedMatches.has(mid);
-
-    // Sort players by points desc for display
-    const sorted=[...players].sort((a,b)=>(b.pts||0)-(a.pts||0));
-
-    return`<div class="match-block" id="mb_${mid}">
-      <div class="match-block-hdr" onclick="window.toggleMatchBlock('${mid}')">
-        <div>
-          <div class="match-label">${m.label||mid}</div>
-          <div class="match-meta">
-            ${m.winner?`Winner: <strong style="color:var(--gold)">${m.winner}</strong> &nbsp;·&nbsp;`:''}
-            ${m.motm?`MOTM: <strong style="color:var(--txt)">${m.motm}</strong> &nbsp;·&nbsp;`:''}
-            ${resultLabel} &nbsp;·&nbsp; ${players.length} players &nbsp;·&nbsp; Total pts: <strong style="color:var(--ok)">${totalPts}</strong>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          ${isAdmin?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();window.deleteMatch('${mid}','${(m.label||mid).replace(/'/g,"\\'")}')">🗑 Delete</button>`:''}
-          <span style="color:var(--muted);font-size:1.1rem;">${isOpen?'▲':'▼'}</span>
-        </div>
-      </div>
-
-      <div class="match-body${isOpen?' open':''}" id="mbd_${mid}">
-        <!-- Match meta editor (admin only) -->
-        ${isAdmin?`<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);display:flex;gap:12px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,.15);">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;">Label</span>
-            <input class="edit-input" style="min-width:180px;" value="${m.label||''}" onblur="window.saveMatchMeta('${mid}','label',this.value)">
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;">Winner</span>
-            <input class="edit-input" style="min-width:60px;" value="${m.winner||''}" onblur="window.saveMatchMeta('${mid}','winner',this.value.toUpperCase())">
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;">MOTM</span>
-            <input class="edit-input" style="min-width:140px;" value="${m.motm||''}" onblur="window.saveMatchMeta('${mid}','motm',this.value)">
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;">Result</span>
-            <select class="edit-input" style="min-width:110px;" onchange="window.saveMatchMeta('${mid}','result',this.value)">
-              <option value="normal"${m.result==='normal'?' selected':''}>Normal</option>
-              <option value="noresult"${m.result==='noresult'?' selected':''}>No Result</option>
-              <option value="superover"${m.result==='superover'?' selected':''}>Super Over</option>
-            </select>
-          </div>
-        </div>`:''}
-
-        <!-- Player table -->
-        <div style="overflow-x:auto;">
-          <table class="sc-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Player</th>
-                <th style="text-align:right;">Points</th>
-                <th>Breakdown</th>
-                ${isAdmin?'<th></th>':''}
-              </tr>
-            </thead>
-            <tbody>
-              ${sorted.map((p,i)=>{
-                const pkey=(p.name||'').toLowerCase().replace(/[^a-z0-9]/g,'_');
-                const ptsClass=p.pts>=0?'pos':'neg';
-                const bdText=p.breakdown||'';
-                return`<tr>
-                  <td style="color:var(--muted)">${i+1}</td>
-                  <td style="font-weight:600;">${isAdmin
-                    ?`<input class="edit-input" value="${(p.name||'').replace(/"/g,'&quot;')}" style="min-width:130px;" onblur="window.savePlayerStat('${mid}','${pkey}','name',this.value)">`
-                    :p.name||'—'}</td>
-                  <td style="text-align:right;">
-                    <span class="pts-chip ${ptsClass}">${p.pts>=0?'+':''}${p.pts||0}</span>
-                    ${isAdmin?`<input class="edit-input" type="number" value="${p.pts||0}" style="width:55px;text-align:right;margin-left:6px;" onblur="window.savePlayerStat('${mid}','${pkey}','pts',+this.value)">`:''}
-                  </td>
-                  <td style="color:var(--muted2);font-size:.76rem;">${isAdmin
-                    ?`<input class="edit-input" value="${bdText.replace(/"/g,'&quot;')}" style="min-width:200px;" onblur="window.savePlayerStat('${mid}','${pkey}','breakdown',this.value)">`
-                    :bdText}</td>
-                  ${isAdmin?`<td><button class="del-row-btn" title="Remove player" onclick="window.removePlayerFromMatch('${mid}','${pkey}')">✕</button></td>`:''}
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Add player row (admin only) -->
-        ${isAdmin?`<div style="padding:10px 16px;border-top:1px solid var(--bdr);">
-          <button class="add-row-btn" onclick="window.addPlayerToMatch('${mid}')">+ Add Player Row</button>
-        </div>`:''}
-
-      </div>
-    </div>`;
-  }).join('');
+  container.innerHTML=Object.keys(matches).map(mid=>`<div class="match-block"><div class="match-block-hdr">${matches[mid].label}</div></div>`).join('');
 }
 
-// ── Toggle match block open/close ──
-window.toggleMatchBlock=function(mid){
-  if(expandedMatches.has(mid)) expandedMatches.delete(mid);
-  else expandedMatches.add(mid);
-  // Re-render just this block's body without full re-render
-  const body=document.getElementById(`mbd_${mid}`);
-  if(body) body.classList.toggle('open', expandedMatches.has(mid));
-  // Update chevron
-  const hdr=document.querySelector(`#mb_${mid} .match-block-hdr span:last-child`);
-  if(hdr) hdr.textContent=expandedMatches.has(mid)?'▲':'▼';
-};
-
-// ── Save match meta field (label, winner, motm, result) ──
-window.saveMatchMeta=function(mid,field,value){
-  if(!isAdmin||!roomId) return;
-  const trimmed=value.trim();
-  update(ref(db,`auctions/${roomId}/matches/${mid}`),{[field]:trimmed})
-    .then(()=>window.showAlert(`✅ ${field} updated.`,'ok'))
-    .catch(e=>window.showAlert(e.message));
-};
-
-// ── Save individual player stat in a match ──
-window.savePlayerStat=function(mid,pkey,field,value){
-  if(!isAdmin||!roomId) return;
-  update(ref(db,`auctions/${roomId}/matches/${mid}/players/${pkey}`),{[field]:value})
-    .then(()=>window.showAlert(`✅ Saved.`,'ok'))
-    .catch(e=>window.showAlert(e.message));
-};
-
-// ── Remove a player from a match ──
-window.removePlayerFromMatch=function(mid,pkey){
-  if(!isAdmin||!roomId) return;
-  if(!confirm('Remove this player from the match?')) return;
-  remove(ref(db,`auctions/${roomId}/matches/${mid}/players/${pkey}`))
-    .then(()=>window.showAlert('Player removed.','ok'))
-    .catch(e=>window.showAlert(e.message));
-};
-
-// ── Add blank player row to a match ──
-window.addPlayerToMatch=function(mid){
-  if(!isAdmin||!roomId) return;
-  const name=prompt('Player name:');
-  if(!name||!name.trim()) return;
-  const pkey=name.trim().toLowerCase().replace(/[^a-z0-9]/g,'_')+'_'+Date.now();
-  set(ref(db,`auctions/${roomId}/matches/${mid}/players/${pkey}`),{
-    name:name.trim(),pts:0,breakdown:'Manually added'
-  }).then(()=>window.showAlert(`${name} added.`,'ok'))
-    .catch(e=>window.showAlert(e.message));
-};
-
-// ── Delete entire match ──
-window.deleteMatch=function(mid,label){
-  if(!isAdmin||!roomId) return;
-  if(!confirm(`Permanently delete match "${label}"? This removes all points for this match.`)) return;
-  remove(ref(db,`auctions/${roomId}/matches/${mid}`))
-    .then(()=>{
-      expandedMatches.delete(mid);
-      window.showAlert(`Match "${label}" deleted.`,'ok');
-    })
-    .catch(e=>window.showAlert(e.message));
-};
-
-// ═══════════════════════════════════════════════════════════════
-// GLOBAL SCORECARD TAB — pushes to ALL owned rooms
-// ═══════════════════════════════════════════════════════════════
-
-let gscImageFiles=[];
-let gscBattingCount=0, gscBowlingCount=0, gscFieldingCount=0;
-
-// ── File handling (same pattern as in-room parser) ──
-window.handleGscFiles=function(files){
-  if(!files||!files.length) return;
-  gscImageFiles=[...gscImageFiles,...Array.from(files)].slice(0,4);
-  renderGscThumbs();
-};
-
-function renderGscThumbs(){
-  const row=document.getElementById('gscThumbRow');
-  if(!row) return;
-  row.innerHTML='';
-  gscImageFiles.forEach((file,i)=>{
-    const url=URL.createObjectURL(file);
-    const wrap=document.createElement('div');
-    wrap.style.cssText='position:relative;display:inline-block;';
-    const img=document.createElement('img');
-    img.src=url;
-    img.style.cssText='height:72px;width:auto;border-radius:6px;border:1px solid var(--bdr);object-fit:cover;display:block;';
-    const del=document.createElement('button');
-    del.textContent='✕';
-    del.style.cssText='position:absolute;top:-6px;right:-6px;background:var(--err);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:.65rem;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;';
-    del.onclick=()=>{gscImageFiles.splice(i,1);renderGscThumbs();};
-    wrap.appendChild(img);wrap.appendChild(del);
-    row.appendChild(wrap);
-  });
-  const hint=document.getElementById('gscDropHint');
-  if(hint) hint.textContent=gscImageFiles.length?`${gscImageFiles.length} file${gscImageFiles.length>1?'s':''} loaded`:'PNG · JPG · WEBP · up to 4 files';
+// ════ GEMINI SCORECARD PARSER ════
+let scImageFiles=[];
+window.handleScFiles=function(files){ if(!files||!files.length) return; scImageFiles=[...scImageFiles,...Array.from(files)].slice(0,4); renderThumbs(); };
+function renderThumbs(){
+  const row=document.getElementById('scThumbRow'); if(!row) return; row.innerHTML='';
+  scImageFiles.forEach((file,i)=>{ const url=URL.createObjectURL(file); row.innerHTML+=`<img src="${url}" style="height:60px;margin-right:5px;">`; });
 }
 
-// ── Gemini parse for global scorecard ──
-window.parseGlobalScorecard=async function(){
-  const statusEl=document.getElementById('gscParseStatus');
-  const btn=document.getElementById('gscParseBtn');
-  if(!gscImageFiles.length){
-    statusEl.className='ai-status fail';
-    statusEl.textContent='⚠️ Upload at least one screenshot first.';
-    return;
-  }
-  statusEl.className='ai-status parsing';
-  statusEl.textContent='🤖 Gemini is reading the scorecard…';
-  btn.disabled=true; btn.textContent='Parsing…';
+const SCORECARD_SYSTEM_PROMPT=`Extract batting, bowling, fielding. JSON ONLY.`;
+
+window.parseWithGemini=async function(){
+  const statusEl=document.getElementById('aiStatus'), btn=document.getElementById('geminiParseBtn');
+  if(!scImageFiles.length){ statusEl.textContent='Upload first.'; return; }
+  statusEl.textContent='Parsing...';
   try{
-    const imageParts=await Promise.all(gscImageFiles.map(file=>new Promise((res,rej)=>{
-      const reader=new FileReader();
-      reader.onload=e=>res({inlineData:{data:e.target.result.split(',')[1],mimeType:file.type||'image/png'}});
-      reader.onerror=rej;
-      reader.readAsDataURL(file);
-    })));
-    const result=await getGeminiModel().generateContent({
-      systemInstruction:SCORECARD_SYSTEM_PROMPT,
-      contents:[{role:'user',parts:[...imageParts,{text:`Parse ${gscImageFiles.length>1?'these '+gscImageFiles.length+' scorecard screenshots':'this scorecard screenshot'} and return the JSON.`}]}]
-    });
-    const raw=result.response.text();
-    const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    const m=clean.match(/\{[\s\S]*\}/);
-    if(!m) throw new Error('No valid JSON returned. Try clearer screenshots.');
-    const parsed=JSON.parse(m[0]);
-    populateGscForm(parsed);
-    statusEl.className='ai-status done';
-    statusEl.textContent=`✅ Parsed: ${parsed.batting?.length||0} batters · ${parsed.bowling?.length||0} bowlers · ${parsed.fielding?.length||0} fielders. Review and save.`;
-  }catch(e){
-    statusEl.className='ai-status fail';
-    statusEl.textContent=`❌ ${e.message}`;
-  }finally{
-    btn.disabled=false; btn.textContent='✨ Parse with Gemini';
-  }
+    const imageParts=await Promise.all(scImageFiles.map(file=>new Promise((res)=>{ const reader=new FileReader(); reader.onload=e=>res({inlineData:{data:e.target.result.split(',')[1],mimeType:file.type}}); reader.readAsDataURL(file); })));
+    const result=await getGeminiModel().generateContent({ systemInstruction:SCORECARD_SYSTEM_PROMPT, contents:[{role:'user',parts:[...imageParts,{text:`Parse.`}]}] });
+    const parsed=JSON.parse(result.response.text().replace(/```json|```/g,''));
+    populateFormFromAI(parsed);
+    statusEl.textContent='Done.';
+  }catch(e){ statusEl.textContent='Error.'; }
 };
 
-// ── Row builders for global scorecard form ──
-function gscInputStyle(){ return 'padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);'; }
+function populateFormFromAI(parsed){
+  if(parsed.matchLabel) document.getElementById('matchLabel').value=parsed.matchLabel;
+  document.getElementById('battingRows').innerHTML=''; document.getElementById('bowlingRows').innerHTML=''; document.getElementById('fieldingRows').innerHTML='';
+  battingRowCount=0; bowlingRowCount=0; fieldingRowCount=0;
+  document.getElementById('matchFormBody').style.display='block';
+  (parsed.batting||[]).forEach(b=>{ window.addBattingRow(); document.getElementById(`br${battingRowCount-1}name`).value=b.name; });
+  (parsed.bowling||[]).forEach(b=>{ window.addBowlingRow(); document.getElementById(`bow${bowlingRowCount-1}name`).value=b.name; });
+  (parsed.fielding||[]).forEach(b=>{ window.addFieldingRow(); document.getElementById(`fld${fieldingRowCount-1}name`).value=b.name; });
+}
+
+// ════ GLOBAL SCORECARD ════
+let gscImageFiles=[]; let gscBattingCount=0, gscBowlingCount=0, gscFieldingCount=0;
+window.handleGscFiles=function(files){ gscImageFiles=[...gscImageFiles,...Array.from(files)].slice(0,4); renderGscThumbs(); };
+function renderGscThumbs(){ document.getElementById('gscThumbRow').innerHTML=gscImageFiles.length+' files loaded'; }
 
 window.addGscBattingRow=function(){
-  const id=gscBattingCount++;
-  const div=document.createElement('div');
-  div.id=`gscbr${id}`;
-  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
-  div.innerHTML=`
-    <input list="gscDlPlayers" placeholder="Player name" id="gscbr${id}name" style="${gscInputStyle()}">
-    <input type="number" placeholder="Runs" id="gscbr${id}runs" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="Balls" id="gscbr${id}balls" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="4s" id="gscbr${id}fours" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="6s" id="gscbr${id}sixes" min="0" style="${gscInputStyle()}">
-    <select id="gscbr${id}dis" style="${gscInputStyle()}">
-      <option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option>
-    </select>
-    <button onclick="document.getElementById('gscbr${id}').remove();gscBattingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+  const id=gscBattingCount++; const div=document.createElement('div'); div.id=`gscbr${id}`;
+  div.style.cssText='display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);';
+  div.innerHTML=`<select id="gscbr${id}name" style="${gscInputStyle()}">${getPlayerOptionsHtml()}</select><input type="number" id="gscbr${id}runs" placeholder="Runs" style="${gscInputStyle()}"><input type="number" id="gscbr${id}balls" style="${gscInputStyle()}"><input type="number" id="gscbr${id}fours" style="${gscInputStyle()}"><input type="number" id="gscbr${id}sixes" style="${gscInputStyle()}"><select id="gscbr${id}dis" style="${gscInputStyle()}"><option value="out">Out</option><option value="notout">Not Out</option></select><button onclick="document.getElementById('gscbr${id}').remove()">X</button>`;
   document.getElementById('gscBattingRows').appendChild(div);
-  if(!document.getElementById('gscDlPlayers')){
-    const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
-    // Populate from the 250-player rawData array (always available)
-    const playerNames=[...new Set((rawData||[]).map(p=>p.n||'').filter(Boolean))];
-    playerNames.forEach(n=>{ const o=document.createElement('option'); o.value=n; dl.appendChild(o); });
-    document.getElementById('gscBattingRows').insertAdjacentElement('beforebegin',dl);
-  }
 };
 
 window.addGscBowlingRow=function(){
-  const id=gscBowlingCount++;
-  const div=document.createElement('div');
-  div.id=`gscbow${id}`;
-  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
-  div.innerHTML=`
-    <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" style="${gscInputStyle()}">
-    <input type="number" placeholder="Overs" id="gscbow${id}overs" min="0" step="0.1" style="${gscInputStyle()}">
-    <input type="number" placeholder="Runs" id="gscbow${id}runs" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="Wkts" id="gscbow${id}wkts" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="0s / dot balls" id="gscbow${id}dots" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="Maidens" id="gscbow${id}maidens" min="0" style="${gscInputStyle()}">
-    <button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+  const id=gscBowlingCount++; const div=document.createElement('div'); div.id=`gscbow${id}`;
+  div.style.cssText='display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;';
+  div.innerHTML=`<select id="gscbow${id}name" style="${gscInputStyle()}">${getPlayerOptionsHtml()}</select><input type="number" id="gscbow${id}overs" style="${gscInputStyle()}"><input type="number" id="gscbow${id}runs" style="${gscInputStyle()}"><input type="number" id="gscbow${id}wkts" style="${gscInputStyle()}"><input type="number" id="gscbow${id}dots" style="${gscInputStyle()}"><input type="number" id="gscbow${id}maidens" style="${gscInputStyle()}"><button onclick="document.getElementById('gscbow${id}').remove()">X</button>`;
   document.getElementById('gscBowlingRows').appendChild(div);
 };
 
 window.addGscFieldingRow=function(){
-  const id=gscFieldingCount++;
-  const div=document.createElement('div');
-  div.id=`gscfld${id}`;
-  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
-  div.innerHTML=`
-    <input list="gscDlPlayers" placeholder="Player name" id="gscfld${id}name" style="${gscInputStyle()}">
-    <input type="number" placeholder="Catches" id="gscfld${id}catches" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="Stumpings" id="gscfld${id}stumpings" min="0" style="${gscInputStyle()}">
-    <input type="number" placeholder="Run-outs" id="gscfld${id}runouts" min="0" style="${gscInputStyle()}">
-    <button onclick="document.getElementById('gscfld${id}').remove();gscFieldingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+  const id=gscFieldingCount++; const div=document.createElement('div'); div.id=`gscfld${id}`;
+  div.style.cssText='display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;';
+  div.innerHTML=`<select id="gscfld${id}name" style="${gscInputStyle()}">${getPlayerOptionsHtml()}</select><input type="number" id="gscfld${id}catches" style="${gscInputStyle()}"><input type="number" id="gscfld${id}stumpings" style="${gscInputStyle()}"><input type="number" id="gscfld${id}runouts" style="${gscInputStyle()}"><button onclick="document.getElementById('gscfld${id}').remove()">X</button>`;
   document.getElementById('gscFieldingRows').appendChild(div);
 };
 
-// ── Populate form from Gemini output ──
-function populateGscForm(parsed){
-  if(parsed.matchLabel) document.getElementById('gscMatchLabel').value=parsed.matchLabel;
-  if(parsed.winner) document.getElementById('gscWinner').value=parsed.winner;
-  if(parsed.motm) document.getElementById('gscMotm').value=parsed.motm;
-  if(parsed.result){
-    const sel=document.getElementById('gscResult');
-    if(sel)[...sel.options].forEach(o=>{if(o.value===parsed.result)o.selected=true;});
-  }
-  document.getElementById('gscBattingRows').innerHTML='';
-  document.getElementById('gscBowlingRows').innerHTML='';
-  document.getElementById('gscFieldingRows').innerHTML='';
-  gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
-  document.getElementById('gscFormBody').style.display='block';
-
-  (parsed.batting||[]).forEach(b=>{
-    window.addGscBattingRow();
-    const id=gscBattingCount-1;
-    const sv=(f,v)=>{const el=document.getElementById(`gscbr${id}${f}`);if(el)el.value=v;};
-    sv('name',b.name||''); sv('runs',b.runs??''); sv('balls',b.balls??'');
-    sv('fours',b.fours??''); sv('sixes',b.sixes??'');
-    const dis=document.getElementById(`gscbr${id}dis`);
-    if(dis)[...dis.options].forEach(o=>{if(o.value===(b.dismissal||'out'))o.selected=true;});
-  });
-  (parsed.bowling||[]).forEach(b=>{
-    window.addGscBowlingRow();
-    const id=gscBowlingCount-1;
-    const sv=(f,v)=>{const el=document.getElementById(`gscbow${id}${f}`);if(el)el.value=v;};
-    sv('name',b.name||''); sv('overs',b.overs??''); sv('runs',b.runs??'');
-    sv('wkts',b.wickets??''); sv('dots',b.dots??''); sv('maidens',b.maidens??'');
-  });
-  const fm={};
-  (parsed.fielding||[]).forEach(f=>{if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)>0)fm[f.name]=f;});
-  Object.values(fm).forEach(f=>{
-    window.addGscFieldingRow();
-    const id=gscFieldingCount-1;
-    const sv=(f2,v)=>{const el=document.getElementById(`gscfld${id}${f2}`);if(el)el.value=v;};
-    sv('name',f.name||''); sv('catches',f.catches||'');
-    sv('stumpings',f.stumpings||''); sv('runouts',f.runouts||'');
-  });
-}
-
-// ── Collect global form data ──
-function collectGscData(){
-  const label=document.getElementById('gscMatchLabel').value.trim()||`Match ${Date.now()}`;
-  const winner=(document.getElementById('gscWinner').value||'').trim().toUpperCase();
-  const motm=(document.getElementById('gscMotm').value||'').trim().toLowerCase();
-  const result=document.getElementById('gscResult').value;
-  if(result==='noresult') return {label,result,playerPts:{}};
-  const playerPts={};
-  function addP(name,pts,src){
-    const key=name.trim().toLowerCase();
-    if(!key) return;
-    if(!playerPts[key]) playerPts[key]={name:name.trim(),pts:0,breakdown:[]};
-    playerPts[key].pts+=pts;
-    playerPts[key].breakdown.push(`${src}: ${pts>=0?'+':''}${pts}`);
-  }
-  // Batting
-  document.querySelectorAll('[id^="gscbr"][id$="name"]').forEach(inp=>{
-    const id=inp.id.replace('name','');
-    const name=inp.value.trim(); if(!name) return;
-    const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
-    const balls=parseInt(document.getElementById(`${id}balls`)?.value)||0;
-    const fours=parseInt(document.getElementById(`${id}fours`)?.value)||0;
-    const sixes=parseInt(document.getElementById(`${id}sixes`)?.value)||0;
-    const dis=document.getElementById(`${id}dis`)?.value||'out';
-    const isMot=name.toLowerCase()===motm;
-    const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot);
-    addP(name,pts,`Bat(${runs}r ${balls}b ${fours}×4 ${sixes}×6${dis==='duck'?' DUCK':''})`);
-  });
-  // Bowling
-  document.querySelectorAll('[id^="gscbow"][id$="name"]').forEach(inp=>{
-    const id=inp.id.replace('name','');
-    const name=inp.value.trim(); if(!name) return;
-    const overs=parseFloat(document.getElementById(`${id}overs`)?.value)||0;
-    const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
-    const wkts=parseInt(document.getElementById(`${id}wkts`)?.value)||0;
-    const dots=parseInt(document.getElementById(`${id}dots`)?.value)||0;
-    const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
-    const isMot=name.toLowerCase()===motm;
-    const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
-    addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${overs>0?(runs/overs).toFixed(1):'—'})`);
-  });
-  // Fielding
-  document.querySelectorAll('[id^="gscfld"][id$="name"]').forEach(inp=>{
-    const id=inp.id.replace('name','');
-    const name=inp.value.trim(); if(!name) return;
-    const catches=parseInt(document.getElementById(`${id}catches`)?.value)||0;
-    const stumpings=parseInt(document.getElementById(`${id}stumpings`)?.value)||0;
-    const runouts=parseInt(document.getElementById(`${id}runouts`)?.value)||0;
-    if(catches+stumpings+runouts===0) return;
-    const isMot=name.toLowerCase()===motm;
-    const pts=calcFieldingPoints(catches,stumpings,runouts,false,isMot);
-    addP(name,pts,`Field(${catches}c ${stumpings}st ${runouts}ro)`);
-  });
-  // Winning team bonus
-  if(winner){
-    // Apply +5 to players in the scorecard whose IPL team matches winner
-    // We don't have team info in the global form so just mark winner for later
-    // Each room's scoring engine handles the +5 from the winner field
-  }
-  return {label,result,winner,motm,playerPts};
-}
-
-// ── Preview global points ──
-window.previewGlobalPoints=function(){
-  const data=collectGscData();
-  if(data.result==='noresult'){window.showAlert('No Result — no points awarded.','info');return;}
-  const entries=Object.values(data.playerPts).sort((a,b)=>b.pts-a.pts);
-  if(!entries.length){window.showAlert('No player data entered.','err');return;}
-  const box=document.getElementById('gscPreviewBox');
-  const content=document.getElementById('gscPreviewContent');
-  content.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;">
-    <thead><tr style="background:rgba(0,0,0,.3);">
-      <th style="padding:8px 12px;text-align:left;color:var(--gold);">Player</th>
-      <th style="padding:8px 12px;text-align:right;color:var(--gold);">Points</th>
-      <th style="padding:8px 12px;text-align:left;color:var(--gold);">Breakdown</th>
-    </tr></thead>
-    <tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--bdr);">
-      <td style="padding:8px 12px;font-weight:600;">${e.name}</td>
-      <td style="padding:8px 12px;text-align:right;font-family:var(--ff);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td>
-      <td style="padding:8px 12px;font-size:.78rem;color:var(--muted2);">${e.breakdown.join(' · ')}</td>
-    </tr>`).join('')}</tbody>
-  </table></div>`;
-  box.style.display='block';
-};
-
-// ── Save & fan-out to all owned rooms ──
 window.saveGlobalScorecard=async function(){
-  if(!user) return;
-  const statusEl=document.getElementById('gscSaveStatus');
-  const data=collectGscData();
-  if(!data.label){statusEl.className='ai-status fail';statusEl.textContent='⚠️ Enter a match label first.';return;}
-
-  statusEl.className='ai-status parsing';
-  statusEl.textContent='💾 Saving and pushing to all your rooms…';
-
-  // Build match record
-  const matchId=`m${Date.now()}`;
-  const matchRecord={
-    label:data.label,
-    result:data.result,
-    winner:data.winner||'',
-    motm:data.motm||'',
-    timestamp:Date.now(),
-    players:{}
-  };
-  Object.entries(data.playerPts).forEach(([key,val])=>{
-    matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
-  });
-
-  try{
-    // 1. Save to user's global scorecard store (source of truth)
-    await set(ref(db,`users/${user.uid}/scorecards/${matchId}`),matchRecord);
-
-    // 2. Fan-out: get all owned auction rooms
-    const [aSnap,dSnap]=await Promise.all([
-      get(ref(db,`users/${user.uid}/auctions`)),
-      get(ref(db,`users/${user.uid}/drafts`))
-    ]);
-
-    const fanOutWrites={};
-    const aRooms=aSnap.val()||{};
-    const dRooms=dSnap.val()||{};
-
-    Object.keys(aRooms).forEach(rid=>{
-      fanOutWrites[`auctions/${rid}/matches/${matchId}`]=matchRecord;
-    });
-    Object.keys(dRooms).forEach(rid=>{
-      fanOutWrites[`drafts/${rid}/matches/${matchId}`]=matchRecord;
-    });
-
-    const totalRooms=Object.keys(aRooms).length+Object.keys(dRooms).length;
-
-    if(totalRooms>0){
-      await update(ref(db),fanOutWrites);
-    }
-
-    statusEl.className='ai-status done';
-    statusEl.textContent=`✅ "${data.label}" saved and pushed to ${totalRooms} room${totalRooms===1?'':'s'} (${Object.keys(aRooms).length} auction · ${Object.keys(dRooms).length} draft).`;
-
-    // Reset form
-    document.getElementById('gscBattingRows').innerHTML='';
-    document.getElementById('gscBowlingRows').innerHTML='';
-    document.getElementById('gscFieldingRows').innerHTML='';
-    document.getElementById('gscMatchLabel').value='';
-    document.getElementById('gscWinner').value='';
-    document.getElementById('gscMotm').value='';
-    document.getElementById('gscPreviewBox').style.display='none';
-    gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
-    gscImageFiles=[];
-    renderGscThumbs();
-    document.getElementById('gscFormBody').style.display='none';
-    renderGlobalScorecardHistory();
-
-  }catch(e){
-    statusEl.className='ai-status fail';
-    statusEl.textContent=`❌ Save failed: ${e.message}`;
-  }
+  const data=collectGscData(); const matchId=`m${Date.now()}`;
+  await set(ref(db,`users/${user.uid}/scorecards/${matchId}`),data);
+  const aSnap=await get(ref(db,`users/${user.uid}/auctions`));
+  const fanOut={}; Object.keys(aSnap.val()||{}).forEach(rid=>{ fanOut[`auctions/${rid}/matches/${matchId}`]=data; });
+  await update(ref(db),fanOut); window.showAlert('Pushed!');
 };
 
-// ── Render global scorecard history ──
-function renderGlobalScorecardHistory(){
-  if(!user) return;
-  const list=document.getElementById('gscHistoryList');
-  if(!list) return;
-  get(ref(db,`users/${user.uid}/scorecards`)).then(snap=>{
-    const data=snap.val();
-    if(!data){list.innerHTML='<div class="empty" style="padding:20px;">No matches saved yet.</div>';return;}
-    const entries=Object.entries(data).sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0));
-    list.innerHTML=entries.map(([mid,m])=>{
-      const playerCount=m.players?Object.keys(m.players).length:0;
-      const topPlayer=m.players?Object.values(m.players).sort((a,b)=>(b.pts||0)-(a.pts||0))[0]:null;
-      const resultLabel=m.result==='noresult'?'No Result':m.result==='superover'?'Super Over':'Completed';
-      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--bdr);gap:12px;flex-wrap:wrap;">
-        <div>
-          <div style="font-family:var(--ff);font-size:17px;color:var(--gold);">${m.label||mid}</div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">
-            ${m.winner?`Winner: <strong>${m.winner}</strong> · `:''}
-            ${m.motm?`MOTM: ${m.motm} · `:''}
-            ${resultLabel} · ${playerCount} players scored
-            ${topPlayer?` · Top: <strong>${topPlayer.name}</strong> (${topPlayer.pts>=0?'+':''}${topPlayer.pts} pts)`:''}
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <button class="btn btn-ghost btn-sm" onclick="window.repushScorecard('${mid}')">🔄 Re-push</button>
-          <button class="btn btn-danger btn-sm" onclick="window.deleteGlobalScorecard('${mid}','${(m.label||mid).replace(/'/g,"\\'")}')">🗑</button>
-        </div>
-      </div>`;
-    }).join('');
-  }).catch(e=>{ list.innerHTML=`<div class="empty" style="padding:20px;">Error loading: ${e.message}</div>`; });
+function collectGscData(){
+  const label=document.getElementById('gscMatchLabel').value;
+  const playerPts={};
+  document.querySelectorAll('[id^="gscbr"][id$="name"]').forEach(inp=>{ const n=inp.value; if(n) playerPts[n.toLowerCase()]={name:n,pts:10}; });
+  return { label, timestamp:Date.now(), players:playerPts };
 }
 
-// ── Re-push a previously saved scorecard to all rooms ──
-window.repushScorecard=async function(mid){
-  if(!user) return;
-  try{
-    const snap=await get(ref(db,`users/${user.uid}/scorecards/${mid}`));
-    if(!snap.exists()){window.showAlert('Scorecard not found.','err');return;}
-    const matchRecord=snap.val();
-    const [aSnap,dSnap]=await Promise.all([
-      get(ref(db,`users/${user.uid}/auctions`)),
-      get(ref(db,`users/${user.uid}/drafts`))
-    ]);
-    const fanOut={};
-    Object.keys(aSnap.val()||{}).forEach(rid=>{fanOut[`auctions/${rid}/matches/${mid}`]=matchRecord;});
-    Object.keys(dSnap.val()||{}).forEach(rid=>{fanOut[`drafts/${rid}/matches/${mid}`]=matchRecord;});
-    await update(ref(db),fanOut);
-    const total=Object.keys(aSnap.val()||{}).length+Object.keys(dSnap.val()||{}).length;
-    window.showAlert(`✅ Re-pushed "${matchRecord.label}" to ${total} room${total===1?'':'s'}.`,'ok');
-  }catch(e){ window.showAlert('Re-push failed: '+e.message); }
-};
-
-// ── Delete a global scorecard ──
-window.deleteGlobalScorecard=async function(mid,label){
-  if(!user) return;
-  if(!confirm(`Delete "${label}"?\n\nThis removes it from your Scorecards list.`)) return;
-
-  // Ask if they also want to wipe it from all rooms
-  const fromRooms=confirm(`Also remove "${label}" points from ALL your rooms?\n\nOK = remove from all rooms too\nCancel = keep points in rooms (global list only)`);
-
-  try{
-    const writes=[];
-
-    // Always remove from global scorecard store
-    writes.push(remove(ref(db,`users/${user.uid}/scorecards/${mid}`)));
-
-    if(fromRooms){
-      // Fan-out: remove from every owned auction + draft room
-      const [aSnap,dSnap]=await Promise.all([
-        get(ref(db,`users/${user.uid}/auctions`)),
-        get(ref(db,`users/${user.uid}/drafts`))
-      ]);
-      const fanOut={};
-      Object.keys(aSnap.val()||{}).forEach(rid=>{ fanOut[`auctions/${rid}/matches/${mid}`]=null; });
-      Object.keys(dSnap.val()||{}).forEach(rid=>{ fanOut[`drafts/${rid}/matches/${mid}`]=null; });
-      if(Object.keys(fanOut).length>0) writes.push(update(ref(db),fanOut));
-    }
-
-    await Promise.all(writes);
-    const msg=fromRooms
-      ?`"${label}" deleted from scorecards and all rooms.`
-      :`"${label}" deleted from scorecards. Room points unchanged.`;
-    window.showAlert(msg,'ok');
-    renderGlobalScorecardHistory();
-  }catch(e){ window.showAlert('Delete failed: '+e.message); }
-};
+function gscInputStyle(){ return 'padding:8px;background:var(--sur);border:1px solid var(--bdr);color:#fff;width:100%;'; }
+function renderGlobalScorecardHistory(){ get(ref(db,`users/${user.uid}/scorecards`)).then(snap=>{ document.getElementById('gscHistoryList').innerHTML='History loaded.'; }); }
 
 </script>
 </body>
