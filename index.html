@@ -2869,6 +2869,9 @@ window.addGscBattingRow=function(){
   document.getElementById('gscBattingRows').appendChild(div);
   if(!document.getElementById('gscDlPlayers')){
     const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
+    // Populate from the 250-player rawData array (always available)
+    const playerNames=[...new Set((rawData||[]).map(p=>p.n||'').filter(Boolean))];
+    playerNames.forEach(n=>{ const o=document.createElement('option'); o.value=n; dl.appendChild(o); });
     document.getElementById('gscBattingRows').insertAdjacentElement('beforebegin',dl);
   }
 };
