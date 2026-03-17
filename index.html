@@ -3157,12 +3157,38 @@ window.repushScorecard=async function(mid){
 };
 
 // ── Delete a global scorecard ──
-window.deleteGlobalScorecard=function(mid,label){
+window.deleteGlobalScorecard=async function(mid,label){
   if(!user) return;
-  if(!confirm(`Delete "${label}" from your global scorecards?\n\nNote: points already pushed to rooms will remain. Use Re-push after editing to update rooms.`)) return;
-  remove(ref(db,`users/${user.uid}/scorecards/${mid}`))
-    .then(()=>{ window.showAlert(`Deleted "${label}".`,'ok'); renderGlobalScorecardHistory(); })
-    .catch(e=>window.showAlert(e.message));
+  if(!confirm(`Delete "${label}"?\n\nThis removes it from your Scorecards list.`)) return;
+
+  // Ask if they also want to wipe it from all rooms
+  const fromRooms=confirm(`Also remove "${label}" points from ALL your rooms?\n\nOK = remove from all rooms too\nCancel = keep points in rooms (global list only)`);
+
+  try{
+    const writes=[];
+
+    // Always remove from global scorecard store
+    writes.push(remove(ref(db,`users/${user.uid}/scorecards/${mid}`)));
+
+    if(fromRooms){
+      // Fan-out: remove from every owned auction + draft room
+      const [aSnap,dSnap]=await Promise.all([
+        get(ref(db,`users/${user.uid}/auctions`)),
+        get(ref(db,`users/${user.uid}/drafts`))
+      ]);
+      const fanOut={};
+      Object.keys(aSnap.val()||{}).forEach(rid=>{ fanOut[`auctions/${rid}/matches/${mid}`]=null; });
+      Object.keys(dSnap.val()||{}).forEach(rid=>{ fanOut[`drafts/${rid}/matches/${mid}`]=null; });
+      if(Object.keys(fanOut).length>0) writes.push(update(ref(db),fanOut));
+    }
+
+    await Promise.all(writes);
+    const msg=fromRooms
+      ?`"${label}" deleted from scorecards and all rooms.`
+      :`"${label}" deleted from scorecards. Room points unchanged.`;
+    window.showAlert(msg,'ok');
+    renderGlobalScorecardHistory();
+  }catch(e){ window.showAlert('Delete failed: '+e.message); }
 };
 
 </script>
