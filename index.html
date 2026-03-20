@@ -1070,6 +1070,9 @@ function loadDash(){
   showInner('dashboard-view');
   roomId=null;myTeamName='';
   if(roomListener){roomListener();roomListener=null;}
+  // Re-assert super admin tab every time dashboard loads
+  const _saTab=document.getElementById('dt-superadmin');
+  if(_saTab) _saTab.style.display=isSuperAdminEmail(user?.email)?'block':'none';
   onValue(ref(db,`users/${user.uid}/auctions`),snap=>{
     const rooms=snap.val(),c=document.getElementById('roomListContainer');
     if(!rooms){c.innerHTML='<div class="empty">No rooms yet — create one above.</div>';return;}
