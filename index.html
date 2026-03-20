@@ -1602,6 +1602,12 @@ function calcBattingPoints(runs, balls, fours, sixes, dismissal, isWinningTeam, 
  return pts;
 }
 
+function normalizeOvers(ov){
+ // Cricket overs: 3.3 means 3 overs + 3 balls = 3.5 true overs for eco calc
+ const full=Math.floor(ov);
+ const balls=Math.round((ov-full)*10);
+ return full+(balls/6);
+}
 function calcBowlingPoints(overs, runsConceded, wickets, dots, maidens, isWinningTeam, isMotm){
  if(overs === 0) return isWinningTeam ? 5 : 0;
  let pts = 0;
@@ -1611,7 +1617,7 @@ function calcBowlingPoints(overs, runsConceded, wickets, dots, maidens, isWinnin
  pts += dots * 1; // 1pt per dot
  pts += maidens * 20; // 20pts per maiden
  // Economy (only if bowled >= 1 over)
- const eco = runsConceded / overs;
+ const eco = runsConceded / normalizeOvers(overs);
  if(eco <= 5) pts += 15;
  else if(eco <= 8) pts += 10;
  else if(eco <= 10) pts += 5;
@@ -1740,7 +1746,7 @@ function collectMatchData(){
  const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
  const isMot=name.toLowerCase()===motm;
  const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
- addPts(name,pts,`Bowling(${wkts}w ${overs}ov ${runs}r eco:${overs>0?(runs/overs).toFixed(1):'—'})`);
+ addPts(name,pts,`Bowling(${wkts}w ${overs}ov ${runs}r eco:${overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
  });
 
  // Fielding rows
@@ -2758,7 +2764,7 @@ function collectGscData(){
  const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
  const isMot=name.toLowerCase()===motm;
  const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
- addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${overs>0?(runs/overs).toFixed(1):'—'})`);
+ addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
  });
  // Fielding
  document.querySelectorAll('[id^="gscfld"][id$="name"]').forEach(inp=>{
@@ -3007,7 +3013,7 @@ async function renderSuperAdminPanel(){
  const makeRoomRow=(rid,r,type)=>`
  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bdr);gap:10px;flex-wrap:wrap;"><div><div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:600;">${r.name||r.roomName||rid}</span><span class="room-type-pill ${type}">${type==='auction'?' Auction':' Draft'}</span></div><div style="font-size:.75rem;color:var(--muted);margin-top:2px;">ID: <code style="background:var(--sur);padding:1px 5px;border-radius:3px;">${rid}</code>${r._ownerUid?' · Owner: '+r._ownerUid.substring(0,8)+'…':''}
  ${r.createdAt?' · '+new Date(r.createdAt).toLocaleDateString():''}
- </div></div><div style="display:flex;gap:8px;flex-shrink:0;"><button class="btn btn-ghost btn-sm" onclick="window.saViewRoom('${rid}','${type}')" style="font-size:.72rem;">View</button><button class="btn btn-danger btn-sm" onclick="window.saDeleteRoom('${rid}','${type}','${(r.name||r.roomName||rid).replace(/'/g,"\\'")}')" style="font-size:.72rem;"></button></div></div>`;
+ </div></div><div style="display:flex;gap:8px;flex-shrink:0;"><button class="btn btn-ghost btn-sm" onclick="window.saViewRoom('${rid}','${type}')" style="font-size:.72rem;">View</button><button class="btn btn-danger btn-sm" onclick="window.saDeleteRoom('${rid}','${type}','${(r.name||r.roomName||rid).replace(/'/g,"\\'")}')" style="font-size:.72rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Delete</button></div></div>`;
 
  roomsList.innerHTML=
  `<div style="padding:8px 20px;background:rgba(0,0,0,.2);font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Auction Rooms (${aEntries.length})</div>`+
