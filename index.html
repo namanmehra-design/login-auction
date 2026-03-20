@@ -1668,7 +1668,7 @@ window.addBattingRow=function(){
  const id=battingRowCount++;
  const div=document.createElement('div');
  div.id=`br${id}`;
- div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+ div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
  div.innerHTML=`
  <input list="dlPlayers" placeholder="Player name" id="br${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Runs" id="br${id}runs" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Balls" id="br${id}balls" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="4s" id="br${id}fours" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="6s" id="br${id}sixes" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><select id="br${id}dis" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option></select><button onclick="document.getElementById('br${id}').remove();battingRowCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
  document.getElementById('battingRows').appendChild(div);
@@ -1681,9 +1681,9 @@ window.addBowlingRow=function(){
  const id=bowlingRowCount++;
  const div=document.createElement('div');
  div.id=`bow${id}`;
- div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+ div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
  div.innerHTML=`
- <input list="dlPlayers" placeholder="Player name" id="bow${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Overs" id="bow${id}overs" min="0" step="0.1" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Runs" id="bow${id}runs" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Wkts" id="bow${id}wkts" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="0s / dot balls" id="bow${id}dots" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Maidens" id="bow${id}maidens" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><button onclick="document.getElementById('bow${id}').remove();bowlingRowCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+ <input list="dlPlayers" placeholder="Player name" id="bow${id}name" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Overs" id="bow${id}overs" min="0" step="0.1" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Runs" id="bow${id}runs" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Eco" id="bow${id}eco" min="0" step="0.01" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Wkts" id="bow${id}wkts" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="0s / dot balls" id="bow${id}dots" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><input type="number" placeholder="Maidens" id="bow${id}maidens" min="0" style="padding:8px 10px;font-size:.83rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);"><button onclick="document.getElementById('bow${id}').remove();bowlingRowCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
  document.getElementById('bowlingRows').appendChild(div);
 };
 
@@ -1743,10 +1743,11 @@ function collectMatchData(){
  const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
  const wkts=parseInt(document.getElementById(`${id}wkts`)?.value)||0;
  const dots=parseInt(document.getElementById(`${id}dots`)?.value)||0;
+ const eco=parseFloat(document.getElementById(`${id}eco`)?.value)||0;
  const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
  const isMot=name.toLowerCase()===motm;
  const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
- addPts(name,pts,`Bowling(${wkts}w ${overs}ov ${runs}r eco:${overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
+ addPts(name,pts,`Bowling(${wkts}w ${overs}ov ${runs}r eco:${eco>0?eco.toFixed(2):overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
  });
 
  // Fielding rows
@@ -1992,13 +1993,16 @@ function renderAnalytics(data){
   if(!m?.players) return;
   Object.values(m.players).forEach(p=>{
    const key=(p.name||'').toLowerCase();
-   if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,runs:0,balls:0,fours:0,sixes:0,wkts:0,overs:0,bowlRuns:0,catches:0,stumpings:0,runouts:0,matchCount:0};
+   if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,runs:0,balls:0,fours:0,sixes:0,wkts:0,overs:0,bowlRuns:0,ecoStored:0,ecoCount:0,catches:0,stumpings:0,runouts:0,matchCount:0};
    const s=playerTotal[key]; s.pts+=(p.pts||0); s.matchCount++;
    const bd=p.breakdown||'';
    const batM=bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x×]4)?(?:\s+(\d+)[x×]6)?/);
    if(batM){s.runs+=+batM[1];s.balls+=+batM[2];s.fours+=+(batM[3]||0);s.sixes+=+(batM[4]||0);}
    const bowM=bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
-   if(bowM){s.wkts+=+bowM[1];s.overs+=+bowM[2];s.bowlRuns+=+(bowM[3]||0);}
+   if(bowM){s.wkts+=+bowM[1];s.overs+=+bowM[2];s.bowlRuns+=+(bowM[3]||0);
+   const ecoM=bd.match(/eco:([\d.]+)/);
+   if(ecoM&&+ecoM[1]>0){s.ecoStored+=+ecoM[1];s.ecoCount++;}
+  }
    const fldM=bd.match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
    if(fldM){s.catches+=+fldM[1];s.stumpings+=+fldM[2];s.runouts+=+fldM[3];}
   });
@@ -2057,8 +2061,8 @@ function renderAnalytics(data){
  const runs=arr=>top(arr,'runs').map(p=>({...p,_stat:`${p.runs}r`,_sub:`SR ${p.balls>0?((p.runs/p.balls)*100).toFixed(0):'—'}`}));
  const sixes=arr=>top(arr,'sixes').map(p=>({...p,_stat:`${p.sixes}×6`,_sub:`${p.runs}r`}));
  const fours=arr=>top(arr,'fours').map(p=>({...p,_stat:`${p.fours}×4`,_sub:`${p.runs}r`}));
- const wkts=arr=>top(arr,'wkts').map(p=>({...p,_stat:`${p.wkts}w`,_sub:`Eco ${p.overs>0?(p.bowlRuns/normalizeOvers(p.overs)).toFixed(2):'—'}`}));
- const eco=arr=>[...arr].filter(p=>p.overs>=2).sort((a,b)=>(a.bowlRuns/normalizeOvers(a.overs))-(b.bowlRuns/normalizeOvers(b.overs))).slice(0,5).map(p=>({...p,_stat:`${(p.bowlRuns/normalizeOvers(p.overs)).toFixed(2)}eco`,_sub:`${p.wkts}w·${p.overs}ov`}));
+ const wkts=arr=>top(arr,'wkts').map(p=>({...p,_stat:`${p.wkts}w`,_sub:`Eco ${p.ecoCount>0?(p.ecoStored/p.ecoCount).toFixed(2):p.overs>0?(p.bowlRuns/normalizeOvers(p.overs)).toFixed(2):'—'}`}));
+ const eco=arr=>[...arr].filter(p=>p.overs>=2||p.ecoCount>0).sort((a,b)=>{const ea=a.ecoCount>0?a.ecoStored/a.ecoCount:a.overs>0?a.bowlRuns/normalizeOvers(a.overs):99;const eb=b.ecoCount>0?b.ecoStored/b.ecoCount:b.overs>0?b.bowlRuns/normalizeOvers(b.overs):99;return ea-eb;}).slice(0,5).map(p=>{const e=p.ecoCount>0?(p.ecoStored/p.ecoCount).toFixed(2):p.overs>0?(p.bowlRuns/normalizeOvers(p.overs)).toFixed(2):'—';return{...p,_stat:`${e}eco`,_sub:`${p.wkts}w·${p.overs}ov`};});
  const dismissals=arr=>top(arr.map(p=>({...p,total:p.catches+p.stumpings+p.runouts})),'total').map(p=>({...p,_stat:`${p.catches+p.stumpings+p.runouts}dis`,_sub:`${p.catches}c ${p.stumpings}st ${p.runouts}ro`}));
  const catches=arr=>top(arr,'catches').map(p=>({...p,_stat:`${p.catches}c`,_sub:`+${p.pts}pts`}));
  const stumpings=arr=>top(arr,'stumpings').map(p=>({...p,_stat:`${p.stumpings}st`,_sub:`${p.catches}c also`}));
@@ -2650,7 +2654,7 @@ window.addGscBattingRow=function(){
  const id=gscBattingCount++;
  const div=document.createElement('div');
  div.id=`gscbr${id}`;
- div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+ div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
  div.innerHTML=`
  <input list="gscDlPlayers" placeholder="Player name" id="gscbr${id}name" style="${gscInputStyle()}"><input type="number" placeholder="Runs" id="gscbr${id}runs" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Balls" id="gscbr${id}balls" min="0" style="${gscInputStyle()}"><input type="number" placeholder="4s" id="gscbr${id}fours" min="0" style="${gscInputStyle()}"><input type="number" placeholder="6s" id="gscbr${id}sixes" min="0" style="${gscInputStyle()}"><select id="gscbr${id}dis" style="${gscInputStyle()}"><option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option></select><button onclick="document.getElementById('gscbr${id}').remove();gscBattingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
  document.getElementById('gscBattingRows').appendChild(div);
@@ -2667,7 +2671,7 @@ window.addGscBowlingRow=function(){
  const id=gscBowlingCount++;
  const div=document.createElement('div');
  div.id=`gscbow${id}`;
- div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
+ div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
  div.innerHTML=`
  <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" style="${gscInputStyle()}"><input type="number" placeholder="Overs" id="gscbow${id}overs" min="0" step="0.1" style="${gscInputStyle()}"><input type="number" placeholder="Runs" id="gscbow${id}runs" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Wkts" id="gscbow${id}wkts" min="0" style="${gscInputStyle()}"><input type="number" placeholder="0s / dot balls" id="gscbow${id}dots" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Maidens" id="gscbow${id}maidens" min="0" style="${gscInputStyle()}"><button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
  document.getElementById('gscBowlingRows').appendChild(div);
@@ -2761,10 +2765,11 @@ function collectGscData(){
  const runs=parseInt(document.getElementById(`${id}runs`)?.value)||0;
  const wkts=parseInt(document.getElementById(`${id}wkts`)?.value)||0;
  const dots=parseInt(document.getElementById(`${id}dots`)?.value)||0;
+ const eco=parseFloat(document.getElementById(`${id}eco`)?.value)||0;
  const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
  const isMot=name.toLowerCase()===motm;
  const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
- addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
+ addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${ecoVal>0?ecoVal.toFixed(2):overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
  });
  // Fielding
  document.querySelectorAll('[id^="gscfld"][id$="name"]').forEach(inp=>{
