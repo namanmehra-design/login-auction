@@ -2011,52 +2011,37 @@ function renderAnalytics(data){
 
  // ── Card builder — clean single-row layout ──
  function card(icon,title,subtitle,rows){
-  const empty=`<div style="padding:20px 16px;font-size:.78rem;color:var(--dim);text-align:center;">No data yet</div>`;
+  const empty=`<div style="padding:18px 16px;font-size:.78rem;color:var(--dim);text-align:center;letter-spacing:0;">No data yet</div>`;
   const body=rows.length?rows.map((r,i)=>{
    const owner=ownerMap[r.name.toLowerCase()]||'Unowned';
-   return`<div style="display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid var(--b0);gap:10px;">
-    <span style="font-size:.66rem;font-weight:600;color:var(--dim);width:16px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;">${i+1}</span>
-    <div style="flex:1;min-width:0;">
-     <div style="font-size:.82rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
-     <div style="font-size:.67rem;color:var(--dim);margin-top:1px;white-space:nowrap;">${owner}&nbsp;·&nbsp;${r.matchCount}m${r._sub?'&nbsp;·&nbsp;<span style="color:var(--dim2);">'+r._sub+'</span>':''}</div>
+   return`<div style="display:grid;grid-template-columns:18px 1fr auto;align-items:center;padding:9px 14px;border-bottom:1px solid var(--b0);gap:0 10px;">
+    <span style="font-size:.68rem;font-weight:500;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums;line-height:1;">${i+1}</span>
+    <div style="min-width:0;">
+     <div style="font-size:.82rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${r.name}</div>
+     <div style="font-size:.67rem;color:var(--dim);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${owner} · ${r.matchCount}m${r._sub?' · '+r._sub:''}</div>
     </div>
-    <div style="font-size:.86rem;font-weight:700;color:var(--accent);white-space:nowrap;flex-shrink:0;min-width:52px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em;">${r._stat}</div>
+    <div style="font-size:.84rem;font-weight:600;color:var(--accent);white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;min-width:48px;letter-spacing:-.01em;">${r._stat}</div>
    </div>`;
   }).join(''):empty;
-  return`<div style="background:rgba(255,255,255,0.65);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;display:flex;flex-direction:column;">
-   <div style="padding:11px 16px;border-bottom:1px solid var(--b0);background:rgba(255,255,255,0.40);display:flex;align-items:center;gap:8px;">
-    <span style="font-size:14px;line-height:1;flex-shrink:0;">${icon}</span>
+  return`<div style="background:rgba(255,255,255,0.68);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;">
+   <div style="padding:10px 14px;border-bottom:1px solid var(--b1);background:rgba(255,255,255,0.50);display:grid;grid-template-columns:16px 1fr;align-items:start;gap:0 9px;">
+    <div style="margin-top:2px;color:var(--dim2);display:flex;align-items:center;">${icon}</div>
     <div>
-     <div style="font-size:.72rem;font-weight:700;color:var(--txt);letter-spacing:.02em;text-transform:uppercase;">${title}</div>
-     ${subtitle?`<div style="font-size:.65rem;color:var(--dim);margin-top:1px;">${subtitle}</div>`:''}
+     <div style="font-size:.73rem;font-weight:600;color:var(--txt);letter-spacing:.01em;">${title}</div>
+     ${subtitle?`<div style="font-size:.64rem;color:var(--dim);margin-top:1px;">${subtitle}</div>`:''}
     </div>
    </div>
    ${body}
   </div>`;
  }
 
- const batters=byRole('batter'),bowlers=byRole('bowler'),allrounders=byRole('all'),keepers=byRole('wicketkeeper');
-
- // Row builders — _stat is the single bold number, _sub is the small context
- const pts=arr=>topPts(arr).map(p=>({...p,_stat:`+${p.pts}pts`,_sub:`${p.runs>0?p.runs+'r ':''}`+(p.wkts>0?`${p.wkts}w`:'')}));
- const runs=arr=>top(arr,'runs').map(p=>({...p,_stat:`${p.runs}r`,_sub:`SR ${p.balls>0?((p.runs/p.balls)*100).toFixed(0):'—'}`}));
- const sixes=arr=>top(arr,'sixes').map(p=>({...p,_stat:`${p.sixes}×6`,_sub:`${p.runs}r`}));
- const fours=arr=>top(arr,'fours').map(p=>({...p,_stat:`${p.fours}×4`,_sub:`${p.runs}r`}));
- const wkts=arr=>top(arr,'wkts').map(p=>({...p,_stat:`${p.wkts}w`,_sub:`Eco ${p.overs>0?(p.runs/p.overs).toFixed(2):'—'}`}));
- const eco=arr=>[...arr].filter(p=>p.overs>=2).sort((a,b)=>(a.runs/a.overs)-(b.runs/b.overs)).slice(0,5).map(p=>({...p,_stat:`${(p.runs/p.overs).toFixed(2)}eco`,_sub:`${p.wkts}w·${p.overs}ov`}));
- const dismissals=arr=>top(arr.map(p=>({...p,total:p.catches+p.stumpings+p.runouts})),'total').map(p=>({...p,_stat:`${p.catches+p.stumpings+p.runouts}dis`,_sub:`${p.catches}c ${p.stumpings}st ${p.runouts}ro`}));
- const catches=arr=>top(arr,'catches').map(p=>({...p,_stat:`${p.catches}c`,_sub:`+${p.pts}pts`}));
- const stumpings=arr=>top(arr,'stumpings').map(p=>({...p,_stat:`${p.stumpings}st`,_sub:`${p.catches}c also`}));
- const runouts=arr=>top(arr,'runouts').map(p=>({...p,_stat:`${p.runouts}ro`,_sub:`+${p.pts}pts`}));
- const value=arr=>[...arr].map(p=>({...p,price:pricePaid[p.name.toLowerCase()]||0})).filter(p=>p.price>0&&p.pts>0).sort((a,b)=>(b.pts/b.price)-(a.pts/a.price)).slice(0,5).map(p=>({...p,_stat:`${(p.pts/p.price).toFixed(1)}p/Cr`,_sub:`+${p.pts}pts·₹${p.price.toFixed(1)}Cr`}));
-
  const sec=(label,icon,cards)=>`
-  <div style="margin-bottom:20px;">
-   <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--b1);">
-    <span style="font-size:15px;">${icon}</span>
-    <span style="font-size:.70rem;font-weight:700;color:var(--txt2);letter-spacing:.07em;text-transform:uppercase;">${label}</span>
+  <div style="margin-bottom:22px;">
+   <div style="display:grid;grid-template-columns:16px 1fr;align-items:center;gap:0 8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--b1);">
+    <div style="color:var(--dim2);display:flex;align-items:center;">${icon}</div>
+    <span style="font-size:.68rem;font-weight:600;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;">${label}</span>
    </div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">${cards}</div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;">${cards}</div>
   </div>`;
 
  const grid=document.getElementById('analyticsGrid');
