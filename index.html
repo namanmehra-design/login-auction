@@ -2015,12 +2015,12 @@ function renderAnalytics(data){
   const body=rows.length?rows.map((r,i)=>{
    const owner=ownerMap[r.name.toLowerCase()]||'Unowned';
    return`<div style="display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid var(--b0);gap:10px;">
-    <span style="font-size:.68rem;font-weight:700;color:var(--dim);min-width:14px;text-align:right;flex-shrink:0;">${i+1}</span>
+    <span style="font-size:.66rem;font-weight:600;color:var(--dim);width:16px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;">${i+1}</span>
     <div style="flex:1;min-width:0;">
      <div style="font-size:.82rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
-     <div style="font-size:.68rem;color:var(--dim);margin-top:1px;">${owner}&nbsp;·&nbsp;${r.matchCount}m${r._sub?'&nbsp;·&nbsp;<span style="color:var(--dim2);">'+r._sub+'</span>':''}</div>
+     <div style="font-size:.67rem;color:var(--dim);margin-top:1px;white-space:nowrap;">${owner}&nbsp;·&nbsp;${r.matchCount}m${r._sub?'&nbsp;·&nbsp;<span style="color:var(--dim2);">'+r._sub+'</span>':''}</div>
     </div>
-    <div style="font-size:.88rem;font-weight:700;color:var(--accent);white-space:nowrap;flex-shrink:0;">${r._stat}</div>
+    <div style="font-size:.86rem;font-weight:700;color:var(--accent);white-space:nowrap;flex-shrink:0;min-width:52px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em;">${r._stat}</div>
    </div>`;
   }).join(''):empty;
   return`<div style="background:rgba(255,255,255,0.65);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;display:flex;flex-direction:column;">
