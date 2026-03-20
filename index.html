@@ -512,10 +512,17 @@ tr:hover td{background:var(--sur);}
               Select a previously saved global scorecard and push it to <strong style="color:#f87171;">every room on the entire platform</strong> — regardless of who created it.
             </p>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-              <select id="saScorecardSelect" style="flex:1;min-width:200px;padding:10px 12px;font-size:.85rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+              <select id="saScorecardSelect" onchange="window.saOnScorecardSelect()" style="flex:1;min-width:200px;padding:10px 12px;font-size:.85rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
                 <option value="">— Select a saved scorecard —</option>
               </select>
+            </div>
+            <div id="saMatchInfo" style="display:none;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:.83rem;">
+              <span id="saMatchInfoText"></span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
               <button class="btn btn-gold" onclick="window.saPushToAll()" style="white-space:nowrap;">🌐 Push to ALL Rooms</button>
+              <button class="btn btn-ghost btn-sm" onclick="window.saDeleteAndRepush()" style="color:#f87171;border-color:rgba(239,68,68,.3);white-space:nowrap;">🔄 Delete &amp; Re-push to All</button>
+              <button class="btn btn-danger btn-sm" onclick="window.saDeleteMatchFromAll()" style="white-space:nowrap;">🗑 Delete from All Rooms</button>
             </div>
             <div class="ai-status" id="saPushStatus"></div>
           </div>
@@ -898,6 +905,7 @@ function getGeminiModel(){
 }
 
 const SUPER_ADMIN='namanmehra@gmail.com';
+function isSuperAdminEmail(email){ return (email||'').toLowerCase().trim()==='namanmehra@gmail.com'; }
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
 let releaseTeam='',releaseIdx=-1,releasePlayerName='',releasePrice=0;
@@ -952,7 +960,7 @@ function showApp(){
   document.getElementById('topbarUser').textContent=user?.email||'';
   // Show super admin tab only for namanmehra@gmail.com
   const saTab=document.getElementById('dt-superadmin');
-  if(saTab) saTab.style.display=(user?.email===SUPER_ADMIN)?'block':'none';
+  if(saTab) saTab.style.display=isSuperAdminEmail(user?.email)?'block':'none';
 }
 function showInner(id){['dashboard-view','auction-view'].forEach(v=>document.getElementById(v).classList.remove('active'));document.getElementById(id).classList.add('active');}
 
@@ -992,12 +1000,25 @@ window.toggleAuthMode=function(){
 };
 
 // ── Auth ──
-getRedirectResult(auth).then(r=>{if(r?.user)window.showAlert('Signed in with Google!','ok');}).catch(e=>{if(e.code&&e.code!=='auth/no-current-user')window.showAlert(ERRS[e.code]||e.message);});
+getRedirectResult(auth).then(r=>{
+  if(r?.user){
+    window.showAlert('Signed in with Google!','ok');
+    setTimeout(()=>{
+      const saTab=document.getElementById('dt-superadmin');
+      if(saTab&&r.user) saTab.style.display=isSuperAdminEmail(r.user.email)?'block':'none';
+    },300);
+  }
+}).catch(e=>{if(e.code&&e.code!=='auth/no-current-user')window.showAlert(ERRS[e.code]||e.message);});
 
 onAuthStateChanged(auth,u=>{
   user=u;
-  const rp=new URLSearchParams(window.location.search).get('room');
-  if(u){showApp();if(rp)loadRoom(rp);else loadDash();}
+  const params=new URLSearchParams(window.location.search);
+  const rp=params.get('room'),dp=params.get('draft');
+  if(u){
+    showApp();
+    setTimeout(()=>{ const s=document.getElementById('dt-superadmin'); if(s) s.style.display=isSuperAdminEmail(u.email)?'block':'none'; },200);
+    if(rp)loadRoom(rp);else if(dp)loadDraftRoom(dp);else loadDash();
+  }
   else showAuth();
 });
 
@@ -3278,7 +3299,7 @@ window.deleteGlobalScorecard=async function(mid,label){
 // Only accessible to namanmehra@gmail.com
 // ═══════════════════════════════════════════════════════════════
 
-function isSuperAdmin(){ return user?.email===SUPER_ADMIN; }
+function isSuperAdmin(){ return isSuperAdminEmail(user?.email); }
 
 async function renderSuperAdminPanel(){
   if(!isSuperAdmin()) return;
@@ -3436,6 +3457,75 @@ window.saDeleteRoom=async function(rid,type,name){
     window.showAlert(`Room "${name}" deleted.`,'ok');
     renderSuperAdminPanel();
   }catch(e){ window.showAlert('Delete failed: '+e.message); }
+};
+
+// ── Super admin: show match info when scorecard selected ──
+window.saOnScorecardSelect=async function(){
+  const mid=document.getElementById('saScorecardSelect')?.value;
+  const infoBox=document.getElementById('saMatchInfo');
+  const infoText=document.getElementById('saMatchInfoText');
+  if(!mid||!infoBox){if(infoBox)infoBox.style.display='none';return;}
+  try{
+    const snap=await get(ref(db,`users/${user.uid}/scorecards/${mid}`));
+    if(!snap.exists()){infoBox.style.display='none';return;}
+    const m=snap.val();
+    const playerCount=m.players?Object.keys(m.players).length:0;
+    infoBox.style.display='block';
+    infoText.innerHTML=`<strong style="color:var(--gold)">${m.label||mid}</strong> &nbsp;·&nbsp; Winner: ${m.winner||'—'} &nbsp;·&nbsp; MOTM: ${m.motm||'—'} &nbsp;·&nbsp; ${playerCount} players scored`;
+  }catch(e){ infoBox.style.display='none'; }
+};
+
+// ── Delete from all rooms (without deleting scorecard record) ──
+window.saDeleteMatchFromAll=async function(){
+  if(!isSuperAdmin()) return;
+  const mid=document.getElementById('saScorecardSelect')?.value;
+  const statusEl=document.getElementById('saPushStatus');
+  if(!mid){statusEl.className='ai-status fail';statusEl.textContent='⚠️ Select a scorecard first.';return;}
+  if(!confirm('Remove this match from ALL rooms on the platform?\n\nThe scorecard record will remain in your Scorecards list.')) return;
+  statusEl.className='ai-status parsing';
+  statusEl.textContent='🗑 Removing match from all rooms…';
+  try{
+    const usersSnap=await get(ref(db,'users'));
+    const usersData=usersSnap.val()||{};
+    const fanOut={};
+    let aCount=0,dCount=0;
+    Object.values(usersData).forEach(udata=>{
+      if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>{ fanOut[`auctions/${rid}/matches/${mid}`]=null; aCount++; });
+      if(udata.drafts)   Object.keys(udata.drafts).forEach(rid=>{ fanOut[`drafts/${rid}/matches/${mid}`]=null; dCount++; });
+    });
+    if(!Object.keys(fanOut).length){statusEl.className='ai-status fail';statusEl.textContent='No rooms found.';return;}
+    await update(ref(db),fanOut);
+    statusEl.className='ai-status done';
+    statusEl.textContent=`✅ Match removed from ${aCount} auction + ${dCount} draft rooms.`;
+  }catch(e){statusEl.className='ai-status fail';statusEl.textContent=`❌ ${e.message}`;}
+};
+
+// ── Delete from all rooms then re-push fresh ──
+window.saDeleteAndRepush=async function(){
+  if(!isSuperAdmin()) return;
+  const mid=document.getElementById('saScorecardSelect')?.value;
+  const statusEl=document.getElementById('saPushStatus');
+  if(!mid){statusEl.className='ai-status fail';statusEl.textContent='⚠️ Select a scorecard first.';return;}
+  if(!confirm('This will:\n1. Remove this match from every room on the platform\n2. Immediately re-push it fresh\n\nUse this to fix incorrect points. Continue?')) return;
+  statusEl.className='ai-status parsing';
+  statusEl.textContent='🔄 Deleting then re-pushing…';
+  try{
+    const scSnap=await get(ref(db,`users/${user.uid}/scorecards/${mid}`));
+    if(!scSnap.exists()){statusEl.className='ai-status fail';statusEl.textContent='❌ Scorecard not found.';return;}
+    const matchRecord=scSnap.val();
+    const usersSnap=await get(ref(db,'users'));
+    const usersData=usersSnap.val()||{};
+    const delWrites={},pushWrites={};
+    let aCount=0,dCount=0;
+    Object.values(usersData).forEach(udata=>{
+      if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>{ delWrites[`auctions/${rid}/matches/${mid}`]=null; pushWrites[`auctions/${rid}/matches/${mid}`]=matchRecord; aCount++; });
+      if(udata.drafts)   Object.keys(udata.drafts).forEach(rid=>{ delWrites[`drafts/${rid}/matches/${mid}`]=null; pushWrites[`drafts/${rid}/matches/${mid}`]=matchRecord; dCount++; });
+    });
+    await update(ref(db),delWrites);
+    await update(ref(db),pushWrites);
+    statusEl.className='ai-status done';
+    statusEl.textContent=`✅ Deleted and re-pushed "${matchRecord.label}" to ${aCount} auction + ${dCount} draft rooms.`;
+  }catch(e){statusEl.className='ai-status fail';statusEl.textContent=`❌ ${e.message}`;}
 };
 
 </script>
