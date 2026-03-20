@@ -359,6 +359,7 @@ tr:hover td{background:var(--sur);}
         <button class="dtab" id="dt-scorecards" onclick="switchDashTab('scorecards')">📋 Scorecards</button>
         <button class="dtab active" id="dt-created" onclick="switchDashTab('created')">🏟️ My Rooms</button>
         <button class="dtab" id="dt-joined" onclick="switchDashTab('joined')">🤝 Joined Rooms</button>
+        <button class="dtab" id="dt-superadmin" onclick="switchDashTab('superadmin')" style="display:none;color:#f87171;border-color:rgba(239,68,68,.3);">⚡ Super Admin</button>
       </div>
 
       <!-- ════ SCORECARDS TAB (Global — pushes to all owned rooms) ════ -->
@@ -481,6 +482,57 @@ tr:hover td{background:var(--sur);}
           </div>
         </div>
       </div>
+      <!-- ════ SUPER ADMIN TAB ════ -->
+      <div id="tab-superadmin" style="display:none;">
+
+        <!-- Platform stats -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-hdr">
+            <span class="card-title" style="color:#f87171;">⚡ Super Admin Panel</span>
+            <span class="badge" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);font-size:.68rem;">namanmehra@gmail.com</span>
+          </div>
+          <div class="card-bdy">
+            <div class="srow" id="saStatsRow">
+              <div class="spill"><div class="sval" id="sa-total-users">—</div><div class="slb">Total Users</div></div>
+              <div class="spill"><div class="sval" id="sa-total-auctions">—</div><div class="slb">Auction Rooms</div></div>
+              <div class="spill"><div class="sval" id="sa-total-drafts">—</div><div class="slb">Draft Rooms</div></div>
+              <div class="spill"><div class="sval" id="sa-total-matches">—</div><div class="slb">Global Scorecards</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Global scorecard push -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-hdr">
+            <span class="card-title">🌐 Push Scorecard to ALL Rooms</span>
+            <span style="font-size:.78rem;color:var(--muted);">Pushes to every auction &amp; draft room on the platform</span>
+          </div>
+          <div class="card-bdy">
+            <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">
+              Select a previously saved global scorecard and push it to <strong style="color:#f87171;">every room on the entire platform</strong> — regardless of who created it.
+            </p>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+              <select id="saScorecardSelect" style="flex:1;min-width:200px;padding:10px 12px;font-size:.85rem;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);font-family:var(--fb);">
+                <option value="">— Select a saved scorecard —</option>
+              </select>
+              <button class="btn btn-gold" onclick="window.saPushToAll()" style="white-space:nowrap;">🌐 Push to ALL Rooms</button>
+            </div>
+            <div class="ai-status" id="saPushStatus"></div>
+          </div>
+        </div>
+
+        <!-- All rooms list -->
+        <div class="card">
+          <div class="card-hdr">
+            <span class="card-title">🏟️ All Rooms on Platform</span>
+            <button class="btn btn-ghost btn-sm" onclick="renderSuperAdminPanel()">↻ Refresh</button>
+          </div>
+          <div id="saRoomsList" style="padding:0;">
+            <div class="empty" style="padding:20px;">Loading…</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- AUCTION VIEW -->
@@ -845,6 +897,7 @@ function getGeminiModel(){
   }
 }
 
+const SUPER_ADMIN='namanmehra@gmail.com';
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
 let releaseTeam='',releaseIdx=-1,releasePlayerName='',releasePrice=0;
@@ -893,14 +946,22 @@ window.showAlert=function(msg,type='err'){
 
 // ── View management ──
 function showAuth(){document.getElementById('auth-view').classList.add('active');document.getElementById('app-shell').classList.remove('active');}
-function showApp(){document.getElementById('auth-view').classList.remove('active');document.getElementById('app-shell').classList.add('active');document.getElementById('topbarUser').textContent=user?.email||'';}
+function showApp(){
+  document.getElementById('auth-view').classList.remove('active');
+  document.getElementById('app-shell').classList.add('active');
+  document.getElementById('topbarUser').textContent=user?.email||'';
+  // Show super admin tab only for namanmehra@gmail.com
+  const saTab=document.getElementById('dt-superadmin');
+  if(saTab) saTab.style.display=(user?.email===SUPER_ADMIN)?'block':'none';
+}
 function showInner(id){['dashboard-view','auction-view'].forEach(v=>document.getElementById(v).classList.remove('active'));document.getElementById(id).classList.add('active');}
 
 window.switchDashTab=function(tab){
-  ['scorecards','created','joined'].forEach(t=>{
+  ['scorecards','created','joined','superadmin'].forEach(t=>{
     document.getElementById(`dt-${t}`).classList.toggle('active',t===tab);
     document.getElementById(`tab-${t}`).style.display=t===tab?'block':'none';
   });
+  if(tab==='superadmin') renderSuperAdminPanel();
   if(tab==='scorecards'){
     renderGlobalScorecardHistory();
     // Pre-build the player datalist from rawData so it's ready immediately
@@ -3209,6 +3270,171 @@ window.deleteGlobalScorecard=async function(mid,label){
       :`"${label}" deleted from scorecards. Room points unchanged.`;
     window.showAlert(msg,'ok');
     renderGlobalScorecardHistory();
+  }catch(e){ window.showAlert('Delete failed: '+e.message); }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SUPER ADMIN PANEL
+// Only accessible to namanmehra@gmail.com
+// ═══════════════════════════════════════════════════════════════
+
+function isSuperAdmin(){ return user?.email===SUPER_ADMIN; }
+
+async function renderSuperAdminPanel(){
+  if(!isSuperAdmin()) return;
+
+  const statusEl=document.getElementById('saPushStatus');
+  const roomsList=document.getElementById('saRoomsList');
+  if(roomsList) roomsList.innerHTML='<div class="empty" style="padding:20px;">Loading all rooms…</div>';
+
+  try{
+    // Scan all users to collect every room
+    const usersSnap=await get(ref(db,'users'));
+    const usersData=usersSnap.val()||{};
+
+    let totalUsers=0, allAuctions={}, allDrafts={}, totalMatches=0;
+
+    Object.entries(usersData).forEach(([uid,udata])=>{
+      totalUsers++;
+      if(udata.auctions) Object.entries(udata.auctions).forEach(([rid,r])=>{ allAuctions[rid]={...r,_ownerUid:uid,_ownerEmail:r.email||uid}; });
+      if(udata.drafts)   Object.entries(udata.drafts).forEach(([rid,r])=>{ allDrafts[rid]={...r,_ownerUid:uid,_ownerEmail:r.email||uid}; });
+    });
+
+    // Get global scorecards for push selector
+    const scSnap=await get(ref(db,`users/${user.uid}/scorecards`));
+    const scorecards=scSnap.val()||{};
+    totalMatches=Object.keys(scorecards).length;
+
+    // Count matches across all rooms (sample first 5 auction rooms)
+    // Update stats
+    document.getElementById('sa-total-users').textContent=totalUsers;
+    document.getElementById('sa-total-auctions').textContent=Object.keys(allAuctions).length;
+    document.getElementById('sa-total-drafts').textContent=Object.keys(allDrafts).length;
+    document.getElementById('sa-total-matches').textContent=totalMatches;
+
+    // Populate scorecard select
+    const sel=document.getElementById('saScorecardSelect');
+    if(sel){
+      sel.innerHTML='<option value="">— Select a saved scorecard —</option>';
+      Object.entries(scorecards).sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0)).forEach(([mid,m])=>{
+        const opt=document.createElement('option');
+        opt.value=mid; opt.textContent=m.label||mid;
+        sel.appendChild(opt);
+      });
+    }
+
+    // Render rooms list
+    if(!roomsList) return;
+    const aEntries=Object.entries(allAuctions).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
+    const dEntries=Object.entries(allDrafts).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
+
+    if(!aEntries.length&&!dEntries.length){
+      roomsList.innerHTML='<div class="empty" style="padding:20px;">No rooms found on platform.</div>';
+      return;
+    }
+
+    const makeRoomRow=(rid,r,type)=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bdr);gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-weight:600;">${r.name||r.roomName||rid}</span>
+            <span class="room-type-pill ${type}">${type==='auction'?'🔨 Auction':'🎯 Draft'}</span>
+          </div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">
+            ID: <code style="background:var(--sur);padding:1px 5px;border-radius:3px;">${rid}</code>
+            ${r._ownerUid?' · Owner: '+r._ownerUid.substring(0,8)+'…':''}
+            ${r.createdAt?' · '+new Date(r.createdAt).toLocaleDateString():''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn btn-ghost btn-sm" onclick="window.saViewRoom('${rid}','${type}')" style="font-size:.72rem;">👁 View</button>
+          <button class="btn btn-danger btn-sm" onclick="window.saDeleteRoom('${rid}','${type}','${(r.name||r.roomName||rid).replace(/'/g,"\\'")}')" style="font-size:.72rem;">🗑</button>
+        </div>
+      </div>`;
+
+    roomsList.innerHTML=
+      `<div style="padding:8px 20px;background:rgba(0,0,0,.2);font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Auction Rooms (${aEntries.length})</div>`+
+      (aEntries.length?aEntries.map(([rid,r])=>makeRoomRow(rid,r,'auction')).join(''):'<div class="empty" style="padding:14px 20px;">No auction rooms.</div>')+
+      `<div style="padding:8px 20px;background:rgba(0,0,0,.2);font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Draft Rooms (${dEntries.length})</div>`+
+      (dEntries.length?dEntries.map(([rid,r])=>makeRoomRow(rid,r,'draft')).join(''):'<div class="empty" style="padding:14px 20px;">No draft rooms.</div>');
+
+  }catch(e){
+    if(roomsList) roomsList.innerHTML=`<div class="empty" style="padding:20px;color:var(--err);">Error: ${e.message}</div>`;
+    console.error('SA panel error:',e);
+  }
+}
+
+// ── Push scorecard to EVERY room on platform ──
+window.saPushToAll=async function(){
+  if(!isSuperAdmin()) return;
+  const mid=document.getElementById('saScorecardSelect')?.value;
+  const statusEl=document.getElementById('saPushStatus');
+  if(!mid){statusEl.className='ai-status fail';statusEl.textContent='⚠️ Select a scorecard first.';return;}
+
+  statusEl.className='ai-status parsing';
+  statusEl.textContent='🌐 Scanning all rooms and pushing…';
+
+  try{
+    // Fetch the scorecard record
+    const scSnap=await get(ref(db,`users/${user.uid}/scorecards/${mid}`));
+    if(!scSnap.exists()){statusEl.className='ai-status fail';statusEl.textContent='❌ Scorecard not found.';return;}
+    const matchRecord=scSnap.val();
+
+    // Scan all users to find all room IDs
+    const usersSnap=await get(ref(db,'users'));
+    const usersData=usersSnap.val()||{};
+
+    const fanOut={};
+    let aCount=0, dCount=0;
+
+    Object.values(usersData).forEach(udata=>{
+      if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>{ fanOut[`auctions/${rid}/matches/${mid}`]=matchRecord; aCount++; });
+      if(udata.drafts)   Object.keys(udata.drafts).forEach(rid=>{ fanOut[`drafts/${rid}/matches/${mid}`]=matchRecord; dCount++; });
+    });
+
+    if(!Object.keys(fanOut).length){
+      statusEl.className='ai-status fail';
+      statusEl.textContent='No rooms found on the platform.';
+      return;
+    }
+
+    await update(ref(db),fanOut);
+    statusEl.className='ai-status done';
+    statusEl.textContent=`✅ "${matchRecord.label}" pushed to ${aCount} auction + ${dCount} draft rooms across the entire platform.`;
+
+  }catch(e){
+    statusEl.className='ai-status fail';
+    statusEl.textContent=`❌ Push failed: ${e.message}`;
+  }
+};
+
+// ── View a room (navigate into it) ──
+window.saViewRoom=function(rid,type){
+  if(!isSuperAdmin()) return;
+  if(type==='auction') window.location.search=`?room=${rid}`;
+  else window.location.search=`?draft=${rid}`;
+};
+
+// ── Delete any room (super admin power) ──
+window.saDeleteRoom=async function(rid,type,name){
+  if(!isSuperAdmin()) return;
+  if(!confirm(`Delete ${type} room "${name}" (${rid})?\n\nThis permanently removes the room and ALL its data.`)) return;
+  try{
+    const path=type==='auction'?`auctions/${rid}`:`drafts/${rid}`;
+    await remove(ref(db,path));
+    // Also remove from all users' room lists
+    const usersSnap=await get(ref(db,'users'));
+    const usersData=usersSnap.val()||{};
+    const cleanUp={};
+    const userKey=type==='auction'?'auctions':'drafts';
+    const joinedKey=type==='auction'?'joined':'joinedDrafts';
+    Object.keys(usersData).forEach(uid=>{
+      cleanUp[`users/${uid}/${userKey}/${rid}`]=null;
+      cleanUp[`users/${uid}/${joinedKey}/${rid}`]=null;
+    });
+    await update(ref(db),cleanUp);
+    window.showAlert(`Room "${name}" deleted.`,'ok');
+    renderSuperAdminPanel();
   }catch(e){ window.showAlert('Delete failed: '+e.message); }
 };
 
