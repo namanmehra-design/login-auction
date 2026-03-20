@@ -1981,31 +1981,22 @@ function renderLeaderboard(data){
 function renderAnalytics(data){
  if(!data) return;
  const matches=data.matches||{};
-
- // Aggregate player stats across all matches — parse breakdown strings
  const playerTotal={};
  Object.values(matches).forEach(m=>{
   if(!m?.players) return;
-  const isNR=m.result==='noresult';
   Object.values(m.players).forEach(p=>{
    const key=(p.name||'').toLowerCase();
    if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,runs:0,balls:0,fours:0,sixes:0,wkts:0,overs:0,catches:0,stumpings:0,runouts:0,matchCount:0};
-   const s=playerTotal[key];
-   s.pts+=(p.pts||0); s.matchCount++;
+   const s=playerTotal[key]; s.pts+=(p.pts||0); s.matchCount++;
    const bd=p.breakdown||'';
-   // Batting
    const batM=bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x×]4)?(?:\s+(\d+)[x×]6)?/);
    if(batM){s.runs+=+batM[1];s.balls+=+batM[2];s.fours+=+(batM[3]||0);s.sixes+=+(batM[4]||0);}
-   // Bowling
    const bowM=bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov/);
    if(bowM){s.wkts+=+bowM[1];s.overs+=+bowM[2];}
-   // Fielding
    const fldM=bd.match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
    if(fldM){s.catches+=+fldM[1];s.stumpings+=+fldM[2];s.runouts+=+fldM[3];}
   });
  });
-
- // Metadata
  const meta={};
  if(data.players) Object.values(data.players).forEach(p=>{meta[(p.name||p.n||'').toLowerCase()]={role:p.role||p.r||''};});
  const ownerMap={},pricePaid={};
@@ -2013,83 +2004,87 @@ function renderAnalytics(data){
   const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
   roster.forEach(p=>{const k=(p.name||p.n||'').toLowerCase();ownerMap[k]=team.name;pricePaid[k]=p.soldPrice||0;});
  });
-
  const all=Object.values(playerTotal);
  const byRole=role=>all.filter(p=>(meta[p.name.toLowerCase()]?.role||'').toLowerCase().includes(role.toLowerCase()));
-
- // Sorting helpers
  const top=(arr,key,n=5)=>[...arr].filter(p=>p[key]>0).sort((a,b)=>b[key]-a[key]).slice(0,n);
  const topPts=(arr,n=5)=>[...arr].sort((a,b)=>b.pts-a.pts).filter(p=>p.pts>0).slice(0,n);
 
- // ── Stat card builder ──
- function card(title,subtitle,rows){
-  const body=rows.length
-   ?rows.map((r,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--b0);gap:8px;">
-    <div style="min-width:0;flex:1;">
-     <div style="font-weight:600;font-size:.84rem;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${i+1}. ${r.name}</div>
-     <div style="font-size:.70rem;color:var(--dim);margin-top:1px;">${ownerMap[r.name.toLowerCase()]||'Unowned'} · ${r.matchCount} match${r.matchCount===1?'':'es'}</div>
+ // ── Card builder — clean single-row layout ──
+ function card(icon,title,subtitle,rows){
+  const empty=`<div style="padding:20px 16px;font-size:.78rem;color:var(--dim);text-align:center;">No data yet</div>`;
+  const body=rows.length?rows.map((r,i)=>{
+   const owner=ownerMap[r.name.toLowerCase()]||'Unowned';
+   return`<div style="display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid var(--b0);gap:10px;">
+    <span style="font-size:.68rem;font-weight:700;color:var(--dim);min-width:14px;text-align:right;flex-shrink:0;">${i+1}</span>
+    <div style="flex:1;min-width:0;">
+     <div style="font-size:.82rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+     <div style="font-size:.68rem;color:var(--dim);margin-top:1px;">${owner}&nbsp;·&nbsp;${r.matchCount}m${r._sub?'&nbsp;·&nbsp;<span style="color:var(--dim2);">'+r._sub+'</span>':''}</div>
     </div>
-    <div style="text-align:right;flex-shrink:0;">
-     <div style="font-weight:700;font-size:.92rem;color:var(--accent);">${r._primary}</div>
-     <div style="font-size:.70rem;color:var(--dim);">${r._secondary||''}</div>
+    <div style="font-size:.88rem;font-weight:700;color:var(--accent);white-space:nowrap;flex-shrink:0;">${r._stat}</div>
+   </div>`;
+  }).join(''):empty;
+  return`<div style="background:rgba(255,255,255,0.65);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;display:flex;flex-direction:column;">
+   <div style="padding:11px 16px;border-bottom:1px solid var(--b0);background:rgba(255,255,255,0.40);display:flex;align-items:center;gap:8px;">
+    <span style="font-size:14px;line-height:1;flex-shrink:0;">${icon}</span>
+    <div>
+     <div style="font-size:.72rem;font-weight:700;color:var(--txt);letter-spacing:.02em;text-transform:uppercase;">${title}</div>
+     ${subtitle?`<div style="font-size:.65rem;color:var(--dim);margin-top:1px;">${subtitle}</div>`:''}
     </div>
-   </div>`).join('')
-   :`<div style="padding:16px 14px;font-size:.80rem;color:var(--dim);text-align:center;">No data yet</div>`;
-  return`<div style="background:rgba(255,255,255,0.60);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;">
-   <div style="padding:11px 14px;border-bottom:1px solid var(--b0);background:rgba(255,255,255,0.40);">
-    <div style="font-size:.72rem;font-weight:700;color:var(--txt);letter-spacing:.03em;text-transform:uppercase;">${title}</div>
-    ${subtitle?`<div style="font-size:.67rem;color:var(--dim);margin-top:1px;">${subtitle}</div>`:''}
-   </div>${body}</div>`;
+   </div>
+   ${body}
+  </div>`;
  }
 
- // Build rows with primary + secondary display
- const mkPts=arr=>topPts(arr).map(p=>({...p,_primary:`+${p.pts} pts`,_secondary:`${p.runs>0?p.runs+'r ':''}`+(p.wkts>0?p.wkts+'w ':'')}));
- const mkRuns=arr=>top(arr,'runs').map(p=>({...p,_primary:`${p.runs} runs`,_secondary:`SR ${p.balls>0?((p.runs/p.balls)*100).toFixed(0):'—'} · ${p.fours}×4 ${p.sixes}×6`}));
- const mkWkts=arr=>top(arr,'wkts').map(p=>({...p,_primary:`${p.wkts} wkts`,_secondary:`Eco ${p.overs>0?(p.runs/p.overs).toFixed(2):'—'} · ${p.overs}ov`}));
- const mkField=arr=>top(arr.map(p=>({...p,total:p.catches+p.stumpings+p.runouts})),'total').map(p=>({...p,_primary:`${p.catches+p.stumpings+p.runouts} dismissals`,_secondary:`${p.catches}c ${p.stumpings}st ${p.runouts}ro`}));
- const mkStump=arr=>top(arr,'stumpings').map(p=>({...p,_primary:`${p.stumpings} stumpings`,_secondary:`${p.catches}c also`}));
- const mkValue=arr=>[...arr].map(p=>({...p,price:pricePaid[p.name.toLowerCase()]||0})).filter(p=>p.price>0&&p.pts>0).sort((a,b)=>(b.pts/b.price)-(a.pts/a.price)).slice(0,5).map(p=>({...p,_primary:`${(p.pts/p.price).toFixed(1)} pts/Cr`,_secondary:`+${p.pts} pts · ₹${p.price.toFixed(1)} Cr`}));
+ const batters=byRole('batter'),bowlers=byRole('bowler'),allrounders=byRole('all'),keepers=byRole('wicketkeeper');
 
- const batters=byRole('batter'), bowlers=byRole('bowler'), allrounders=byRole('all'), keepers=byRole('wicketkeeper');
+ // Row builders — _stat is the single bold number, _sub is the small context
+ const pts=arr=>topPts(arr).map(p=>({...p,_stat:`+${p.pts}pts`,_sub:`${p.runs>0?p.runs+'r ':''}`+(p.wkts>0?`${p.wkts}w`:'')}));
+ const runs=arr=>top(arr,'runs').map(p=>({...p,_stat:`${p.runs}r`,_sub:`SR ${p.balls>0?((p.runs/p.balls)*100).toFixed(0):'—'}`}));
+ const sixes=arr=>top(arr,'sixes').map(p=>({...p,_stat:`${p.sixes}×6`,_sub:`${p.runs}r`}));
+ const fours=arr=>top(arr,'fours').map(p=>({...p,_stat:`${p.fours}×4`,_sub:`${p.runs}r`}));
+ const wkts=arr=>top(arr,'wkts').map(p=>({...p,_stat:`${p.wkts}w`,_sub:`Eco ${p.overs>0?(p.runs/p.overs).toFixed(2):'—'}`}));
+ const eco=arr=>[...arr].filter(p=>p.overs>=2).sort((a,b)=>(a.runs/a.overs)-(b.runs/b.overs)).slice(0,5).map(p=>({...p,_stat:`${(p.runs/p.overs).toFixed(2)}eco`,_sub:`${p.wkts}w·${p.overs}ov`}));
+ const dismissals=arr=>top(arr.map(p=>({...p,total:p.catches+p.stumpings+p.runouts})),'total').map(p=>({...p,_stat:`${p.catches+p.stumpings+p.runouts}dis`,_sub:`${p.catches}c ${p.stumpings}st ${p.runouts}ro`}));
+ const catches=arr=>top(arr,'catches').map(p=>({...p,_stat:`${p.catches}c`,_sub:`+${p.pts}pts`}));
+ const stumpings=arr=>top(arr,'stumpings').map(p=>({...p,_stat:`${p.stumpings}st`,_sub:`${p.catches}c also`}));
+ const runouts=arr=>top(arr,'runouts').map(p=>({...p,_stat:`${p.runouts}ro`,_sub:`+${p.pts}pts`}));
+ const value=arr=>[...arr].map(p=>({...p,price:pricePaid[p.name.toLowerCase()]||0})).filter(p=>p.price>0&&p.pts>0).sort((a,b)=>(b.pts/b.price)-(a.pts/a.price)).slice(0,5).map(p=>({...p,_stat:`${(p.pts/p.price).toFixed(1)}p/Cr`,_sub:`+${p.pts}pts·₹${p.price.toFixed(1)}Cr`}));
+
+ const sec=(label,icon,cards)=>`
+  <div style="margin-bottom:20px;">
+   <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--b1);">
+    <span style="font-size:15px;">${icon}</span>
+    <span style="font-size:.70rem;font-weight:700;color:var(--txt2);letter-spacing:.07em;text-transform:uppercase;">${label}</span>
+   </div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">${cards}</div>
+  </div>`;
 
  const grid=document.getElementById('analyticsGrid');
  if(!grid) return;
- grid.innerHTML=`
-  <div style="margin-bottom:12px;">
-   <div style="font-size:.72rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">By Points</div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
-    ${card('Top Batters','by fantasy points',mkPts(batters))}
-    ${card('Top Bowlers','by fantasy points',mkPts(bowlers))}
-    ${card('Top All-Rounders','by fantasy points',mkPts(allrounders))}
-    ${card('Top Wicketkeepers','by fantasy points',mkPts(keepers))}
-    ${card('Overall Top Scorers','all players by points',mkPts(all))}
-    ${card('Best Value','pts per Crore spent',mkValue(all))}
-   </div>
-  </div>
-  <div style="margin-bottom:12px;">
-   <div style="font-size:.72rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">By Batting</div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
-    ${card('Most Runs','across all matches',mkRuns(batters.concat(allrounders)))}
-    ${card('Most Sixes','',[...all].filter(p=>p.sixes>0).sort((a,b)=>b.sixes-a.sixes).slice(0,5).map(p=>({...p,_primary:`${p.sixes} sixes`,_secondary:`${p.runs} runs`})))}
-    ${card('Most Fours','',[...all].filter(p=>p.fours>0).sort((a,b)=>b.fours-a.fours).slice(0,5).map(p=>({...p,_primary:`${p.fours} fours`,_secondary:`${p.runs} runs`})))}
-   </div>
-  </div>
-  <div style="margin-bottom:12px;">
-   <div style="font-size:.72rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">By Bowling</div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
-    ${card('Most Wickets','across all matches',mkWkts(bowlers.concat(allrounders)))}
-    ${card('Best Economy','min 2 overs',[...bowlers,...allrounders].filter(p=>p.overs>=2).sort((a,b)=>(a.runs/a.overs)-(b.runs/b.overs)).slice(0,5).map(p=>({...p,_primary:`${(p.runs/p.overs).toFixed(2)} eco`,_secondary:`${p.wkts}w · ${p.overs}ov`})))}
-   </div>
-  </div>
-  <div>
-   <div style="font-size:.72rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">By Fielding</div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
-    ${card('Most Dismissals','catches + stumpings + run-outs',mkField(all))}
-    ${card('Most Catches','',[...all].filter(p=>p.catches>0).sort((a,b)=>b.catches-a.catches).slice(0,5).map(p=>({...p,_primary:`${p.catches} catches`,_secondary:`+${p.pts} pts`})))}
-    ${card('Most Stumpings','wicketkeepers only',mkStump(keepers.concat(all.filter(p=>(meta[p.name.toLowerCase()]?.role||'').toLowerCase().includes('wicketkeeper')))))}
-    ${card('Run-outs','',[...all].filter(p=>p.runouts>0).sort((a,b)=>b.runouts-a.runouts).slice(0,5).map(p=>({...p,_primary:`${p.runouts} run-out${p.runouts===1?'':'s'}`,_secondary:`+${p.pts} pts`})))}
-   </div>
-  </div>`;
+ grid.innerHTML=
+  sec('By Points','<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><circle cx="6" cy="18" r="2"/></svg>','Top Batters','fantasy pts',pts(batters))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>','Top Bowlers','fantasy pts',pts(bowlers))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>','All-Rounders','fantasy pts',pts(allrounders))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>','Wicketkeepers','fantasy pts',pts(keepers))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-2"/><rect x="6" y="18" width="12" height="4" rx="1"/><path d="M6 9a6 6 0 0 0 12 0"/></svg>','Overall','all players',pts(all))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="2" x2="12" y2="22"/><path d="M2 8.5h20M2 15.5h20"/></svg>','Best Value','pts per Crore',value(all))
+  )+
+  sec('By Batting','<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><circle cx="6" cy="18" r="2"/></svg>',
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>','Most Runs','total across matches',runs([...batters,...allrounders,...all].filter((v,i,a)=>a.findIndex(x=>x.name===v.name)===i)))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><circle cx="6" cy="18" r="2"/></svg>','Most Sixes','',sixes(all))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><circle cx="6" cy="18" r="2"/></svg>','Most Fours','',fours(all))
+  )+
+  sec('By Bowling','<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>',
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>','Most Wickets','total across matches',wkts([...bowlers,...allrounders,...all].filter((v,i,a)=>a.findIndex(x=>x.name===v.name)===i)))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>','Best Economy','min 2 overs',eco([...bowlers,...allrounders,...all].filter((v,i,a)=>a.findIndex(x=>x.name===v.name)===i)))
+  )+
+  sec('By Fielding','<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>',
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="17"/><line x1="17" y1="11" x2="23" y2="17"/></svg>','Dismissals','catches+stumpings+run-outs',dismissals(all))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>','Catches','',catches(all))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="3" x2="8" y2="21"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="3" x2="16" y2="21"/><line x1="6" y1="5" x2="18" y2="5"/></svg>','Stumpings','wicketkeepers',stumpings(keepers.length?keepers:all.filter(p=>(meta[p.name.toLowerCase()]?.role||'').toLowerCase().includes('wicketkeeper'))))+
+   card('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v6l3 3"/><path d="M9 13l-3 3"/><path d="M9 21l3-3 3 3"/></svg>','Run-outs','',runouts(all))
+  );
 }
 
 // ── CSV Download for Points ──
