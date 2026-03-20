@@ -1992,13 +1992,13 @@ function renderAnalytics(data){
   if(!m?.players) return;
   Object.values(m.players).forEach(p=>{
    const key=(p.name||'').toLowerCase();
-   if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,runs:0,balls:0,fours:0,sixes:0,wkts:0,overs:0,catches:0,stumpings:0,runouts:0,matchCount:0};
+   if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,runs:0,balls:0,fours:0,sixes:0,wkts:0,overs:0,bowlRuns:0,catches:0,stumpings:0,runouts:0,matchCount:0};
    const s=playerTotal[key]; s.pts+=(p.pts||0); s.matchCount++;
    const bd=p.breakdown||'';
    const batM=bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x×]4)?(?:\s+(\d+)[x×]6)?/);
    if(batM){s.runs+=+batM[1];s.balls+=+batM[2];s.fours+=+(batM[3]||0);s.sixes+=+(batM[4]||0);}
-   const bowM=bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov/);
-   if(bowM){s.wkts+=+bowM[1];s.overs+=+bowM[2];}
+   const bowM=bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
+   if(bowM){s.wkts+=+bowM[1];s.overs+=+bowM[2];s.bowlRuns+=+(bowM[3]||0);}
    const fldM=bd.match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
    if(fldM){s.catches+=+fldM[1];s.stumpings+=+fldM[2];s.runouts+=+fldM[3];}
   });
@@ -2057,8 +2057,8 @@ function renderAnalytics(data){
  const runs=arr=>top(arr,'runs').map(p=>({...p,_stat:`${p.runs}r`,_sub:`SR ${p.balls>0?((p.runs/p.balls)*100).toFixed(0):'—'}`}));
  const sixes=arr=>top(arr,'sixes').map(p=>({...p,_stat:`${p.sixes}×6`,_sub:`${p.runs}r`}));
  const fours=arr=>top(arr,'fours').map(p=>({...p,_stat:`${p.fours}×4`,_sub:`${p.runs}r`}));
- const wkts=arr=>top(arr,'wkts').map(p=>({...p,_stat:`${p.wkts}w`,_sub:`Eco ${p.overs>0?(p.runs/p.overs).toFixed(2):'—'}`}));
- const eco=arr=>[...arr].filter(p=>p.overs>=2).sort((a,b)=>(a.runs/a.overs)-(b.runs/b.overs)).slice(0,5).map(p=>({...p,_stat:`${(p.runs/p.overs).toFixed(2)}eco`,_sub:`${p.wkts}w·${p.overs}ov`}));
+ const wkts=arr=>top(arr,'wkts').map(p=>({...p,_stat:`${p.wkts}w`,_sub:`Eco ${p.overs>0?(p.bowlRuns/normalizeOvers(p.overs)).toFixed(2):'—'}`}));
+ const eco=arr=>[...arr].filter(p=>p.overs>=2).sort((a,b)=>(a.bowlRuns/normalizeOvers(a.overs))-(b.bowlRuns/normalizeOvers(b.overs))).slice(0,5).map(p=>({...p,_stat:`${(p.bowlRuns/normalizeOvers(p.overs)).toFixed(2)}eco`,_sub:`${p.wkts}w·${p.overs}ov`}));
  const dismissals=arr=>top(arr.map(p=>({...p,total:p.catches+p.stumpings+p.runouts})),'total').map(p=>({...p,_stat:`${p.catches+p.stumpings+p.runouts}dis`,_sub:`${p.catches}c ${p.stumpings}st ${p.runouts}ro`}));
  const catches=arr=>top(arr,'catches').map(p=>({...p,_stat:`${p.catches}c`,_sub:`+${p.pts}pts`}));
  const stumpings=arr=>top(arr,'stumpings').map(p=>({...p,_stat:`${p.stumpings}st`,_sub:`${p.catches}c also`}));
