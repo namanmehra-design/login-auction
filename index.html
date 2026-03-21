@@ -1810,12 +1810,21 @@ function renderBlock(data){
 
  const m=data.setup?.budgetMultiplier||1;
  document.getElementById('quickBidGrid').innerHTML=
- [0.1,0.5,1,2,5,10].map(i=>{
-  const amt=+(i*m).toFixed(2);
-  const lbl='+₹'+(amt<1?amt.toFixed(2):amt.toFixed(1));
-  const blocked=amt<0.2&&(data.currentBlock?.currentBid||0)>=3;
-  return `<button class="qbtn${blocked?' qbtn-blocked':''}" ${blocked?'disabled title="Not allowed above ₹3 Cr"':''} onclick="window.addBid(${amt})">${lbl}${blocked?' <span style=\"font-size:.65rem;opacity:.7;\">✕</span>':''}</button>`;
-}).join('');
+ (()=>{
+  const curBid=data.currentBlock?.currentBid||0;
+  const myTeamBudget=roomState?.teams?.[myTeamName]?.budget??Infinity;
+  const alreadyNI=!!(data.currentBlock?.notInterested?.[myTeamName]);
+  const amLastBidder=data.currentBlock?.lastBidderTeam===myTeamName;
+  return [0.1,0.5,1,2,5,10].map(i=>{
+    const amt=+(i*m).toFixed(2);
+    const lbl='+₹'+(amt<1?amt.toFixed(2):amt.toFixed(1));
+    const tooSmall=amt<0.2&&curBid>=3;
+    const cantAfford=!amLastBidder&&(curBid+amt)>myTeamBudget;
+    const blocked=tooSmall||cantAfford||alreadyNI;
+    const title=tooSmall?'Not allowed above ₹3 Cr':cantAfford?`Exceeds your budget (₹${myTeamBudget.toFixed(2)} Cr left)`:'';
+    return `<button class="qbtn${blocked?' qbtn-blocked':''}" ${blocked?'disabled':''}${title?` title="${title}"`:''}  onclick="window.addBid(${amt})">${lbl}${cantAfford?'<span style=\"font-size:.60rem;margin-left:3px;opacity:.6;\">✕</span>':''}</button>`;
+  }).join('');
+})();
 
  blk.innerHTML=`
  <div class="pname">${N(p)}</div><div class="ptags"><span class="ptag">${T(p)}</span><span class="ptag">${R(p)}</span><span class="ptag ${O(p)?'ov':'in'}">${O(p)?'Overseas':'Indian'}</span></div><div class="base-lbl">Base Price: ₹${(p.basePrice||0).toFixed(2)} Cr</div>`;
@@ -2082,13 +2091,23 @@ window.addBid=function(inc){
  // Minimum increment rule: once price crosses ₹3Cr, no 0.1 increments allowed
  if(inc<0.2&&curBid>=3)return window.showAlert('Bids of ₹0.10 Cr are not allowed above ₹3 Cr. Use ₹0.50 Cr or higher.','err');
  const newBid=parseFloat((curBid+inc).toFixed(2));
- // myTeamName for members; admin bids show as "Admin" but cannot self-sell
+ // Purse check: cannot bid beyond remaining budget
+ const myTeam=roomState.teams?.[myTeamName];
+ const myBudget=myTeam?.budget??Infinity;
+ if(newBid>parseFloat(myBudget.toFixed(2))){
+  window.showAlert(`You only have ₹${myBudget.toFixed(2)} Cr left — cannot bid ₹${newBid.toFixed(2)} Cr. Marking you as Not Interested.`,'err');
+  // Auto-mark as not interested
+  if(roomState.currentBlock?.lastBidderTeam!==myTeamName){
+   update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(()=>{});
+  }
+  return;
+ }
  const bidder=myTeamName||'Unknown';
  update(ref(db,`auctions/${roomId}/currentBlock`),{
- currentBid:newBid,
- lastBidderName:bidder,
- lastBidderTeam:myTeamName||null,
- lastBidderUid:user.uid
+  currentBid:newBid,
+  lastBidderName:bidder,
+  lastBidderTeam:myTeamName||null,
+  lastBidderUid:user.uid
  });
 };
 
