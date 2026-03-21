@@ -567,167 +567,142 @@ tr:hover td{background:rgba(255,255,255,0.40);}
 }
 
 
-/* ── Dark Mode ── */
-html.dark body,body.dark{
-  --bg:     #0E0C1A;
-  --bg2:    #141024;
-  --bg3:    #1A162E;
 
-  --g0:rgba(255,255,255,0.03);
-  --g1:rgba(255,255,255,0.05);
-  --g2:rgba(255,255,255,0.08);
-  --g3:rgba(255,255,255,0.12);
+/* ══════════════════════════════════════════
+   COMPREHENSIVE DARK MODE OVERRIDES
+   Covers inline-styled elements via class injection
+   ══════════════════════════════════════════ */
 
-  --b0:rgba(160,140,255,0.08);
-  --b1:rgba(160,140,255,0.13);
-  --b2:rgba(160,140,255,0.20);
-  --b3:rgba(160,140,255,0.30);
+/* Page background */
+body.dark { background: #0E0C1A; color: rgba(255,255,255,0.90); }
 
-  --sh0:0 1px 4px rgba(0,0,0,0.30),0 4px 16px rgba(0,0,0,0.20);
-  --sh1:0 4px 20px rgba(0,0,0,0.40),0 1px 4px rgba(0,0,0,0.20);
-  --sh2:0 12px 48px rgba(0,0,0,0.55),0 2px 8px rgba(0,0,0,0.30);
+/* Auth card */
+body.dark .auth-card,
+body.dark .auth-bdy,
+body.dark #auth-view { background: #1A162E; }
+body.dark .auth-hdr { background: #0E0C1A; }
+body.dark .auth-brand, body.dark .auth-tag { color: rgba(255,255,255,0.85); }
+body.dark .auth-lbl { color: rgba(200,190,255,0.70); }
+body.dark .fld label { color: rgba(200,190,255,0.70); }
 
-  --accent:      #9B7AE8;
-  --accent-l:    #B99AF8;
-  --accent-bg:   rgba(155,122,232,0.12);
-  --accent-bg2:  rgba(155,122,232,0.20);
-  --accent-bdr:  rgba(155,122,232,0.30);
+/* All inputs, selects in dark */
+body.dark input, body.dark select, body.dark textarea {
+  background: rgba(255,255,255,0.06) !important;
+  color: rgba(255,255,255,0.90) !important;
+  border-color: rgba(160,140,255,0.20) !important;
+}
+body.dark input::placeholder { color: rgba(180,170,220,0.40) !important; }
 
-  --ok:       #4ACA8A;
-  --ok-bg:    rgba(74,202,138,0.10);
-  --ok-bdr:   rgba(74,202,138,0.25);
-  --err:      #F07070;
-  --err-bg:   rgba(240,112,112,0.10);
-  --err-bdr:  rgba(240,112,112,0.25);
-  --warn:     #E8C56A;
-  --warn-bg:  rgba(232,197,106,0.10);
-  --warn-bdr: rgba(232,197,106,0.25);
+/* Stats bar (250 TOTAL etc) */
+body.dark .ablock, body.dark .stat-box { background: rgba(255,255,255,0.05) !important; color: rgba(255,255,255,0.85) !important; }
+body.dark .stat-lbl { color: rgba(180,170,220,0.50) !important; }
+body.dark .stat-val { color: rgba(255,255,255,0.90) !important; }
 
-  --txt:  rgba(255,255,255,0.90);
-  --txt2: rgba(200,190,255,0.70);
-  --dim:  rgba(180,170,220,0.45);
-  --dim2: rgba(200,190,255,0.55);
-}
+/* Tab bar */
+body.dark .dtabs, body.dark .room-tabs { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
+body.dark .dtab { color: rgba(180,170,220,0.60) !important; }
+body.dark .dtab.active { background: rgba(108,84,200,0.25) !important; color: rgba(255,255,255,0.90) !important; }
 
-body.dark::before{
-  background:
-    radial-gradient(ellipse 55% 45% at 10% 5%,  rgba(100,70,200,0.20) 0%,transparent 55%),
-    radial-gradient(ellipse 45% 40% at 90% 95%,  rgba(120,80,220,0.15) 0%,transparent 52%),
-    radial-gradient(ellipse 40% 35% at 80% 15%,  rgba(80,60,180,0.12) 0%,transparent 48%),
-    radial-gradient(ellipse 50% 40% at 20% 85%,  rgba(100,70,200,0.12) 0%,transparent 50%);
+/* Analytics cards — the core problem: inline rgba(255,255,255) backgrounds */
+/* We inject a .dark-card class onto analytics cards via JS */
+body.dark .dark-card {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(160,140,255,0.15) !important;
 }
-
-/* Dark mode glass surfaces */
-body.dark .card,
-body.dark .pts-card,
-body.dark .tcard,
-body.dark .spill,
-body.dark .match-block,
-body.dark .pick-box,
-body.dark .ai-parse-box{
-  background:rgba(30,24,60,0.70);
+body.dark .dark-card-hdr {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(160,140,255,0.12) !important;
 }
-body.dark .card-hdr,
-body.dark .pts-hdr,
-body.dark .tcard-hdr,
-body.dark .match-block-hdr{
-  background:rgba(40,32,80,0.50);
-}
-body.dark .rc{
-  background:rgba(30,24,60,0.55);
-}
-body.dark .rc:hover{
-  background:rgba(50,40,100,0.80);
-}
-body.dark .topbar{
-  background:rgba(14,12,26,0.85);
-  border-bottom-color:var(--b1);
-}
-body.dark .dtabs,
-body.dark .anav{
-  background:rgba(20,16,40,0.60);
-}
-body.dark .dtab.active,
-body.dark .anav-btn.active,
-body.dark .anav-btn.ac{
-  background:rgba(40,32,80,0.90);
-}
-body.dark .at{
-  background:rgba(20,16,40,0.70);
-}
-body.dark .ablock{
-  background:rgba(20,16,40,0.50);
-}
-body.dark .ablock.live{
-  background:rgba(30,24,60,0.70);
-}
-body.dark .qbtn{
-  background:rgba(30,24,60,0.60);
-  color:var(--txt2);
-}
-body.dark .qbtn:hover{
-  background:rgba(50,40,100,0.80);
-  color:var(--txt);
-}
-body.dark input,
-body.dark select,
-body.dark textarea{
-  background:rgba(20,16,40,0.70);
-  color:var(--txt);
-  border-color:var(--b1);
-}
-body.dark input:focus,
-body.dark select:focus,
-body.dark textarea:focus{
-  background:rgba(30,24,60,0.90);
-}
-body.dark select option{
-  background:#1A162E;
-  color:var(--txt);
-}
-body.dark .modal{
-  background:rgba(20,16,40,0.92);
-}
-body.dark #toast{
-  background:rgba(20,16,40,0.92);
-}
-body.dark th{
-  background:rgba(40,32,80,0.40);
-}
-body.dark tr:hover td{
-  background:rgba(50,40,100,0.25);
-}
-body.dark .btn-outline{
-  background:rgba(30,24,60,0.60);
-}
-body.dark .btn-outline:hover{
-  background:rgba(50,40,100,0.80);
-}
-body.dark .btn-white{
-  background:rgba(30,24,60,0.80);
-  color:var(--txt);
+body.dark .dark-card-row {
+  border-color: rgba(160,140,255,0.08) !important;
 }
 
-/* Dark mode toggle button */
-.dark-toggle{
-  width:34px;height:34px;border-radius:50%;
-  border:1px solid var(--b1);
-  background:rgba(255,255,255,0.08);
-  color:var(--dim2);
-  cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:all .2s;flex-shrink:0;
+/* Pick card / clock card */
+body.dark .clock-card {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(160,140,255,0.15) !important;
+  color: rgba(255,255,255,0.90) !important;
 }
-.dark-toggle:hover{
-  background:rgba(255,255,255,0.15);
-  color:var(--txt);
-  border-color:var(--b2);
+body.dark .clock-name { color: rgba(255,255,255,0.90) !important; }
+body.dark .clock-round, body.dark .clock-sub { color: rgba(180,170,220,0.60) !important; }
+body.dark .clock-card.your-turn { background: rgba(108,84,200,0.15) !important; }
+body.dark .clock-you { color: var(--accent) !important; }
+
+/* Pick box */
+body.dark .pick-box {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(160,140,255,0.15) !important;
 }
-body.dark .dark-toggle{
-  background:rgba(155,122,232,0.12);
-  border-color:var(--accent-bdr);
-  color:var(--accent);
+body.dark .pick-box input, body.dark .pick-box select { background: rgba(255,255,255,0.08) !important; }
+
+/* Order pills */
+body.dark .order-pill {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(160,140,255,0.15) !important;
+  color: rgba(180,170,220,0.70) !important;
 }
+body.dark .order-pill.active-pick { background: rgba(108,84,200,0.30) !important; color: rgba(255,255,255,0.90) !important; }
+
+/* Franchise header bar */
+body.dark .franchise-hdr, body.dark .order-section-lbl { color: rgba(180,170,220,0.60) !important; }
+
+/* Bid buttons */
+body.dark .qbtn, body.dark .bid-btn {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(160,140,255,0.15) !important;
+  color: rgba(255,255,255,0.85) !important;
+}
+body.dark .qbtn:hover, body.dark .bid-btn:hover { background: rgba(108,84,200,0.25) !important; }
+
+/* Ledger / table rows */
+body.dark .tcard { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
+body.dark table { color: rgba(255,255,255,0.85) !important; }
+body.dark td, body.dark th { border-color: rgba(160,140,255,0.10) !important; }
+body.dark th { background: rgba(255,255,255,0.05) !important; color: rgba(180,170,220,0.80) !important; }
+body.dark tr:nth-child(even) td { background: rgba(255,255,255,0.02) !important; }
+body.dark tr:hover td { background: rgba(108,84,200,0.10) !important; }
+
+/* Room cards on dashboard */
+body.dark .rc {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(160,140,255,0.12) !important;
+}
+body.dark .rc:hover { background: rgba(108,84,200,0.12) !important; }
+body.dark .rc-name { color: rgba(255,255,255,0.90) !important; }
+body.dark .rc-meta { color: rgba(180,170,220,0.60) !important; }
+
+/* "No data" empty states */
+body.dark .empty-state, body.dark [style*="color:var(--dim)"] { color: rgba(180,170,220,0.45) !important; }
+
+/* Spill / info panels */
+body.dark .spill { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
+
+/* Match data blocks */
+body.dark .match-block { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
+body.dark .match-block-hdr { background: rgba(255,255,255,0.03) !important; }
+
+/* Section headers in analytics */
+body.dark [style*="border-bottom:1px solid var(--b1)"] { border-color: rgba(160,140,255,0.12) !important; }
+
+/* Scorecard entry area */
+body.dark .ai-parse-box { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.15) !important; }
+body.dark .ai-parse-box input { background: rgba(255,255,255,0.08) !important; }
+
+/* Pills / badges */
+body.dark .badge, body.dark .pill { background: rgba(255,255,255,0.08) !important; }
+
+/* Live in room section */
+body.dark [id="liveBar"], body.dark .live-bar { 
+  background: rgba(255,255,255,0.04) !important;
+  color: rgba(180,170,220,0.70) !important;
+}
+
+/* Purse cards */
+body.dark .pts-card { background: rgba(255,255,255,0.05) !important; border-color: rgba(160,140,255,0.12) !important; }
+body.dark .pts-hdr { background: rgba(255,255,255,0.03) !important; }
+
+/* Scroll bars in dark */
+body.dark ::-webkit-scrollbar-thumb { background: rgba(160,140,255,0.25) !important; }
 
 </style>
 
@@ -2210,8 +2185,8 @@ function renderAnalytics(data){
     <div style="font-size:.84rem;font-weight:600;color:var(--accent);white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;min-width:48px;letter-spacing:-.01em;">${r._stat}</div>
    </div>`;
   }).join(''):empty;
-  return`<div style="background:rgba(255,255,255,0.68);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;">
-   <div style="padding:10px 14px;border-bottom:1px solid var(--b1);background:rgba(255,255,255,0.50);display:grid;grid-template-columns:16px 1fr;align-items:start;gap:0 9px;">
+  return`<div style="background:var(--g2);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;">
+   <div style="padding:10px 14px;border-bottom:1px solid var(--b1);background:var(--g1);display:grid;grid-template-columns:16px 1fr;align-items:start;gap:0 9px;">
     <div style="margin-top:2px;color:var(--dim2);display:flex;align-items:center;">${icon}</div>
     <div>
      <div style="font-size:.73rem;font-weight:600;color:var(--txt);letter-spacing:.01em;">${title}</div>
@@ -3358,6 +3333,30 @@ window.toggleDark=function(){
   });
  }
 })();
+
+
+// Dark mode analytics card fix — add CSS classes to inline-styled cards
+function patchDarkCards(){
+  if(!document.body.classList.contains('dark')) return;
+  document.querySelectorAll('[style*="rgba(255,255,255,0.68)"]').forEach(el=>{
+    el.classList.add('dark-card');
+    el.style.background='';
+  });
+  document.querySelectorAll('[style*="rgba(255,255,255,0.50)"]').forEach(el=>{
+    el.classList.add('dark-card-hdr');
+    el.style.background='';
+  });
+  document.querySelectorAll('[style*="rgba(255,255,255,0.60)"]').forEach(el=>{
+    el.classList.add('dark-card');
+    el.style.background='';
+  });
+}
+// Patch after any analytics render
+const _origRAD = window.renderAnalyticsDraft;
+if(_origRAD) window.renderAnalyticsDraft = function(...args){ _origRAD(...args); setTimeout(patchDarkCards,50); };
+const _origRA = window.renderAnalytics;
+if(_origRA) window.renderAnalytics = function(...args){ _origRA(...args); setTimeout(patchDarkCards,50); };
+
 </script>
 </body>
 </html>
