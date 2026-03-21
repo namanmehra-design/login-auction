@@ -568,144 +568,465 @@ tr:hover td{background:rgba(255,255,255,0.40);}
 
 
 
-/* ══════════════════════════════════════════
-   COMPREHENSIVE DARK MODE OVERRIDES
-   Covers inline-styled elements via class injection
-   ══════════════════════════════════════════ */
+</style>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   DARK MODE — Complete override of every surface and element
+   All CSS variables are redefined so var() calls auto-update.
+   ═══════════════════════════════════════════════════════════ */
 
-/* Page background */
-body.dark { background: #0E0C1A; color: rgba(255,255,255,0.90); }
+body.dark {
+  /* ── Base backgrounds ── */
+  --bg:  #0D0B18;
+  --bg2: #12101F;
+  --bg3: #171528;
 
-/* Auth card */
-body.dark .auth-card,
-body.dark .auth-bdy,
-body.dark #auth-view { background: #1A162E; }
-body.dark .auth-hdr { background: #0E0C1A; }
-body.dark .auth-brand, body.dark .auth-tag { color: rgba(255,255,255,0.85); }
-body.dark .auth-lbl { color: rgba(200,190,255,0.70); }
-body.dark .fld label { color: rgba(200,190,255,0.70); }
+  /* ── Glass surfaces — dark with subtle purple tint ── */
+  --g0: rgba(255,255,255,0.03);
+  --g1: rgba(255,255,255,0.05);
+  --g2: rgba(255,255,255,0.07);
+  --g3: rgba(255,255,255,0.10);
 
-/* All inputs, selects in dark */
-body.dark input, body.dark select, body.dark textarea {
-  background: rgba(255,255,255,0.06) !important;
-  color: rgba(255,255,255,0.90) !important;
-  border-color: rgba(160,140,255,0.20) !important;
+  /* ── Borders ── */
+  --b0: rgba(150,130,255,0.08);
+  --b1: rgba(150,130,255,0.14);
+  --b2: rgba(150,130,255,0.22);
+  --b3: rgba(150,130,255,0.32);
+
+  /* ── Shadows ── */
+  --sh0: 0 1px 4px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
+  --sh1: 0 4px 20px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.4);
+  --sh2: 0 12px 48px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.4);
+
+  /* ── Accent ── */
+  --accent:     #9B7EF0;
+  --accent-l:   #B49CF8;
+  --accent-bg:  rgba(155,126,240,0.14);
+  --accent-bg2: rgba(155,126,240,0.22);
+  --accent-bdr: rgba(155,126,240,0.32);
+
+  /* ── Semantic ── */
+  --ok:       #3EC97A;
+  --ok-bg:    rgba(62,201,122,0.12);
+  --ok-bdr:   rgba(62,201,122,0.28);
+  --err:      #F07070;
+  --err-bg:   rgba(240,112,112,0.12);
+  --err-bdr:  rgba(240,112,112,0.28);
+  --warn:     #F0C060;
+  --warn-bg:  rgba(240,192,96,0.12);
+  --warn-bdr: rgba(240,192,96,0.28);
+
+  /* ── Text ── */
+  --txt:  #E8E4FF;
+  --txt2: #A89DC8;
+  --dim:  #6B6490;
+  --dim2: #8C82B0;
 }
-body.dark input::placeholder { color: rgba(180,170,220,0.40) !important; }
 
-/* Stats bar (250 TOTAL etc) */
-body.dark .ablock, body.dark .stat-box { background: rgba(255,255,255,0.05) !important; color: rgba(255,255,255,0.85) !important; }
-body.dark .stat-lbl { color: rgba(180,170,220,0.50) !important; }
-body.dark .stat-val { color: rgba(255,255,255,0.90) !important; }
-
-/* Tab bar */
-body.dark .dtabs, body.dark .room-tabs { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
-body.dark .dtab { color: rgba(180,170,220,0.60) !important; }
-body.dark .dtab.active { background: rgba(108,84,200,0.25) !important; color: rgba(255,255,255,0.90) !important; }
-
-/* Analytics cards — the core problem: inline rgba(255,255,255) backgrounds */
-/* We inject a .dark-card class onto analytics cards via JS */
-body.dark .dark-card {
-  background: rgba(255,255,255,0.05) !important;
-  border-color: rgba(160,140,255,0.15) !important;
+/* ── Page background ── */
+body.dark {
+  background: var(--bg);
+  color: var(--txt);
 }
-body.dark .dark-card-hdr {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(160,140,255,0.12) !important;
-}
-body.dark .dark-card-row {
-  border-color: rgba(160,140,255,0.08) !important;
+body.dark::before {
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 10%, rgba(100,70,200,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 90%, rgba(120,80,220,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 35% at 75% 15%, rgba(80,50,180,0.10) 0%, transparent 50%);
 }
 
-/* Pick card / clock card */
-body.dark .clock-card {
-  background: rgba(255,255,255,0.05) !important;
-  border-color: rgba(160,140,255,0.15) !important;
-  color: rgba(255,255,255,0.90) !important;
+/* ── Scrollbar ── */
+body.dark ::-webkit-scrollbar-thumb { background: rgba(155,126,240,0.30); }
+
+/* ── Topbar ── */
+body.dark .topbar {
+  background: rgba(13,11,24,0.92);
+  border-bottom-color: var(--b1);
+  box-shadow: 0 1px 0 rgba(150,130,255,0.10);
 }
-body.dark .clock-name { color: rgba(255,255,255,0.90) !important; }
-body.dark .clock-round, body.dark .clock-sub { color: rgba(180,170,220,0.60) !important; }
-body.dark .clock-card.your-turn { background: rgba(108,84,200,0.15) !important; }
-body.dark .clock-you { color: var(--accent) !important; }
+body.dark .tb-title { color: var(--txt); }
+body.dark .tb-user  { color: var(--dim); }
+body.dark .tb-logo  { background: var(--accent-bg2); border-color: var(--accent-bdr); color: var(--accent); }
 
-/* Pick box */
-body.dark .pick-box {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(160,140,255,0.15) !important;
+/* ── Toast ── */
+body.dark #toast {
+  background: rgba(25,22,45,0.95);
+  border-color: var(--b2);
+  color: var(--txt);
 }
-body.dark .pick-box input, body.dark .pick-box select { background: rgba(255,255,255,0.08) !important; }
 
-/* Order pills */
-body.dark .order-pill {
-  background: rgba(255,255,255,0.06) !important;
-  border-color: rgba(160,140,255,0.15) !important;
-  color: rgba(180,170,220,0.70) !important;
+/* ── Auth card ── */
+body.dark #auth-view { background: var(--bg); }
+body.dark .auth-card {
+  background: rgba(22,19,40,0.95);
+  border-color: var(--b2);
 }
-body.dark .order-pill.active-pick { background: rgba(108,84,200,0.30) !important; color: rgba(255,255,255,0.90) !important; }
-
-/* Franchise header bar */
-body.dark .franchise-hdr, body.dark .order-section-lbl { color: rgba(180,170,220,0.60) !important; }
-
-/* Bid buttons */
-body.dark .qbtn, body.dark .bid-btn {
-  background: rgba(255,255,255,0.06) !important;
-  border-color: rgba(160,140,255,0.15) !important;
-  color: rgba(255,255,255,0.85) !important;
+body.dark .auth-hdr {
+  background: linear-gradient(160deg, rgba(100,70,200,0.12), transparent 60%);
+  border-bottom-color: var(--b1);
 }
-body.dark .qbtn:hover, body.dark .bid-btn:hover { background: rgba(108,84,200,0.25) !important; }
+body.dark .auth-logo { background: var(--accent-bg2); border-color: var(--accent-bdr); color: var(--accent); }
+body.dark .auth-brand { color: var(--txt); }
+body.dark .auth-tag   { color: var(--dim); }
+body.dark .auth-bdy   { background: transparent; }
+body.dark .auth-lbl   { color: var(--txt2); }
+body.dark .pw-hint    { color: var(--dim); }
+body.dark .fld label  { color: var(--dim2); }
 
-/* Ledger / table rows */
-body.dark .tcard { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
-body.dark table { color: rgba(255,255,255,0.85) !important; }
-body.dark td, body.dark th { border-color: rgba(160,140,255,0.10) !important; }
-body.dark th { background: rgba(255,255,255,0.05) !important; color: rgba(180,170,220,0.80) !important; }
-body.dark tr:nth-child(even) td { background: rgba(255,255,255,0.02) !important; }
-body.dark tr:hover td { background: rgba(108,84,200,0.10) !important; }
+/* ── Inputs / selects ── */
+body.dark input[type=text],
+body.dark input[type=email],
+body.dark input[type=password],
+body.dark input[type=number],
+body.dark select,
+body.dark textarea {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--b2);
+  color: var(--txt);
+}
+body.dark input:focus,
+body.dark select:focus,
+body.dark textarea:focus {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--accent-bdr);
+  box-shadow: 0 0 0 3px rgba(155,126,240,0.15);
+}
+body.dark input::placeholder,
+body.dark textarea::placeholder { color: var(--dim); }
+body.dark select option { background: #1A1730; color: var(--txt); }
 
-/* Room cards on dashboard */
+/* ── Buttons ── */
+body.dark .btn-outline {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--b2);
+  color: var(--txt2);
+}
+body.dark .btn-outline:hover { background: rgba(255,255,255,0.10); color: var(--txt); border-color: var(--b3); }
+
+body.dark .btn-ghost { border-color: var(--b1); color: var(--dim2); }
+body.dark .btn-ghost:hover { background: rgba(255,255,255,0.07); color: var(--txt); }
+
+body.dark .btn-white { background: rgba(255,255,255,0.08); color: var(--txt); border-color: var(--b2); }
+body.dark .btn-white:hover { background: rgba(255,255,255,0.12); }
+
+body.dark .divider { color: var(--dim); }
+body.dark .divider::before, body.dark .divider::after { background: var(--b1); }
+body.dark .tbtn { color: var(--accent); }
+body.dark .tbtn:hover { color: var(--accent-l); }
+
+/* ── Modal ── */
+body.dark .modal-bg { background: rgba(0,0,0,0.65); }
+body.dark .modal {
+  background: rgba(22,19,40,0.97);
+  border-color: var(--b2);
+}
+body.dark .modal h3 { color: var(--txt); }
+
+/* ── Dash tabs ── */
+body.dark .dtabs {
+  background: rgba(255,255,255,0.03);
+  border-color: var(--b1);
+}
+body.dark .dtab { color: var(--dim); background: transparent; }
+body.dark .dtab:hover { color: var(--txt2); }
+body.dark .dtab.active {
+  background: rgba(155,126,240,0.18);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+/* ── Cards ── */
+body.dark .card {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+  box-shadow: var(--sh0);
+}
+body.dark .card:hover { background: rgba(255,255,255,0.06); box-shadow: var(--sh1); }
+body.dark .card-hdr {
+  background: rgba(255,255,255,0.03);
+  border-bottom-color: var(--b1);
+}
+body.dark .card-title { color: var(--txt); }
+
+/* ── Room cards ── */
 body.dark .rc {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(160,140,255,0.12) !important;
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
 }
-body.dark .rc:hover { background: rgba(108,84,200,0.12) !important; }
-body.dark .rc-name { color: rgba(255,255,255,0.90) !important; }
-body.dark .rc-meta { color: rgba(180,170,220,0.60) !important; }
+body.dark .rc:hover {
+  background: rgba(155,126,240,0.10);
+  border-color: var(--accent-bdr);
+  box-shadow: var(--sh1);
+}
+body.dark .rc-name { color: var(--txt); }
+body.dark .rc-meta { color: var(--dim); }
+body.dark .rc-icon { background: var(--accent-bg2); border-color: var(--accent-bdr); color: var(--accent); }
 
-/* "No data" empty states */
-body.dark .empty-state, body.dark [style*="color:var(--dim)"] { color: rgba(180,170,220,0.45) !important; }
+/* ── Room header ── */
+body.dark .at {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+}
+body.dark .at-title { color: var(--txt); }
 
-/* Spill / info panels */
-body.dark .spill { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
-
-/* Match data blocks */
-body.dark .match-block { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.12) !important; }
-body.dark .match-block-hdr { background: rgba(255,255,255,0.03) !important; }
-
-/* Section headers in analytics */
-body.dark [style*="border-bottom:1px solid var(--b1)"] { border-color: rgba(160,140,255,0.12) !important; }
-
-/* Scorecard entry area */
-body.dark .ai-parse-box { background: rgba(255,255,255,0.04) !important; border-color: rgba(160,140,255,0.15) !important; }
-body.dark .ai-parse-box input { background: rgba(255,255,255,0.08) !important; }
-
-/* Pills / badges */
-body.dark .badge, body.dark .pill { background: rgba(255,255,255,0.08) !important; }
-
-/* Live in room section */
-body.dark [id="liveBar"], body.dark .live-bar { 
-  background: rgba(255,255,255,0.04) !important;
-  color: rgba(180,170,220,0.70) !important;
+/* ── Room sub-nav ── */
+body.dark .anav {
+  background: rgba(255,255,255,0.03);
+  border-color: var(--b1);
+}
+body.dark .anav-btn { color: var(--dim); }
+body.dark .anav-btn:hover { color: var(--txt2); }
+body.dark .anav-btn.active, body.dark .anav-btn.ac {
+  background: rgba(155,126,240,0.18);
+  color: var(--accent);
+  box-shadow: none;
 }
 
-/* Purse cards */
-body.dark .pts-card { background: rgba(255,255,255,0.05) !important; border-color: rgba(160,140,255,0.12) !important; }
-body.dark .pts-hdr { background: rgba(255,255,255,0.03) !important; }
+/* ── Stats strip ── */
+body.dark .spill, body.dark .srow > * {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--b1);
+}
+body.dark .spill:hover { background: rgba(255,255,255,0.08); }
+body.dark .sval { color: var(--txt); }
+body.dark .slb  { color: var(--dim); }
 
-/* Scroll bars in dark */
-body.dark ::-webkit-scrollbar-thumb { background: rgba(160,140,255,0.25) !important; }
+/* ── Auction block ── */
+body.dark .ablock {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b2);
+}
+body.dark .ablock.live {
+  background: rgba(155,126,240,0.08);
+  border-color: var(--accent-bdr);
+}
+body.dark .pname  { color: var(--txt); }
+body.dark .ptag   { background: rgba(255,255,255,0.06); border-color: var(--b1); color: var(--txt2); }
+body.dark .ptag.ov { background: var(--accent-bg); border-color: var(--accent-bdr); color: var(--accent-l); }
+body.dark .ptag.in { background: var(--ok-bg); border-color: var(--ok-bdr); color: var(--ok); }
+body.dark .base-lbl { color: var(--dim); }
+body.dark .bid-lbl  { color: var(--dim); }
+body.dark .bid-amt  { color: var(--ok); }
+
+/* ── Quick bid buttons ── */
+body.dark .qbtn {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--b2);
+  color: var(--txt);
+}
+body.dark .qbtn:hover {
+  background: rgba(155,126,240,0.18);
+  border-color: var(--accent-bdr);
+  color: var(--accent-l);
+  box-shadow: none;
+}
+
+/* ── Team cards ── */
+body.dark .tcard {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+}
+body.dark .tcard:hover {
+  background: rgba(255,255,255,0.07);
+  box-shadow: var(--sh1);
+}
+body.dark .tcard-hdr {
+  background: rgba(255,255,255,0.03);
+  border-bottom-color: var(--b1);
+}
+body.dark .tname { color: var(--txt); }
+body.dark .tmeta { color: var(--dim); }
+body.dark .troster li { color: var(--txt2); border-bottom-color: var(--b0); }
+body.dark .troster li:hover { background: rgba(255,255,255,0.04); }
+body.dark .rrole { color: var(--dim); }
+
+/* ── Tables ── */
+body.dark th {
+  background: rgba(255,255,255,0.05);
+  color: var(--dim2);
+  border-bottom-color: var(--b1);
+}
+body.dark td {
+  color: var(--txt);
+  border-bottom-color: var(--b0);
+}
+body.dark tr:hover td { background: rgba(155,126,240,0.07); }
+
+/* ── Points / leaderboard ── */
+body.dark .pts-card {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+}
+body.dark .pts-hdr {
+  background: rgba(255,255,255,0.03);
+  border-bottom-color: var(--b1);
+}
+body.dark .pts-title { color: var(--txt); }
+body.dark .lb-row { border-bottom-color: var(--b0); }
+body.dark .lb-row:hover { background: rgba(155,126,240,0.07); }
+body.dark .lb-team { color: var(--txt); }
+body.dark .lb-pts  { color: var(--txt); }
+body.dark .lb-meta { color: var(--dim); }
+body.dark .stat-card { background: rgba(255,255,255,0.04); border-color: var(--b1); }
+body.dark .stat-card-hdr { color: var(--txt); border-bottom-color: var(--b1); }
+body.dark .stat-item { color: var(--txt2); border-bottom-color: var(--b0); }
+body.dark .stat-val { color: var(--accent); }
+
+/* ── Section headers ── */
+body.dark .section-hdr {
+  background: rgba(255,255,255,0.03);
+  border-bottom-color: var(--b1);
+  color: var(--dim2);
+}
+
+/* ── Match data ── */
+body.dark .match-block {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+}
+body.dark .match-block:hover { background: rgba(255,255,255,0.07); }
+body.dark .match-block-hdr:hover { background: rgba(255,255,255,0.04); }
+body.dark .match-label { color: var(--txt); }
+body.dark .match-meta  { color: var(--dim); }
+body.dark .match-body  { border-top-color: var(--b1); }
+body.dark .sc-table th { background: rgba(255,255,255,0.05); color: var(--dim2); border-bottom-color: var(--b1); }
+body.dark .sc-table td { color: var(--txt2); border-bottom-color: var(--b0); }
+body.dark .sc-table tr:hover td { background: rgba(155,126,240,0.07); }
+body.dark .edit-input { color: var(--txt); border-bottom-color: var(--b2); }
+
+/* ── AI parse box ── */
+body.dark .ai-parse-box {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+}
+body.dark .ai-parse-title { color: var(--txt); }
+body.dark .ai-parse-sub   { color: var(--dim2); }
+body.dark .sc-textarea {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--b1);
+  color: var(--txt);
+}
+body.dark .sc-textarea:focus { border-color: var(--accent-bdr); }
+body.dark .sc-textarea::placeholder { color: var(--dim); }
+
+/* ── Points entry rows (bowling/batting grids) ── */
+body.dark [style*="border-bottom:1px solid var(--bdr)"] {
+  border-bottom-color: var(--b1) !important;
+}
+body.dark [style*="background:var(--sur)"] {
+  background: rgba(255,255,255,0.05) !important;
+}
+
+/* ── Live members bar ── */
+body.dark #liveMembersBar {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+}
+
+/* ── Setup config box ── */
+body.dark .setup-config-box {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--b1);
+  color: var(--txt2);
+}
+
+/* ── Draft pick box ── */
+body.dark .pick-box {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--b2);
+}
+
+/* ── Clock card (draft pick display) ── */
+body.dark .clock-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--b1);
+}
+body.dark .clock-card.your-turn {
+  background: rgba(155,126,240,0.10);
+  border-color: var(--accent-bdr);
+}
+body.dark .clock-round { color: var(--dim2); }
+body.dark .clock-name  { color: var(--txt); }
+body.dark .clock-sub   { color: var(--dim); }
+body.dark .clock-you   { color: var(--accent); }
+
+/* ── Order pills ── */
+body.dark .opill {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--b1);
+  color: var(--txt2);
+}
+body.dark .opill.cur {
+  background: rgba(155,126,240,0.22);
+  border-color: var(--accent-bdr);
+  color: var(--accent-l);
+}
+body.dark .opill.mine {
+  background: rgba(62,201,122,0.12);
+  border-color: var(--ok-bdr);
+  color: var(--ok);
+}
+
+/* ── Analytics cards (inline-styled — override via JS class injection) ── */
+body.dark .dark-ana-card {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: var(--b1) !important;
+}
+body.dark .dark-ana-hdr {
+  background: rgba(255,255,255,0.04) !important;
+  border-bottom-color: var(--b1) !important;
+}
+body.dark .dark-ana-row {
+  border-bottom-color: var(--b0) !important;
+}
+body.dark .dark-ana-row:hover { background: rgba(155,126,240,0.07) !important; }
+
+/* ── Badges ── */
+body.dark .bpu { background: rgba(155,126,240,0.12); color: var(--accent-l); border-color: var(--accent-bdr); }
+body.dark .bg  { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-bdr); }
+body.dark .bb  { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bdr); }
+body.dark .bs  { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-bdr); }
+body.dark .br  { background: var(--err-bg); color: var(--err); border-color: var(--err-bdr); }
+
+/* ── Empty state ── */
+body.dark .empty { color: var(--dim); }
+
+/* ── Mode picker (create room) ── */
+body.dark .mode-btn {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--b1);
+}
+body.dark .mode-btn:hover { background: rgba(255,255,255,0.09); }
+body.dark .mode-btn.selected {
+  background: rgba(155,126,240,0.12);
+  border-color: var(--accent-bdr);
+  box-shadow: 0 0 0 3px rgba(155,126,240,0.12);
+}
+body.dark .mode-btn-lbl  { color: var(--txt); }
+body.dark .mode-btn-desc { color: var(--dim); }
+
+/* ── Dark toggle button ── */
+.dark-toggle {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--b2);
+  background: transparent;
+  color: var(--dim2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .2s;
+}
+.dark-toggle:hover { background: rgba(255,255,255,0.10); color: var(--txt); border-color: var(--b3); }
+body.dark .dark-toggle { background: var(--accent-bg2); border-color: var(--accent-bdr); color: var(--accent); }
+body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent-l); }
 
 </style>
 
+
+<script>
+(function(){
+  if(localStorage.getItem('ipl-theme')==='dark') document.body.classList.add('dark');
+})();
+</script>
 </head>
 <body><div id="toast"><span class="tdot"></span><span id="tmsg"></span></div><!-- Team Name Modal (shown when joining a room) -->
 <div class="modal-bg" id="teamNameModal"><div class="modal"><h3>Register Your Team</h3><p style="color:var(--muted);font-size:.87rem;margin-bottom:18px;">Enter the name you want to bid under in this auction room.</p><div class="fld"><label>Your Team Name</label><input type="text" id="modalTeamName" placeholder="e.g. Royal Challengers" maxlength="30"></div><div style="display:flex;gap:10px;margin-top:6px;"><button class="btn btn-gold" onclick="window.confirmTeamName()">Join Room →</button><button class="btn btn-ghost btn-sm" onclick="window.closeTeamModal()" style="width:auto;">Cancel</button></div></div>
@@ -717,7 +1038,7 @@ body.dark ::-webkit-scrollbar-thumb { background: rgba(160,140,255,0.25) !import
 <div id="auth-view" class="view active"><div class="auth-card"><div class="auth-hdr"><div class="auth-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L8 8l4 4-4 6h8l-4-6 4-4-4-6z"/><line x1="7" y1="22" x2="17" y2="22"/></svg></div><div class="auth-brand">IPL Fantasy</div><div class="auth-tag">Private fantasy league platform</div></div><div class="auth-bdy"><div class="auth-lbl" id="authLabel">Sign in to continue</div><div class="fld"><label>Email</label><input type="email" id="authEmail" placeholder="you@example.com"></div><div class="fld"><label>Password</label><input type="password" id="authPassword" placeholder="••••••••" minlength="6" onkeydown="if(event.key==='Enter')window.handleAuth()"><div class="pw-hint" id="pwHint" style="display:none;">Minimum 6 characters required</div></div><button class="btn btn-gold" id="authBtn" onclick="window.handleAuth()">Sign In</button><div class="divider">or</div><button class="btn btn-white" onclick="window.signInWithGoogle()"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="G">Continue with Google
  </button><div style="margin-top:16px;text-align:center;display:flex;flex-direction:column;gap:9px;"><button class="tbtn" id="authToggleBtn" onclick="window.toggleAuthMode()">Create an account instead</button><button class="tbtn" onclick="window.resetPassword()">Forgot password?</button></div></div></div>
 </div><!-- APP SHELL -->
-<div id="app-shell" class="view"><div class="topbar"><div style="display:flex;align-items:center;gap:12px;"><div class="tb-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L8 8l4 4-4 6h8l-4-6 4-4-4-6z"/><line x1="7" y1="22" x2="17" y2="22"/></svg></div><div><div class="tb-title">IPL Fantasy</div><div class="tb-user" id="topbarUser"></div></div></div><button id="darkToggle" onclick="window.toggleDark()" title="Toggle dark mode" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:rgba(255,255,255,0.08);color:var(--dim2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+<div id="app-shell" class="view"><div class="topbar"><div style="display:flex;align-items:center;gap:12px;"><div class="tb-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L8 8l4 4-4 6h8l-4-6 4-4-4-6z"/><line x1="7" y1="22" x2="17" y2="22"/></svg></div><div><div class="tb-title">IPL Fantasy</div><div class="tb-user" id="topbarUser"></div></div></div><button class="dark-toggle" id="darkToggle" onclick="window.toggleDark()" title="Toggle dark mode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
 <button class="btn btn-danger btn-sm" onclick="window.logoutUser()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button></div><div class="content"><!-- DASHBOARD --><div id="dashboard-view" class="view"><div class="dtabs"><button class="dtab" id="dt-scorecards" onclick="switchDashTab('scorecards')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Scorecards</button><button class="dtab active" id="dt-created" onclick="switchDashTab('created')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>My Rooms</button><button class="dtab" id="dt-joined" onclick="switchDashTab('joined')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Joined Rooms</button><button class="dtab" id="dt-superadmin" onclick="switchDashTab('superadmin')" style="display:none;color:#f87171;border-color:rgba(239,68,68,.3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Super Admin</button></div><!-- ════ SCORECARDS TAB (Global — pushes to all owned rooms) ════ --><div id="tab-scorecards" style="display:none;"><!-- Gemini parser card (same as in-room, but global) --><div class="card" id="globalScorecardCard"><div class="card-hdr"><span class="card-title">Global Scorecard Entry</span><span class="badge bb" style="font-size:.68rem;">Pushes to ALL your rooms</span></div><div class="card-bdy"><p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;">Enter a match scorecard here once and it will be saved to <strong style="color:var(--gold)">every room you own</strong>— both auction and draft — simultaneously. All your leagues update in one go.
  </p><!-- Gemini parser UI (global instance) --><div class="ai-parse-box" style="margin-bottom:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;"><div class="ai-parse-title">Gemini Scorecard Parser</div><span class="badge bb" style="font-size:.68rem;">Firebase AI Logic</span></div><div class="ai-parse-sub">Upload 1–4 scorecard screenshots. Gemini reads them and fills the form below.</div><div id="gscDropZone" onclick="document.getElementById('gscFiles').click()"
  style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
@@ -2132,7 +2453,7 @@ function renderLeaderboard(data){
  body.innerHTML=sorted.map(([name,info],i)=>{
  const medal=medals[i]||`${i+1}.`;
  const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
- return `<div class="lb-row"><span style="font-family:var(--ff);font-size:22px;min-width:36px;">${medal}</span><div style="flex:1;"><div class="lb-team">${name}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div><div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
+ return `<div class="lb-row"><span style="font-family:var(--ff);font-size:22px;min-width:36px;">${medal}</span><div style="flex:1;"><div class="lb-team">${name}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
  }).join('');
 }
 
@@ -3187,8 +3508,7 @@ async function renderSuperAdminPanel(){
  const makeRoomRow=(rid,r,type)=>`
  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bdr);gap:10px;flex-wrap:wrap;"><div><div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:600;">${r.name||r.roomName||rid}</span><span class="room-type-pill ${type}">${type==='auction'?' Auction':' Draft'}</span></div><div style="font-size:.75rem;color:var(--muted);margin-top:2px;">ID: <code style="background:var(--sur);padding:1px 5px;border-radius:3px;">${rid}</code>${r._ownerUid?' · Owner: '+r._ownerUid.substring(0,8)+'…':''}
  ${r.createdAt?' · '+new Date(r.createdAt).toLocaleDateString():''}
- </div></div><div style="display:flex;gap:8px;flex-shrink:0;"><button class="btn btn-ghost btn-sm" onclick="window.saViewRoom('${rid}','${type}')" style="font-size:.72rem;">View</button><button class="dark-toggle" id="darkToggle" onclick="window.toggleDark()" title="Toggle dark mode"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
-<button class="btn btn-danger btn-sm" onclick="window.saDeleteRoom('${rid}','${type}','${(r.name||r.roomName||rid).replace(/'/g,"\\'")}')" style="font-size:.72rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Delete</button></div></div>`;
+ </div></div><div style="display:flex;gap:8px;flex-shrink:0;"><button class="btn btn-ghost btn-sm" onclick="window.saViewRoom('${rid}','${type}')" style="font-size:.72rem;">View</button><button class="btn btn-danger btn-sm" onclick="window.saDeleteRoom('${rid}','${type}','${(r.name||r.roomName||rid).replace(/'/g,"\\'")}')" style="font-size:.72rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Delete</button></div></div>`;
 
  roomsList.innerHTML=
  `<div style="padding:8px 20px;background:rgba(0,0,0,.2);font-size:.72rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Auction Rooms (${aEntries.length})</div>`+
@@ -3335,22 +3655,7 @@ window.toggleDark=function(){
 })();
 
 
-// Dark mode analytics card fix — add CSS classes to inline-styled cards
-function patchDarkCards(){
-  if(!document.body.classList.contains('dark')) return;
-  document.querySelectorAll('[style*="rgba(255,255,255,0.68)"]').forEach(el=>{
-    el.classList.add('dark-card');
-    el.style.background='';
-  });
-  document.querySelectorAll('[style*="rgba(255,255,255,0.50)"]').forEach(el=>{
-    el.classList.add('dark-card-hdr');
-    el.style.background='';
-  });
-  document.querySelectorAll('[style*="rgba(255,255,255,0.60)"]').forEach(el=>{
-    el.classList.add('dark-card');
-    el.style.background='';
-  });
-}
+
 // Patch after any analytics render
 const _origRAD = window.renderAnalyticsDraft;
 if(_origRAD) window.renderAnalyticsDraft = function(...args){ _origRAD(...args); setTimeout(patchDarkCards,50); };
