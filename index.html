@@ -595,6 +595,31 @@ tr:hover td{background:rgba(255,255,255,0.40);}
 .member-email-sm{font-size:.65rem;color:var(--dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .member-you-badge{font-size:.58rem;font-weight:600;color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-bdr);border-radius:20px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
 
+
+/* ── Purse Card Header ── */
+.tcard-hdr{padding:14px 16px;border-bottom:1px solid var(--b0);background:rgba(255,255,255,0.40);}
+.tcard-hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.tname{font-size:14px;font-weight:700;color:var(--txt);letter-spacing:-.02em;}
+.tplcount{display:none;} /* replaced by pills */
+.tbudget{display:none;}  /* replaced by pills */
+.tcard-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.tpill{display:flex;flex-direction:column;align-items:center;padding:8px 12px;border-radius:10px;min-width:72px;flex:1;}
+.tpill-val{font-size:17px;font-weight:700;letter-spacing:-.03em;line-height:1;}
+.tpill-lbl{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-top:3px;opacity:.75;}
+.tpill.purse-left{background:var(--accent-bg);border:1px solid var(--accent-bdr);}
+.tpill.purse-left .tpill-val{color:var(--accent);}
+.tpill.purse-left .tpill-lbl{color:var(--accent);}
+.tpill.purse-spent{background:var(--ok-bg);border:1px solid var(--ok-bdr);}
+.tpill.purse-spent .tpill-val{color:var(--ok);}
+.tpill.purse-spent .tpill-lbl{color:var(--ok);}
+.tpill.purse-players{background:var(--b0);border:1px solid var(--b1);}
+.tpill.purse-players .tpill-val{color:var(--txt);}
+.tpill.purse-players .tpill-lbl{color:var(--dim);}
+.tpill.purse-remaining{background:var(--warn-bg);border:1px solid var(--warn-bdr);}
+.tpill.purse-remaining .tpill-val{color:var(--warn);}
+.tpill.purse-remaining .tpill-lbl{color:var(--warn);}
+body.dark .tcard-hdr{background:rgba(255,255,255,0.04);}
+
 </style>
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -1709,8 +1734,15 @@ function loadRoom(rid){
  Object.values(data.teams).forEach(team=>{
  if(ts){const o=document.createElement('option');o.value=team.name;o.textContent=team.name;ts.appendChild(o);}
  const roster=Array.isArray(team.roster)?team.roster:(team.roster&&typeof team.roster==='object'?Object.values(team.roster):[]);
- document.getElementById('teamGrid').innerHTML+=`
- <div class="tcard"><div class="tcard-hdr"><div><div class="tname">${team.name}</div><div class="tplcount">${roster.length} players · ₹${team.budget.toFixed(2)} Cr left</div></div><div class="tbudget">₹${(roster.reduce((s,p)=>s+(p.soldPrice||0),0)).toFixed(2)} spent</div></div>${roster.length
+ document.getElementById('teamGrid').innerHTML+=
+`<div class="tcard"><div class="tcard-hdr">
+<div class="tcard-hdr-top"><div class="tname">${team.name}</div></div>
+<div class="tcard-pills">
+ <div class="tpill purse-left"><div class="tpill-val">₹${team.budget.toFixed(1)}</div><div class="tpill-lbl">Purse Left</div></div>
+ <div class="tpill purse-spent"><div class="tpill-val">₹${(roster.reduce((s,p)=>s+(p.soldPrice||0),0)).toFixed(1)}</div><div class="tpill-lbl">Spent</div></div>
+ <div class="tpill purse-players"><div class="tpill-val">${roster.length}</div><div class="tpill-lbl">Sold</div></div>
+ <div class="tpill purse-remaining"><div class="tpill-val">${(data.setup?.maxPlayers||20)-roster.length}</div><div class="tpill-lbl">Slots Left</div></div>
+</div></div>${roster.length
  ?`<ul class="troster">${roster.map((p,pi)=>`<li><div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name||p.n||'—'}</div><div class="rrole">${p.role||p.r||''} · ₹${(p.soldPrice||0).toFixed(2)} Cr</div></div><button class="rel-btn" onclick="window.openReleaseModal('${team.name}',${pi},'${(p.name||p.n||'').replace(/'/g,"\'")}',${p.soldPrice||0})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Release</button></li>`).join('')}</ul>`
  :'<div class="empty">No players yet</div>'}
  </div>`;
