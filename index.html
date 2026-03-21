@@ -2188,12 +2188,18 @@ Required JSON structure:
  {"name":"Player","runs":0,"balls":0,"fours":0,"sixes":0,"dismissal":"out|notout|duck"}
  ],
  "bowling": [
- {"name":"Player","overs":0.0,"runs":0,"wickets":0,"dots":0,"maidens":0}
+ {"name":"Player","overs":0.0,"runs":0,"wickets":0,"economy":0.00,"dots":0,"maidens":0}
  ],
  "fielding": [
  {"name":"Player","catches":0,"stumpings":0,"runouts":0}
  ]
 }
+
+CRITICAL INSTRUCTIONS FOR ECONOMY (ECON):
+1. Look for a column labeled "ECON", "Eco", or "Economy" in the bowling table.
+2. Extract the exact value shown (e.g. 8.25, 6.75). This is runs per over.
+3. If no economy column is visible, calculate: economy = runs / normalizeOvers(overs), where 3.3 overs = 3.5 actual overs (3 + 3/6).
+4. Always include economy for every bowler. Never leave it as 0 if the bowler bowled any overs.
 
 CRITICAL INSTRUCTIONS FOR DOT BALLS (0s):
 1. Look for a column labeled "0s", "Dots", or "Dot Balls" in the bowling table.
@@ -2339,6 +2345,9 @@ function populateFormFromAI(parsed){
  setVal('wkts',bowler.wickets??'');
  setVal('dots',bowler.dots??'');
  setVal('maidens',bowler.maidens??'');
+ // Set eco: use parsed value, or auto-calculate from overs+runs
+ const ecoVal=bowler.economy>0?bowler.economy:(bowler.overs>0?(bowler.runs/((ov=>Math.floor(ov)+(Math.round((ov-Math.floor(ov))*10)/6))(bowler.overs||0))):0);
+ if(ecoVal>0){const eEl=document.getElementById(`bow${id}eco`);if(eEl){eEl.value=ecoVal.toFixed(2);}}
  });
 
  // Populate fielding rows (only if catches/stumpings/runouts >0)
@@ -2725,6 +2734,8 @@ function populateGscForm(parsed){
  const sv=(f,v)=>{const el=document.getElementById(`gscbow${id}${f}`);if(el)el.value=v;};
  sv('name',b.name||''); sv('overs',b.overs??''); sv('runs',b.runs??'');
  sv('wkts',b.wickets??''); sv('dots',b.dots??''); sv('maidens',b.maidens??'');
+ const gEco=b.economy>0?b.economy:(b.overs>0?(b.runs/((ov=>Math.floor(ov)+(Math.round((ov-Math.floor(ov))*10)/6))(b.overs||0))):0);
+ if(gEco>0){const gEl=document.getElementById(`${id}eco`);if(gEl)gEl.value=gEco.toFixed(2);}
  });
  const fm={};
  (parsed.fielding||[]).forEach(f=>{if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)>0)fm[f.name]=f;});
