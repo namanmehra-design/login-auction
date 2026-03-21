@@ -2673,7 +2673,7 @@ window.addGscBowlingRow=function(){
  div.id=`gscbow${id}`;
  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr;gap:8px;padding:8px 20px;border-bottom:1px solid var(--bdr);align-items:center;';
  div.innerHTML=`
- <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" style="${gscInputStyle()}"><input type="number" placeholder="Overs" id="gscbow${id}overs" min="0" step="0.1" style="${gscInputStyle()}"><input type="number" placeholder="Runs" id="gscbow${id}runs" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Wkts" id="gscbow${id}wkts" min="0" style="${gscInputStyle()}"><input type="number" placeholder="0s / dot balls" id="gscbow${id}dots" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Maidens" id="gscbow${id}maidens" min="0" style="${gscInputStyle()}"><button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
+ <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" style="${gscInputStyle()}"><input type="number" placeholder="Overs" id="gscbow${id}overs" min="0" step="0.1" style="${gscInputStyle()}"><input type="number" placeholder="Runs" id="gscbow${id}runs" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Eco" id="gscbow${id}eco" min="0" step="0.01" style="${gscInputStyle()}"><input type="number" placeholder="Wkts" id="gscbow${id}wkts" min="0" style="${gscInputStyle()}"><input type="number" placeholder="0s / dot balls" id="gscbow${id}dots" min="0" style="${gscInputStyle()}"><input type="number" placeholder="Maidens" id="gscbow${id}maidens" min="0" style="${gscInputStyle()}"><button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;" style="background:var(--red-dim);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:.78rem;font-family:var(--fb);">Remove</button>`;
  document.getElementById('gscBowlingRows').appendChild(div);
 };
 
@@ -2769,7 +2769,7 @@ function collectGscData(){
  const maidens=parseInt(document.getElementById(`${id}maidens`)?.value)||0;
  const isMot=name.toLowerCase()===motm;
  const pts=calcBowlingPoints(overs,runs,wkts,dots,maidens,false,isMot);
- addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${ecoVal>0?ecoVal.toFixed(2):overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
+ addP(name,pts,`Bowl(${wkts}w ${overs}ov eco:${eco>0?eco.toFixed(2):overs>0?(runs/normalizeOvers(overs)).toFixed(2):'—'})`);
  });
  // Fielding
  document.querySelectorAll('[id^="gscfld"][id$="name"]').forEach(inp=>{
@@ -3178,4 +3178,3 @@ window.saDeleteAndRepush=async function(){
 </script>
 </body>
 </html>
-
