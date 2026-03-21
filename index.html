@@ -2003,10 +2003,21 @@ window.initializeAuctionData=function(){
 };
 
 // ── Auction actions ──
-window.pullRandomPlayer=function(){
+window.pullRandomPlayer=async function(){
  if(!roomState?.players)return window.showAlert('Auction not initialized yet.');
  const av=Object.values(roomState.players).filter(p=>p.status==='available');
- if(!av.length)return window.showAlert('No available players left!');
+ if(!av.length){
+  // Check if there are unsold players to re-auction
+  const unsoldPlayers=Object.values(roomState.players).filter(p=>p.status==='unsold');
+  if(!unsoldPlayers.length) return window.showAlert('All players have been sold! Auction complete.','info');
+  // Re-open unsold players for re-auction
+  if(!confirm(`All available players have been auctioned. ${unsoldPlayers.length} unsold player${unsoldPlayers.length===1?'':'s'} will now re-enter the auction. Continue?`)) return;
+  const reUpd={};
+  unsoldPlayers.forEach(p=>{ reUpd[`/players/${p.id}/status`]='available'; });
+  await update(ref(db,`auctions/${roomId}`),reUpd);
+  window.showAlert(`${unsoldPlayers.length} unsold player${unsoldPlayers.length===1?'':'s'} re-entered the auction!`,'ok');
+  return;
+ }
  const p=av[Math.floor(Math.random()*av.length)];
  update(ref(db,`auctions/${roomId}/currentBlock`),{active:true,playerId:p.id,currentBid:p.basePrice,lastBidderName:null,lastBidderTeam:null,notInterested:null});
 };
@@ -2496,11 +2507,18 @@ function renderLeaderboard(data){
  return;
  }
 
- const medals=[' ',' ',' '];
- body.innerHTML=sorted.map(([name,info],i)=>{
- const medal=medals[i]||`${i+1}.`;
+ const medalStyles=[
+  'background:linear-gradient(135deg,#FFD700,#FFA500);color:#7A4500;border:1px solid rgba(255,180,0,0.4);',
+  'background:linear-gradient(135deg,#C0C0C0,#A0A0A0);color:#404040;border:1px solid rgba(180,180,180,0.4);',
+  'background:linear-gradient(135deg,#CD7F32,#A0522D);color:#fff;border:1px solid rgba(180,100,40,0.4);',
+];
+body.innerHTML=sorted.map(([name,info],i)=>{
+ const rankEl=i<3
+  ?`<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0;${medalStyles[i]}">${i+1}</div>`
+  :`<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;color:var(--dim);flex-shrink:0;">${i+1}</div>`;
+ const medal=rankEl;
  const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
- return `<div class="lb-row"><span style="font-family:var(--ff);font-size:22px;min-width:36px;">${medal}</span><div style="flex:1;"><div class="lb-team">${name}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
+ return `<div class="lb-row">${medal}<div style="flex:1;"><div class="lb-team">${name}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
  }).join('');
 }
 
