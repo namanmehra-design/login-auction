@@ -415,6 +415,8 @@ select option{background:#F2F0FB;color:var(--txt);}
 }
 .qbtn:hover{background:rgba(255,255,255,0.90);border-color:var(--b2);color:var(--txt);transform:translateY(-1px);box-shadow:var(--sh0);}
 .qbtn:active{transform:scale(.97);}
+.qbtn-blocked{opacity:.35;cursor:not-allowed;text-decoration:line-through;}
+.qbtn-blocked:hover{transform:none;box-shadow:none;}
 .agrid{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:12px;}
 
 /* Teams */
@@ -1776,7 +1778,12 @@ function renderBlock(data){
 
  const m=data.setup?.budgetMultiplier||1;
  document.getElementById('quickBidGrid').innerHTML=
- [0.1,0.5,1,2,5,10].map(i=>`<button class="qbtn" onclick="window.addBid(${+(i*m).toFixed(2)})">+₹${(i*m)<1?(i*m).toFixed(2):(i*m).toFixed(1)}</button>`).join('');
+ [0.1,0.5,1,2,5,10].map(i=>{
+  const amt=+(i*m).toFixed(2);
+  const lbl='+₹'+(amt<1?amt.toFixed(2):amt.toFixed(1));
+  const blocked=amt<0.2&&(data.currentBlock?.currentBid||0)>=3;
+  return `<button class="qbtn${blocked?' qbtn-blocked':''}" ${blocked?'disabled title="Not allowed above ₹3 Cr"':''} onclick="window.addBid(${amt})">${lbl}${blocked?' <span style=\"font-size:.65rem;opacity:.7;\">✕</span>':''}</button>`;
+}).join('');
 
  blk.innerHTML=`
  <div class="pname">${N(p)}</div><div class="ptags"><span class="ptag">${T(p)}</span><span class="ptag">${R(p)}</span><span class="ptag ${O(p)?'ov':'in'}">${O(p)?'Overseas':'Indian'}</span></div><div class="base-lbl">Base Price: ₹${(p.basePrice||0).toFixed(2)} Cr</div>`;
@@ -2028,7 +2035,10 @@ window.pressNotInterested=function(){
 window.addBid=function(inc){
  if(!roomState?.currentBlock?.active)return window.showAlert('No player on the block yet.','err');
  if(!myTeamName)return window.showAlert('Register your team first before bidding. Use the Setup tab.','err');
- const newBid=parseFloat((roomState.currentBlock.currentBid+inc).toFixed(2));
+ const curBid=roomState.currentBlock.currentBid||0;
+ // Minimum increment rule: once price crosses ₹3Cr, no 0.1 increments allowed
+ if(inc<0.2&&curBid>=3)return window.showAlert('Bids of ₹0.10 Cr are not allowed above ₹3 Cr. Use ₹0.50 Cr or higher.','err');
+ const newBid=parseFloat((curBid+inc).toFixed(2));
  // myTeamName for members; admin bids show as "Admin" but cannot self-sell
  const bidder=myTeamName||'Unknown';
  update(ref(db,`auctions/${roomId}/currentBlock`),{
