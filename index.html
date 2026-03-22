@@ -1201,7 +1201,7 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
 
     <!-- Step 3: Preview & select innings -->
     <div class="cbz-section" id="cbzStep3" style="display:none;">
-      <div class="cbz-section-title">Step 3 — Choose Innings to Import</div>
+      <div class="cbz-section-title">Step 3 — Preview Innings</div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;" id="cbzInningsButtons"></div>
       <div id="cbzPreview" style="overflow-x:auto;"></div>
     </div>
@@ -4328,27 +4328,73 @@ async function cbzPopulateRooms(){
 
 // ── Step 4: Populate global scorecard form so admin can edit then push to all rooms ──
 window.cbzPushToRoom = function(){
-  const inn=cbzParsedScorecard?.innings?.[cbzActiveInningsIdx];
-  if(!inn){ cbzSetStatus('cbzPushStatus','No innings data loaded.','fail'); return; }
-  cbzSetStatus('cbzPushStatus','Populating Scorecards tab…','loading');
+  const innings=cbzParsedScorecard?.innings||[];
+  if(!innings.length){ cbzSetStatus('cbzPushStatus','No innings data loaded.','fail'); return; }
+  cbzSetStatus('cbzPushStatus','Merging all innings and populating Scorecards tab…','loading');
 
   if(typeof window.switchDashTab==='function') window.switchDashTab('scorecards');
 
   setTimeout(()=>{
-    // Show the global scorecard form
     const fb=document.getElementById('gscFormBody');
     if(fb) fb.style.display='block';
 
     const sv=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&v!=='') el.value=v; };
 
-    // Meta fields
+    // Meta
     sv('gscMatchLabel', cbzParsedScorecard.matchLbl);
     sv('gscWinner',     cbzParsedScorecard.winnerTeam);
     const res=document.getElementById('gscResult');
     if(res&&cbzParsedScorecard.resultStr)
       [...res.options].forEach(o=>{ if(o.value===cbzParsedScorecard.resultStr) o.selected=true; });
 
-    // Clear existing rows and reset counters
+    // ── Merge all innings ──
+    // Batting: all batsmen from every innings (each innings is a separate team batting)
+    const allBatting = innings.flatMap(inn=>inn.batting||[]);
+
+    // Bowling: merge by name — same bowler can bowl in multiple innings
+    const bowlerMap={};
+    innings.forEach(inn=>{
+      (inn.bowling||[]).forEach(bw=>{
+        const key=(bw.name||'').toLowerCase();
+        if(!key) return;
+        if(!bowlerMap[key]){
+          bowlerMap[key]={name:bw.name,overs:0,runs:0,wickets:0,maidens:0,economy:0,_balls:0};
+        }
+        const b=bowlerMap[key];
+        // Convert cricket overs to balls (3.4 = 3 overs 4 balls = 22 balls)
+        const ovParts=String(bw.overs||0).split('.');
+        const balls=(parseInt(ovParts[0])||0)*6+(parseInt(ovParts[1])||0);
+        b._balls+=balls;
+        b.runs+=parseInt(bw.runs)||0;
+        b.wickets+=parseInt(bw.wickets)||0;
+        b.maidens+=parseInt(bw.maidens)||0;
+      });
+    });
+    // Convert merged balls back to cricket overs notation and recalculate eco
+    const allBowling=Object.values(bowlerMap).map(b=>{
+      const totalOv=Math.floor(b._balls/6);
+      const remBalls=b._balls%6;
+      const oversStr=remBalls>0?`${totalOv}.${remBalls}`:`${totalOv}`;
+      const trueOvers=b._balls/6;
+      const eco=trueOvers>0?(b.runs/trueOvers).toFixed(2):'0.00';
+      return {...b, overs:oversStr, economy:eco};
+    });
+
+    // Fielding: merge by name across innings
+    const fieldingMap={};
+    innings.forEach(inn=>{
+      (inn.fielding||[]).forEach(f=>{
+        const key=(f.name||'').toLowerCase();
+        if(!key) return;
+        if(!fieldingMap[key]) fieldingMap[key]={name:f.name,catches:0,stumpings:0,runouts:0};
+        fieldingMap[key].catches+=(f.catches||0);
+        fieldingMap[key].stumpings+=(f.stumpings||0);
+        fieldingMap[key].runouts+=(f.runouts||0);
+      });
+    });
+    const allFielding=Object.values(fieldingMap);
+
+    // Clear and reset
     const bRows=document.getElementById('gscBattingRows');
     const bowRows=document.getElementById('gscBowlingRows');
     const fRows=document.getElementById('gscFieldingRows');
@@ -4357,8 +4403,8 @@ window.cbzPushToRoom = function(){
     if(fRows) fRows.innerHTML='';
     gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
 
-    // Batting — uses gscBattingCount, fields: gscbr{id}name/runs/balls/fours/sixes/dis
-    (inn.batting||[]).forEach(b=>{
+    // Populate batting
+    allBatting.forEach(b=>{
       window.addGscBattingRow();
       const id=gscBattingCount-1;
       sv(`gscbr${id}name`,  b.name||'');
@@ -4370,8 +4416,8 @@ window.cbzPushToRoom = function(){
       if(dis)[...dis.options].forEach(o=>{ if(o.value===(b.dismissal||'out')) o.selected=true; });
     });
 
-    // Bowling — uses gscBowlingCount, fields: gscbow{id}name/overs/runs/wkts/eco/dots/maidens
-    (inn.bowling||[]).forEach(bw=>{
+    // Populate bowling (merged)
+    allBowling.forEach(bw=>{
       window.addGscBowlingRow();
       const id=gscBowlingCount-1;
       sv(`gscbow${id}name`,   bw.name||'');
@@ -4381,12 +4427,12 @@ window.cbzPushToRoom = function(){
       sv(`gscbow${id}maidens`,bw.maidens??'');
       if(bw.economy){
         const eEl=document.getElementById(`gscbow${id}eco`);
-        if(eEl){ eEl.value=parseFloat(bw.economy).toFixed(2); eEl.dataset.manual='1'; }
+        if(eEl){ eEl.value=bw.economy; eEl.dataset.manual='1'; }
       }
     });
 
-    // Fielding — uses gscFieldingCount, fields: gscfld{id}name/catches/stumpings/runouts
-    (inn.fielding||[]).forEach(f=>{
+    // Populate fielding (merged)
+    allFielding.forEach(f=>{
       if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)===0) return;
       window.addGscFieldingRow();
       const id=gscFieldingCount-1;
@@ -4396,9 +4442,9 @@ window.cbzPushToRoom = function(){
       sv(`gscfld${id}runouts`,   f.runouts||'');
     });
 
-    cbzSetStatus('cbzPushStatus','✅ Scorecard populated — add dot balls, then Save & Push to All Rooms.','done');
+    cbzSetStatus('cbzPushStatus',`✅ Both innings merged — ${allBatting.length} batters · ${allBowling.length} bowlers. Add dot balls then Save & Push.`,'done');
   }, 300);
-};;;
+};;;;
 
 </script>
 </body>
