@@ -2624,8 +2624,16 @@ window.submitMatch=function(confirmed=false){
  timestamp:Date.now(),
  players:{}
  };
+ // Build ownership map from current rosters
+ var _ownerMap={};
+ if(roomState&&roomState.teams){
+  Object.values(roomState.teams).forEach(function(t){
+   var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+   roster.forEach(function(p){ _ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name; });
+  });
+ }
  Object.entries(data.playerPts).forEach(([key,val])=>{
- matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
+ matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | '),ownedBy:_ownerMap[(val.name||'').toLowerCase().trim()]||''};
  });
 
  set(ref(db,`auctions/${roomId}/matches/${matchId}`),matchRecord)
@@ -2747,32 +2755,43 @@ function renderLeaderboard(data){
  });
  }
 
- // Aggregate all match points per player, then map to teams
- const playerTotal={};
- matchIds.forEach(mid=>{
- const m=matches[mid];
- if(!m?.players) return;
- Object.values(m.players).forEach(p=>{
- const key=(p.name||'').toLowerCase();
- playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
- });
- });
-
- // Assign to teams
+ // Build current ownership map (fallback for old matches without ownedBy)
+ var _curOwner={};
  if(data.teams){
- Object.values(data.teams).forEach(team=>{
- const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
- roster.forEach(p=>{
- const key=(p.name||p.n||'').toLowerCase();
- const pts=playerTotal[key]||0;
- teamPts[team.name].pts+=pts;
- teamPts[team.name].playerCount++;
- if(pts>teamPts[team.name].topPts){
- teamPts[team.name].topPts=pts;
- teamPts[team.name].topPlayer=p.name||p.n||'--';
+  Object.values(data.teams).forEach(function(t){
+   var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+   roster.forEach(function(p){ _curOwner[(p.name||p.n||'').toLowerCase().trim()]=t.name; });
+  });
  }
+ var teamPlayerSet={};
+ matchIds.forEach(function(mid){
+  var m=matches[mid]; if(!m||!m.players) return;
+  Object.values(m.players).forEach(function(p){
+   var key=(p.name||'').toLowerCase().trim();
+   var pts=p.pts||0;
+   var owner=p.ownedBy||_curOwner[key]||'';
+   if(owner&&teamPts[owner]){
+    teamPts[owner].pts+=pts;
+    if(!teamPlayerSet[owner]) teamPlayerSet[owner]=new Set();
+    teamPlayerSet[owner].add(key);
+   }
+  });
  });
- });
+ Object.keys(teamPts).forEach(function(tn){ if(teamPlayerSet[tn]) teamPts[tn].playerCount=teamPlayerSet[tn].size; });
+ if(data.teams){
+  Object.values(data.teams).forEach(function(team){
+   var tn=team.name;
+   var roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+   roster.forEach(function(p){
+    var key=(p.name||p.n||'').toLowerCase().trim(); var pPts=0;
+    matchIds.forEach(function(mid){ var m=matches[mid]; if(!m||!m.players) return;
+     Object.values(m.players).forEach(function(mp){
+      if((mp.name||'').toLowerCase().trim()===key&&(mp.ownedBy||_curOwner[key]||'')===tn) pPts+=(mp.pts||0);
+     });
+    });
+    if(pPts>teamPts[tn].topPts){ teamPts[tn].topPts=pPts; teamPts[tn].topPlayer=p.name||p.n||'--'; }
+   });
+  });
  }
 
  const sorted=Object.entries(teamPts).sort((a,b)=>b[1].pts-a[1].pts);
@@ -3662,8 +3681,16 @@ window.saveGlobalScorecard=async function(){
  timestamp:Date.now(),
  players:{}
  };
+ // Build ownership map from current rosters
+ var _ownerMap={};
+ if(roomState&&roomState.teams){
+  Object.values(roomState.teams).forEach(function(t){
+   var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+   roster.forEach(function(p){ _ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name; });
+  });
+ }
  Object.entries(data.playerPts).forEach(([key,val])=>{
- matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
+ matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | '),ownedBy:_ownerMap[(val.name||'').toLowerCase().trim()]||''};
  });
 
  try{
@@ -4687,7 +4714,7 @@ window.mt_save_A = async function(){
   if(_needBench&&sq.bench.length!==_benchTarget) msgs.push('Bench needs '+_benchTarget+' (has '+sq.bench.length+')');
   function _pd(name){ return r.find(function(x){ return (x.name||x.n||'')===name; })||{}; }
   function _pr(name){ return (_pd(name).role||_pd(name).r||'').toLowerCase(); }
-  function _po(name){ return !!(_pd(name).isOverseas||_pd(name).o||name.indexOf('*')>=0); }
+  function _po(name){ return !!(_pd(name).isOverseas||_pd(name).o); }
   function _cb(name){ var rl=_pr(name); return rl.indexOf('bowler')>=0||rl.indexOf('all-rounder')>=0||rl.indexOf('all rounder')>=0; }
   function _wk(name){ var rl=_pr(name); return rl.indexOf('wicketkeeper')>=0||rl.indexOf('keeper')>=0; }
   var xiOs=sq.xi.filter(_po).length, benchOs=sq.bench.filter(_po).length;
