@@ -1256,7 +1256,26 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
  ondragleave="this.style.borderColor='rgba(99,102,241,.35)'"
  ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleScFiles(event.dataTransfer.files)"><div style="font-size:2rem;margin-bottom:6px;"></div><div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots here</div><div style="font-size:.75rem;color:var(--muted);margin-top:4px;">PNG · JPG · WEBP · up to 4 files · all innings in one go</div></div><input type="file" id="scFiles" accept="image/*" multiple style="display:none" onchange="window.handleScFiles(this.files)"><!-- Preview thumbnails --><div id="scThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div><!-- Match label + parse button --><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" id="matchLabel" placeholder="Match label e.g. CSK vs MI – Mar 23 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;"><button id="geminiParseBtn" onclick="window.parseWithGemini()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--ff);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .2s;">Parse with Gemini</button></div><div class="ai-status" id="aiStatus" style="margin-top:8px;"></div><!-- Fallback JSON paste --><details style="margin-top:14px;"><summary style="font-size:.78rem;color:var(--muted);cursor:pointer;user-select:none;">Or paste JSON manually (fallback)</summary><textarea id="scJsonInput" class="sc-textarea" style="min-height:100px;font-family:monospace;font-size:.76rem;margin-top:8px;" placeholder='{"matchLabel":"...","winner":"CSK","motm":"Noor Ahmad","result":"normal","batting":[...],"bowling":[...],"fielding":[]}'></textarea><button onclick="window.importFromJson()" style="margin-top:6px;background:var(--sur);border:1px solid var(--bdr);color:var(--txt);border-radius:var(--r);padding:7px 14px;font-size:.8rem;cursor:pointer;font-family:var(--fb);">📥 Import JSON</button></details></div><!-- Manual form (auto-populated by AI, also editable manually) --><div style="padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;"><span style="font-size:.8rem;color:var(--muted);">Review and edit the data below before saving.</span><button class="btn btn-ghost btn-sm" onclick="window.toggleMatchForm()">▼ Expand / Collapse form</button></div><div id="matchFormBody" style="display:none;"><!-- Match meta --><div class="match-form"><div class="fld"><label>Winning IPL Team</label><input type="text" id="mfWinner" placeholder="e.g. MI"></div><div class="fld"><label>Man of the Match</label><input type="text" id="mfMotm" placeholder="Player name"></div><div class="fld"><label>Result</label><select id="mfResult"><option value="normal">Normal Result</option><option value="noresult">No Result (abandoned)</option><option value="superover">Super Over</option></select></div></div><div class="section-hdr">BATTING PERFORMANCES</div><div id="battingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addBattingRow()">+ Add Batter</button></div><div class="section-hdr">BOWLING PERFORMANCES</div><div id="bowlingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addBowlingRow()">+ Add Bowler</button></div><div class="section-hdr">FIELDING — CATCHES / STUMPINGS / RUN-OUTS</div><div id="fieldingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addFieldingRow()">+ Add Fielder</button></div><div style="padding:16px 20px;display:flex;gap:10px;"><button class="btn btn-gold" onclick="window.submitMatch()" style="max-width:220px;">Calculate &amp; Save Points</button><button class="btn btn-ghost btn-sm" onclick="window.previewPoints()">Preview First</button></div></div></div>
 <!-- ════ MY TEAM TAB ════ -->
-<div id="myteam-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">My Team</span><div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-sm btn-ghost" onclick="window.mtUndoA()" id="mtUndoBtnA" style="display:none;width:auto;padding:5px 12px;">↩ Undo</button><button class="btn btn-sm btn-gold" onclick="window.mtSaveA()" style="width:auto;padding:6px 16px;">Save Squad</button></div></div><div class="mt-summary-strip" style="padding:12px 16px 4px;"><span class="mt-summary-pill xi" id="mtPillXIA">XI: 0/11</span><span class="mt-summary-pill bench" id="mtPillBenchA">Bench: 0/5</span><span class="mt-summary-pill reserves" id="mtPillReservesA">Reserves: 0</span><span style="font-size:.72rem;color:var(--dim);align-self:center;margin-left:auto;">XI + Bench score points · Reserves earn 0</span></div><div id="mtValidationA" style="display:none;padding:4px 16px 0;font-size:.79rem;color:var(--err);font-weight:500;"></div><div style="padding:12px;"><div class="mt-section"><div class="mt-section-hdr xi"><span class="mt-section-title">⚡ Playing XI</span><span class="mt-section-count" id="mtXICountA">0 / 11</span></div><div class="mt-section-body"><div id="mtXIListA"></div><div class="mt-drop-zone" id="mtXIDropA" ondragover="event.preventDefault();this.classList.add('drag-active')" ondragleave="this.classList.remove('drag-active')" ondrop="window.mtDropA(event,'xi')">Drop here to add to XI</div></div></div><div class="mt-section"><div class="mt-section-hdr bench"><span class="mt-section-title">🪑 Bench</span><span class="mt-section-count" id="mtBenchCountA">0 / 5</span></div><div class="mt-section-body"><div id="mtBenchListA"></div><div class="mt-drop-zone" id="mtBenchDropA" ondragover="event.preventDefault();this.classList.add('drag-active')" ondragleave="this.classList.remove('drag-active')" ondrop="window.mtDropA(event,'bench')">Drop here to add to Bench</div></div></div><div class="mt-section"><div class="mt-section-hdr reserves"><span class="mt-section-title">📦 Reserves</span><span class="mt-section-count" id="mtResCountA">0 players</span></div><div class="mt-section-body"><div id="mtResListA"></div><div class="mt-drop-zone" id="mtResDropA" ondragover="event.preventDefault();this.classList.add('drag-active')" ondragleave="this.classList.remove('drag-active')" ondrop="window.mtDropA(event,'reserves')">Drop here to add to Reserves</div></div></div></div></div></div><!-- Points preview modal result --><div id="previewBox" style="display:none;background:var(--bg2);border:1px solid var(--bdr-g);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;"><div style="font-family:var(--ff);font-size:18px;color:var(--gold);margin-bottom:10px;">Points Preview</div><div id="previewContent"></div><button class="btn btn-gold" onclick="window.submitMatch(true)" style="max-width:180px;margin-top:12px;">Confirm &amp; Save</button></div><!-- Match history selector --><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Player Points</span><div style="display:flex;gap:8px;align-items:center;"><select id="matchFilter" onchange="window.renderPointsTab()" style="padding:8px 12px;font-size:.83rem;width:180px;"><option value="all">All Matches (Total)</option></select><button class="btn btn-info btn-sm" onclick="window.downloadPointsCSV()">CSV</button></div></div><div class="twrap"><table><thead><tr><th>#</th><th>Player</th><th>IPL Team</th><th>Owned By</th><th>Role</th><th>Matches</th><th>Points</th><th>History</th></tr></thead><tbody id="pointsTbody"></tbody></table></div></div></div><!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div></div>
+<!-- MY TEAM TAB -->
+<div id="myteam-tab" style="display:none;">
+  <div class="pts-card">
+    <div class="pts-hdr">
+      <span class="pts-title">My Team</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm btn-ghost" id="mtUndoBtnA" onclick="window.mtUndoA()" style="display:none;width:auto;padding:5px 12px;">↩ Undo</button>
+        <button class="btn btn-sm btn-gold" onclick="window.mtSaveA()" style="width:auto;padding:6px 16px;">Save Squad</button>
+      </div>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(108,84,200,.12);color:var(--accent);border:1px solid var(--accent-bg2);" id="mtPillXIA">XI: 0/11</span>
+      <span style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.2);" id="mtPillBenchA">Bench: 0/5</span>
+      <span style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:var(--b1);color:var(--txt2);border:1px solid var(--b2);" id="mtPillResA">Reserves: 0</span>
+      <span style="font-size:.72rem;color:var(--dim);margin-left:auto;">XI + Bench score · Reserves earn 0</span>
+    </div>
+    <div id="mtValidA" style="display:none;padding:6px 16px;font-size:.79rem;color:var(--err);font-weight:500;"></div>
+    <div style="padding:12px;" id="mtBodyA"><div class="empty">Loading squad…</div></div>
+  </div>
+</div><!-- Points preview modal result --><div id="previewBox" style="display:none;background:var(--bg2);border:1px solid var(--bdr-g);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;"><div style="font-family:var(--ff);font-size:18px;color:var(--gold);margin-bottom:10px;">Points Preview</div><div id="previewContent"></div><button class="btn btn-gold" onclick="window.submitMatch(true)" style="max-width:180px;margin-top:12px;">Confirm &amp; Save</button></div><!-- Match history selector --><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Player Points</span><div style="display:flex;gap:8px;align-items:center;"><select id="matchFilter" onchange="window.renderPointsTab()" style="padding:8px 12px;font-size:.83rem;width:180px;"><option value="all">All Matches (Total)</option></select><button class="btn btn-info btn-sm" onclick="window.downloadPointsCSV()">CSV</button></div></div><div class="twrap"><table><thead><tr><th>#</th><th>Player</th><th>IPL Team</th><th>Owned By</th><th>Role</th><th>Matches</th><th>Points</th><th>History</th></tr></thead><tbody id="pointsTbody"></tbody></table></div></div></div><!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div></div>
 <div id="leaderboardBody"></div></div>
 <div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
 <!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--muted);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div></div><!-- /auction-view --></div><!-- /content -->
@@ -4470,155 +4489,160 @@ function cbzRenderAllInnings(){
   prev.innerHTML=html;
 }
 
-// ══════ MY TEAM TAB A ══════
-let _mtSquadA={xi:[],bench:[],reserves:[]};
-let _mtHistoryA=[];
-let _mtDraggingA=null;
 
-function _mtGetMyRosterA(){
-  const state=roomState;
-  if(!state) return [];
-  // Resolve team name: prefer myTeamName, fallback to uid lookup in members
-  const tName=myTeamName||(user&&state.members?.[user.uid]?.teamName)||'';
+// ══════════════════════
+// MY TEAM — AUCTION (v2)
+// ══════════════════════
+let _sqA = {xi:[], bench:[], reserves:[]};
+let _sqHistA = [];
+let _sqLoadedA = false; // has Firebase been queried this session?
+
+function _myRosterA(){
+  // Get current user's roster directly from state — no myTeamName needed
+  if(!roomState||!user) return [];
+  const tName = roomState.members?.[user.uid]?.teamName || myTeamName || '';
   if(!tName) return [];
-  const team=state.teams?.[tName];
+  const team = roomState.teams?.[tName];
   if(!team) return [];
-  const r=team.roster;
-  return Array.isArray(r)?r:Object.values(r||{});
+  const r = team.roster;
+  return Array.isArray(r) ? r : Object.values(r||{});
 }
 
-async function _mtLoadSquadA(){
-  if(!user||!roomId) return;
-  const roster=_mtGetMyRosterA();
-  // If no roster yet, auto-retry up to 10 times over 5 seconds
-  if(!roster.length){
-    if((_mtLoadSquadA._retries||0)<10){
-      _mtLoadSquadA._retries=(_mtLoadSquadA._retries||0)+1;
-      setTimeout(_mtLoadSquadA,500);
-    }
-    return;
-  }
-  _mtLoadSquadA._retries=0;
-  const allNames=roster.map(p=>p.name||p.n||'');
-  // If squad already initialised and covers this roster, just re-render
-  const allAssigned=[...(_mtSquadA.xi||[]),...(_mtSquadA.bench||[]),...(_mtSquadA.reserves||[])];
-  if(allAssigned.length&&allAssigned.every(n=>allNames.includes(n))){
-    _mtRenderA(); return;
-  }
-  // Load saved squad from Firebase
-  try{
-    const snap=await get(ref(db,`users/${user.uid}/squads/auctions/${ roomId }`));
-    const saved=snap.val();
-    if(saved&&saved.xi&&saved.xi.length){
-      const xi=(saved.xi||[]).filter(n=>allNames.includes(n));
-      const bench=(saved.bench||[]).filter(n=>allNames.includes(n)&&!xi.includes(n));
-      const assigned=new Set([...xi,...bench]);
-      const reserves=allNames.filter(n=>!assigned.has(n));
-      _mtSquadA={xi,bench,reserves};
-    }else{
-      _mtSquadA={xi:allNames.slice(0,11),bench:allNames.slice(11,16),reserves:allNames.slice(16)};
-    }
-  }catch(e){
-    _mtSquadA={xi:allNames.slice(0,11),bench:allNames.slice(11,16),reserves:allNames.slice(16)};
-  }
-  _mtRenderA();
-}
+function _mtBuildHtmlA(){
+  const roster = _myRosterA();
+  if(!roster.length) return '<div class="empty" style="padding:24px;text-align:center;">No players in your squad yet.</div>';
 
-function _mtRenderA(){
-  const roster=_mtGetMyRosterA();
-  const rMap={};
+  const allNames = roster.map(p=>p.name||p.n||'');
+  const rMap = {};
   roster.forEach(p=>{ rMap[(p.name||p.n||'').toLowerCase()]=p; });
-  const matches=(roomState?.matches)||{};
-  const ptsMap={};
-  Object.values(matches).forEach(m=>{
-    if(!m?.players)return;
+
+  // Sync squad with current roster (add new players to reserves, remove released ones)
+  const inSquad = new Set([..._sqA.xi, ..._sqA.bench, ..._sqA.reserves]);
+  allNames.forEach(n=>{ if(!inSquad.has(n)) _sqA.reserves.push(n); });
+  _sqA.xi       = _sqA.xi.filter(n=>allNames.includes(n));
+  _sqA.bench    = _sqA.bench.filter(n=>allNames.includes(n));
+  _sqA.reserves = _sqA.reserves.filter(n=>allNames.includes(n));
+
+  // Points map
+  const ptsMap = {};
+  Object.values(roomState?.matches||{}).forEach(m=>{
+    if(!m?.players) return;
     Object.values(m.players).forEach(p=>{
       const k=(p.name||'').toLowerCase();
       ptsMap[k]=(ptsMap[k]||0)+(p.pts||0);
     });
   });
 
-  function makeRow(name,section){
-    const p=rMap[name.toLowerCase()]||{};
-    const role=p.role||p.r||'';
-    const ipl=p.iplTeam||p.t||'';
-    const os=p.isOverseas||p.o||false;
-    const pts=ptsMap[name.toLowerCase()]||0;
-    const isActive=section==='xi'||section==='bench';
-    const targets=section==='xi'?[['bench','→ Bench'],['reserves','→ Reserves']]:section==='bench'?[['xi','→ XI'],['reserves','→ Reserves']]:([['xi','→ XI'],['bench','→ Bench']]);
-    const el=document.createElement('div');
-    el.className='mt-player-row'+(isActive?'':' inactive');
-    el.draggable=true;
-    el.dataset.name=name;
-    el.dataset.section=section;
-    el.innerHTML=`<span class="mt-drag-handle" style="color:var(--dim);font-size:.9rem;">⠿</span>${os?'<span class="mt-os-dot" title="Overseas" style="width:7px;height:7px;border-radius:50%;background:var(--warn);flex-shrink:0;"></span>':''}<span class="mt-player-name">${name}</span><span style="display:flex;gap:5px;align-items:center;">${role?`<span class="mt-role-pill">${role}</span>`:''}${ipl?`<span class="mt-ipl-pill">${ipl}</span>`:''}<span style="font-size:.72rem;color:${pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)'};font-weight:600;min-width:38px;text-align:right;">${pts>0?'+':''}${pts}pts</span></span><div style="display:flex;gap:4px;">${targets.map(([t,l])=>`<button class="mt-move-btn" onclick="window.mtMoveA('${name.replace(/'/g,"\\'")}',${JSON.stringify(section)},${JSON.stringify(t)})">${l}</button>`).join('')}</div>`;
-    el.addEventListener('dragstart',e=>{ _mtDraggingA={name,section}; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
-    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
-    return el;
+  function sectionHTML(title, color, key, countStr){
+    const players = _sqA[key]||[];
+    const targets = key==='xi'   ? [['bench','→ Bench'],['reserves','→ Res']] :
+                    key==='bench' ? [['xi','→ XI'],['reserves','→ Res']] :
+                                    [['xi','→ XI'],['bench','→ Bench']];
+    const rows = players.map(name=>{
+      const p = rMap[name.toLowerCase()]||{};
+      const role = p.role||p.r||'';
+      const ipl  = p.iplTeam||p.t||'';
+      const os   = p.isOverseas||p.o||false;
+      const pts  = ptsMap[name.toLowerCase()]||0;
+      const btnHTML = targets.map(([t,l])=>
+        `<button onclick="window.mtMoveA('${name.replace(/'/g,"\'")}','${key}','${t}')" style="font-size:.68rem;padding:3px 8px;border-radius:20px;border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);white-space:nowrap;">${l}</button>`
+      ).join('');
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--g2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:5px;">
+        ${os?'<span style="width:7px;height:7px;border-radius:50%;background:var(--warn);flex-shrink:0;display:inline-block;" title="Overseas"></span>':''}
+        <span style="flex:1;font-size:.85rem;font-weight:600;color:var(--txt);">${name}</span>
+        <span style="font-size:.68rem;color:var(--dim2);">${ipl}</span>
+        <span style="font-size:.68rem;padding:2px 6px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:700;">${role||'—'}</span>
+        <span style="font-size:.72rem;font-weight:700;min-width:44px;text-align:right;color:${pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)'};">${pts>0?'+':''}${pts}pts</span>
+        <div style="display:flex;gap:3px;">${btnHTML}</div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:var(--r) var(--r) 0 0;background:${color};">
+        <span style="font-size:.84rem;font-weight:700;color:#fff;">${title}</span>
+        <span style="font-size:.76rem;color:rgba(255,255,255,.8);font-weight:600;">${countStr}</span>
+      </div>
+      <div style="background:var(--g1);border:1px solid var(--b1);border-top:none;border-radius:0 0 var(--r) var(--r);padding:8px;">
+        ${rows||'<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">Empty</div>'}
+      </div>
+    </div>`;
   }
 
-  ['xi','bench','reserves'].forEach(sec=>{
-    const lid=sec==='xi'?'mtXIListA':sec==='bench'?'mtBenchListA':'mtResListA';
-    const el=document.getElementById(lid);
-    if(!el)return;
-    el.innerHTML='';
-    const players=_mtSquadA[sec]||[];
-    if(!players.length){ el.innerHTML=`<div class="mt-empty">Empty</div>`; return; }
-    players.forEach(n=>el.appendChild(makeRow(n,sec)));
-  });
-
-  const xi=_mtSquadA.xi.length, bench=_mtSquadA.bench.length, res=_mtSquadA.reserves.length;
-  const q=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
-  q('mtXICountA',`${xi} / 11`); q('mtBenchCountA',`${bench} / 5`); q('mtResCountA',`${res} player${res===1?'':'s'}`);
-  q('mtPillXIA',`XI: ${xi}/11`); q('mtPillBenchA',`Bench: ${bench}/5`); q('mtPillReservesA',`Reserves: ${res}`);
+  const xi=_sqA.xi.length, bench=_sqA.bench.length, res=_sqA.reserves.length;
+  document.getElementById('mtPillXIA').textContent=`XI: ${xi}/11`;
+  document.getElementById('mtPillBenchA').textContent=`Bench: ${bench}/5`;
+  document.getElementById('mtPillResA').textContent=`Reserves: ${res}`;
   const msgs=[];
-  if(roster.length>=11&&xi!==11) msgs.push(`XI needs exactly 11 (has ${xi})`);
-  if(roster.length>=16&&bench!==5) msgs.push(`Bench needs exactly 5 (has ${bench})`);
-  const v=document.getElementById('mtValidationA');
+  if(roster.length>=11&&xi!==11) msgs.push(`XI needs 11 (has ${xi})`);
+  if(roster.length>=16&&bench!==5) msgs.push(`Bench needs 5 (has ${bench})`);
+  const v=document.getElementById('mtValidA');
   if(v){v.style.display=msgs.length?'block':'none';v.textContent=msgs.join(' · ');}
+
+  return sectionHTML('⚡ Playing XI','linear-gradient(90deg,#4A35A0,#6C54C8)','xi',`${xi}/11`) +
+         sectionHTML('🪑 Bench','linear-gradient(90deg,#065F46,#059669)','bench',`${bench}/5`) +
+         sectionHTML('📦 Reserves','linear-gradient(90deg,#374151,#6B7280)','reserves',`${res} players`);
 }
 
-window.mtMoveA=function(name,from,to){
-  _mtHistoryA.push(JSON.parse(JSON.stringify(_mtSquadA)));
-  const ub=document.getElementById('mtUndoBtnA');if(ub)ub.style.display='flex';
-  _mtSquadA[from]=(_mtSquadA[from]||[]).filter(n=>n!==name);
-  if(!_mtSquadA[to])_mtSquadA[to]=[];
-  _mtSquadA[to].push(name);
-  _mtRenderA();
+async function _mtInitA(){
+  if(!user||!roomId) return;
+  const roster = _myRosterA();
+  if(!roster.length){ setTimeout(_mtInitA,600); return; }
+  const allNames = roster.map(p=>p.name||p.n||'');
+  if(!_sqLoadedA){
+    _sqLoadedA = true;
+    try{
+      const snap = await get(ref(db,`users/${user.uid}/squads/drafts/${roomId}`));
+      const saved = snap.val();
+      if(saved&&saved.xi&&saved.xi.length){
+        const xi    = (saved.xi||[]).filter(n=>allNames.includes(n));
+        const bench = (saved.bench||[]).filter(n=>allNames.includes(n)&&!xi.includes(n));
+        const assigned = new Set([...xi,...bench]);
+        _sqA = {xi, bench, reserves:allNames.filter(n=>!assigned.has(n))};
+      } else {
+        _sqA = {xi:allNames.slice(0,11), bench:allNames.slice(11,16), reserves:allNames.slice(16)};
+      }
+    }catch(e){
+      _sqA = {xi:allNames.slice(0,11), bench:allNames.slice(11,16), reserves:allNames.slice(16)};
+    }
+  }
+  _mtRefreshA();
+}
+
+function _mtRefreshA(){
+  const el = document.getElementById('mtBodyA');
+  if(!el) return;
+  el.innerHTML = _mtBuildHtmlA();
+}
+
+window.mtMoveA = function(name, from, to){
+  _sqHistA.push(JSON.parse(JSON.stringify(_sqA)));
+  const ub=document.getElementById('mtUndoBtnA'); if(ub) ub.style.display='flex';
+  _sqA[from] = (_sqA[from]||[]).filter(n=>n!==name);
+  if(!_sqA[to]) _sqA[to]=[];
+  _sqA[to].push(name);
+  _mtRefreshA();
 };
 
-window.mtDropA=function(event,targetSection){
-  event.preventDefault();
-  document.querySelectorAll('.mt-drop-zone').forEach(z=>z.classList.remove('drag-active'));
-  if(!_mtDraggingA)return;
-  const {name,section}=_mtDraggingA;
-  _mtDraggingA=null;
-  if(section===targetSection)return;
-  window.mtMoveA(name,section,targetSection);
+window.mtUndoA = function(){
+  if(!_sqHistA.length) return;
+  _sqA = _sqHistA.pop();
+  if(!_sqHistA.length){const ub=document.getElementById('mtUndoBtnA');if(ub)ub.style.display='none';}
+  _mtRefreshA();
 };
 
-window.mtUndoA=function(){
-  if(!_mtHistoryA.length)return;
-  _mtSquadA=_mtHistoryA.pop();
-  if(!_mtHistoryA.length){const ub=document.getElementById('mtUndoBtnA');if(ub)ub.style.display='none';}
-  _mtRenderA();
-};
-
-window.mtSaveA=async function(){
-  if(!user||!roomId)return;
-  const xi=_mtSquadA.xi.length, bench=_mtSquadA.bench.length;
-  const roster=_mtGetMyRosterA();
-  if(roster.length>=11&&xi!==11){window.showAlert('XI must have exactly 11 players.');return;}
-  if(roster.length>=16&&bench!==5){window.showAlert('Bench must have exactly 5 players.');return;}
+window.mtSaveA = async function(){
+  if(!user||!roomId) return;
+  const r=_myRosterA(); const xi=_sqA.xi.length; const bench=_sqA.bench.length;
+  if(r.length>=11&&xi!==11){window.showAlert('XI must have exactly 11 players.');return;}
+  if(r.length>=16&&bench!==5){window.showAlert('Bench must have exactly 5 players.');return;}
   try{
-    await set(ref(db,`users/${user.uid}/squads/auctions/${ roomId }`),{xi:_mtSquadA.xi,bench:_mtSquadA.bench,savedAt:Date.now()});
+    await set(ref(db,`users/${user.uid}/squads/drafts/${roomId}`),{xi:_sqA.xi,bench:_sqA.bench,savedAt:Date.now()});
     window.showAlert('Squad saved!','ok');
-    _mtHistoryA=[];
+    _sqHistA=[];
     const ub=document.getElementById('mtUndoBtnA');if(ub)ub.style.display='none';
   }catch(e){window.showAlert('Save failed: '+e.message);}
 };
 
-window.renderMyTeamA=function(){_mtLoadSquadA();};
+window.renderMyTeamA = function(){ _mtInitA(); };
 </script>
 </body>
 </html>
