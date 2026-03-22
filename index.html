@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>IPL Mega Auction 2026</title>
-<meta name="version" content="v27-1774203659">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -1185,7 +1184,7 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
  style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
  ondragover="event.preventDefault();this.style.borderColor='rgba(99,102,241,.7)'"
  ondragleave="this.style.borderColor='rgba(99,102,241,.35)'"
- ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleGscFiles(event.dataTransfer.files)"><div style="font-size:1.8rem;margin-bottom:4px;"></div><div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots</div><div id="gscDropHint" style="font-size:.75rem;color:var(--dim);margin-top:4px;">PNG · JPG · WEBP · up to 4 files</div></div><input type="file" id="gscFiles" accept="image/*" multiple style="display:none" onchange="window.handleGscFiles(this.files)"><div id="gscThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" id="gscMatchLabel" placeholder="Match label e.g. CSK vs MI – Apr 6 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;"><button id="gscParseBtn" onclick="window.parseGlobalScorecard()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--f);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;">Parse with Gemini</button></div><div class="ai-status" id="gscParseStatus" style="margin-top:8px;"></div></div><!-- Match meta form --><div id="gscFormBody" style="display:none;"><div class="match-form" style="margin-bottom:0;"><div class="fld"><label>Winning IPL Team</label><input type="text" id="gscWinner" placeholder="e.g. CSK"></div><div class="fld"><label>Man of the Match</label><input type="text" id="gscMotm" placeholder="Player name"></div><div class="fld"><label>Result</label><select id="gscResult"><option value="normal">Normal Result</option><option value="noresult">No Result</option><option value="superover">Super Over</option></select></div></div><div class="section-hdr">BATTING</div><div id="gscBattingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBattingRow()">+ Add Batter</button></div><div class="section-hdr">BOWLING</div><div id="gscBowlingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBowlingRow()">+ Add Bowler</button></div><div class="section-hdr">FIELDING</div><div id="gscFieldingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscFieldingRow()">+ Add Fielder</button></div><!-- Preview & save --><div id="gscPreviewBox" style="display:none;background:var(--bg2);border:1px solid var(--b0);border-radius:var(--rl);padding:16px 20px;margin:16px 20px 0;"><div style="font-family:var(--f);font-size:18px;color:var(--accent);margin-bottom:10px;">Points Preview</div><div id="gscPreviewContent"></div></div><div style="padding:16px 20px;display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="window.previewGlobalPoints()">Preview Points</button><button class="btn btn-gold" onclick="window.saveGlobalScorecard()" style="max-width:260px;">Save &amp; Push to All My Rooms</button></div><div class="ai-status" id="gscSaveStatus" style="margin:0 20px 16px;"></div></div></div></div><!-- Match history --><div class="card"><div class="card-hdr"><span class="card-title">Saved Matches</span></div><div id="gscHistoryList" style="padding:0;"><div class="empty" style="padding:20px;">No matches saved yet.</div></div></div></div><div id="tab-created"><div class="card"><div class="card-hdr"><span class="card-title">My Auction Rooms</span><button class="btn btn-gold btn-sm" id="createToggleBtn" onclick="toggleCreateForm()">+ Create New</button></div><div class="card-bdy"><div id="create-form" style="display:none;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--b1);"><div class="slbl">New Room Details</div><div class="g2"><div class="fld"><label>Room Name</label><input type="text" id="newRoomName" placeholder="e.g. Office League 2026"></div><div class="fld"><label>Budget / Team (Cr)</label><input type="number" id="newRoomBudget" value="100" min="50" max="500"></div><div class="fld"><label>Max Teams (2–10)</label><input type="number" id="newRoomMaxTeams" value="6" min="2" max="10"></div><div class="fld"><label>Max Players / Team</label><input type="number" id="newRoomMaxPlayers" value="20" min="10" max="30"></div><div class="fld"><label>Max Overseas / Team (4–8)</label><input type="number" id="newRoomMaxOverseas" value="8" min="4" max="8"></div></div><p style="font-size:.78rem;color:var(--dim);margin-bottom:14px;">After creating the room you'll register your own team, then share the invite link for others to join.</p><button class="btn btn-gold" onclick="window.createNewRoom()">Create Room →</button></div><div id="roomListContainer"><div class="empty">No rooms yet — create one above.</div></div></div></div></div><div id="tab-joined" style="display:none;"><div class="card"><div class="card-hdr"><span class="card-title">Join a Room</span></div><div class="card-bdy"><div class="slbl">Paste invite link or room ID</div><div class="join-row"><input type="text" id="joinRoomCode" placeholder="https://...?room=abc or -abc123" onkeydown="if(event.key==='Enter')window.initiateJoinRoom()"><button class="btn btn-gold btn-sm" style="padding:12px 20px;" onclick="window.initiateJoinRoom()">Join →</button></div><div class="slbl" style="margin-top:8px;">Previously Joined</div><div id="joinedRoomListContainer"><div class="empty">No joined rooms yet.</div></div></div></div></div><!-- ════ SUPER ADMIN TAB ════ --><div id="tab-superadmin" style="display:none;"><!-- Platform stats --><div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title" style="color:#f87171;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Super Admin Panel</span><span class="badge" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);font-size:.68rem;">admin@iplauction.com</span></div><div class="card-bdy"><div class="srow" id="saStatsRow"><div class="spill"><div class="sval" id="sa-total-users">—</div><div class="slb">Total Users</div></div><div class="spill"><div class="sval" id="sa-total-auctions">—</div><div class="slb">Auction Rooms</div></div><div class="spill"><div class="sval" id="sa-total-drafts">—</div><div class="slb">Draft Rooms</div></div><div class="spill"><div class="sval" id="sa-total-matches">—</div><div class="slb">Global Scorecards</div></div></div></div></div><!-- Global scorecard push --><div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title">Push Scorecard to ALL Rooms</span><span style="font-size:.78rem;color:var(--dim);">Pushes to every auction &amp; draft room on the platform</span></div><div class="card-bdy"><p style="font-size:.82rem;color:var(--dim);margin-bottom:16px;">Select a previously saved global scorecard and push it to <strong style="color:#f87171;">every room on the entire platform</strong>— regardless of who created it.
+ ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleGscFiles(event.dataTransfer.files)"><div style="font-size:1.8rem;margin-bottom:4px;"></div><div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots</div><div id="gscDropHint" style="font-size:.75rem;color:var(--dim);margin-top:4px;">PNG · JPG · WEBP · up to 4 files</div></div><input type="file" id="gscFiles" accept="image/*" multiple style="display:none" onchange="window.handleGscFiles(this.files)"><div id="gscThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" id="gscMatchLabel" placeholder="Match label e.g. CSK vs MI – Apr 6 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;"><button id="gscParseBtn" onclick="window.parseGlobalScorecard()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--f);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;">Parse with Gemini</button></div><div class="ai-status" id="gscParseStatus" style="margin-top:8px;"></div></div><!-- Match meta form --><div id="gscFormBody" style="display:none;"><div class="match-form" style="margin-bottom:0;"><div class="fld"><label>Winning IPL Team</label><input type="text" id="gscWinner" placeholder="e.g. CSK"></div><div class="fld"><label>Man of the Match</label><input type="text" id="gscMotm" placeholder="Player name"></div><div class="fld"><label>Result</label><select id="gscResult"><option value="normal">Normal Result</option><option value="noresult">No Result</option><option value="superover">Super Over</option></select></div></div><div class="section-hdr">BATTING</div><div id="gscBattingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBattingRow()">+ Add Batter</button></div><div class="section-hdr">BOWLING</div><div id="gscBowlingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBowlingRow()">+ Add Bowler</button></div><div class="section-hdr">FIELDING</div><div id="gscFieldingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscFieldingRow()">+ Add Fielder</button></div><!-- Preview & save --><div id="gscPreviewBox" style="display:none;background:var(--bg2);border:1px solid var(--b0);border-radius:var(--rl);padding:16px 20px;margin:16px 20px 0;"><div style="font-family:var(--f);font-size:18px;color:var(--accent);margin-bottom:10px;">Points Preview</div><div id="gscPreviewContent"></div></div><div style="padding:16px 20px;display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="window.previewGlobalPoints()">Preview Points</button><button class="btn btn-gold" onclick="window.saveGlobalScorecard()" style="max-width:260px;">Save &amp; Push to All My Rooms</button></div><div class="ai-status" id="gscSaveStatus" style="margin:0 20px 16px;"></div></div></div></div><!-- Match history --><div class="card"><div class="card-hdr"><span class="card-title">Saved Matches</span></div><div id="gscHistoryList" style="padding:0;"><div class="empty" style="padding:20px;">No matches saved yet.</div></div></div></div><div id="tab-created"><div class="card"><div class="card-hdr"><span class="card-title">My Auction Rooms</span><button class="btn btn-gold btn-sm" id="createToggleBtn" onclick="toggleCreateForm()">+ Create New</button></div><div class="card-bdy"><div id="create-form" style="display:none;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--b1);"><div class="slbl">New Room Details</div><div class="g2"><div class="fld"><label>Room Name</label><input type="text" id="newRoomName" placeholder="e.g. Office League 2026"></div><div class="fld"><label>Budget / Team (Cr)</label><input type="number" id="newRoomBudget" value="100" min="50" max="500"></div><div class="fld"><label>Max Teams (2–10)</label><input type="number" id="newRoomMaxTeams" value="6" min="2" max="10"></div><div class="fld"><label>Max Players / Team</label><input type="number" id="newRoomMaxPlayers" value="20" min="10" max="30"></div><div class="fld"><label>Max Overseas / Team (4–8)</label><input type="number" id="newRoomMaxOverseas" value="8" min="4" max="8"></div></div><p style="font-size:.78rem;color:var(--dim);margin-bottom:14px;">After creating the room you'll register your own team, then share the invite link for others to join.</p><button class="btn btn-gold" onclick="window.createNewRoom()">Create Room →</button></div><div id="roomListContainer"><div class="empty">No rooms yet — create one above.</div></div></div></div></div><div id="tab-joined" style="display:none;"><div class="card"><div class="card-hdr"><span class="card-title">Join a Room</span></div><div class="card-bdy"><div class="slbl">Paste invite link or room ID</div><div class="join-row"><input type="text" id="joinRoomCode" placeholder="https://...?room=abc or -abc123" onkeydown="if(event.key==='Enter')window.initiateJoinRoom()"><button class="btn btn-gold btn-sm" style="padding:12px 20px;" onclick="window.initiateJoinRoom()">Join →</button></div><div class="slbl" style="margin-top:8px;">Previously Joined</div><div id="joinedRoomListContainer"><div class="empty">No joined rooms yet.</div></div></div></div></div><!-- ════ SUPER ADMIN TAB ════ --><div id="tab-superadmin" style="display:none;"><!-- Platform stats --><div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title" style="color:#f87171;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Super Admin Panel</span><span class="badge" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);font-size:.68rem;">admin</span></div><div class="card-bdy"><div class="srow" id="saStatsRow"><div class="spill"><div class="sval" id="sa-total-users">—</div><div class="slb">Total Users</div></div><div class="spill"><div class="sval" id="sa-total-auctions">—</div><div class="slb">Auction Rooms</div></div><div class="spill"><div class="sval" id="sa-total-drafts">—</div><div class="slb">Draft Rooms</div></div><div class="spill"><div class="sval" id="sa-total-matches">—</div><div class="slb">Global Scorecards</div></div></div></div></div><!-- Global scorecard push --><div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title">Push Scorecard to ALL Rooms</span><span style="font-size:.78rem;color:var(--dim);">Pushes to every auction &amp; draft room on the platform</span></div><div class="card-bdy"><p style="font-size:.82rem;color:var(--dim);margin-bottom:16px;">Select a previously saved global scorecard and push it to <strong style="color:#f87171;">every room on the entire platform</strong>— regardless of who created it.
  </p><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"><select id="saScorecardSelect" onchange="window.saOnScorecardSelect()" style="flex:1;min-width:200px;padding:10px 12px;font-size:.85rem;background:var(--g1);border:1px solid var(--b1);border-radius:var(--r);color:var(--txt);font-family:var(--f);"><option value="">— Select a saved scorecard —</option></select></div><div id="saMatchInfo" style="display:none;background:var(--g1);border:1px solid var(--b1);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:.83rem;"><span id="saMatchInfoText"></span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"><button class="btn btn-gold" onclick="window.saPushToAll()" style="white-space:nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Push to All Rooms</button><button class="btn btn-ghost btn-sm" onclick="window.saDeleteAndRepush()" style="color:#f87171;border-color:rgba(239,68,68,.3);white-space:nowrap;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Delete &amp; Re-push</button><button class="btn btn-danger btn-sm" onclick="window.saDeleteMatchFromAll()" style="white-space:nowrap;">Delete from All Rooms</button></div><div class="ai-status" id="saPushStatus"></div></div></div><!-- Overseas Limit Tweaker -->
 <div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title" style="color:#f87171;">Overseas Player Limit</span><span style="font-size:.78rem;color:var(--dim);">Adjust per room — affects bidding rules live</span></div><div class="card-bdy">
 <p style="font-size:.82rem;color:var(--dim);margin-bottom:14px;">Select a room and set the maximum number of overseas players each team can hold. Changes take effect immediately.</p>
@@ -1290,7 +1289,6 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
 <div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
 <!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div></div><!-- /auction-view --></div><!-- /content -->
 </div><!-- /app-shell --><script type="module">
-console.log("IPL Fantasy v27-1774203659 loaded");
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 import{getAI,getGenerativeModel,GoogleAIBackend}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-ai.js";
@@ -2380,9 +2378,9 @@ window.markUnsold=function(){
 };
 
 
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // POINTS ENGINE
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 // -- Scoring rules (from your table) --
 function calcBattingPoints(runs, balls, fours, sixes, dismissal, isWinningTeam, isMotm){
@@ -2949,9 +2947,9 @@ window.downloadPointsCSV=function(){
  window.showAlert('CSV downloaded!','ok');
 };
 
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // GEMINI SCORECARD PARSER -- Firebase AI Logic
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 // Stored image files for the current session
 let scImageFiles=[];
@@ -3185,9 +3183,9 @@ function populateFormFromAI(parsed){
  });
 }
 
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // MATCH DATA TAB -- VIEW + EDIT + DELETE
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 // Track which match blocks are expanded
 const expandedMatches=new Set();
@@ -3407,9 +3405,9 @@ window.deleteMatch=function(mid,label){
  .catch(e=>window.showAlert(e.message));
 };
 
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // GLOBAL SCORECARD TAB -- pushes to ALL owned rooms
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 let gscImageFiles=[];
 let gscBattingCount=0, gscBowlingCount=0, gscFieldingCount=0;
@@ -3795,10 +3793,10 @@ window.deleteGlobalScorecard=async function(mid,label){
  }catch(e){ window.showAlert('Delete failed: '+e.message); }
 };
 
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // SUPER ADMIN PANEL
 // Only accessible to namanmehra@gmail.com
-// ===============================================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 function isSuperAdmin(){ return isSuperAdminEmail(user?.email); }
 
@@ -4123,9 +4121,9 @@ function renderPlayersSeason(data){
 }
 
 
-// ==========================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // CRICBUZZ LIVE IMPORT -- Super Admin
-// ==========================================
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 const CBZ_KEY  = '6d53928bfdmsh545332aded830a3p11bdaajsncf079fc57095';
 const CBZ_HOST = 'cricbuzz-cricket.p.rapidapi.com';
 const CBZ_BASE = 'https://cricbuzz-cricket.p.rapidapi.com';
@@ -4660,53 +4658,7 @@ function _mtRenderA(){
 }
 
 
-window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" '
-        +'style="font-size:.67rem;padding:3px 9px;border-radius:20px;border:1px solid var(--b2);'
-        +'background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);">'
-        +'->'+tb[1]+'</button>';
-    }).join('');
-    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;'+
-      'background:var(--g2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:5px;">'+
-      (os?'<span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;flex-shrink:0;display:inline-block;"></span>':'')+
-      '<span style="flex:1;font-size:.84rem;font-weight:600;color:var(--txt);">'+name+'</span>'+
-      '<span style="font-size:.68rem;color:var(--dim);">'+ipl+'</span>'+
-      '<span style="font-size:.68rem;padding:1px 6px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:700;">'+role+'</span>'+
-      '<span style="font-size:.72rem;font-weight:700;min-width:42px;text-align:right;color:'+(pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)')+';">'+(pts>0?'+':'')+pts+'</span>'+
-      '<div style="display:flex;gap:3px;">'+mvBtns+'</div>'+
-      '</div>';
-  }
 
-  function section(title, col, key, badge){
-    const players = sq[key]||[];
-    return '<div style="margin-bottom:14px;">'+
-      '<div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:8px 8px 0 0;background:'+col+';">'+
-      '<span style="font-size:.84rem;font-weight:700;color:#fff;">'+title+'</span>'+
-      '<span style="font-size:.75rem;color:rgba(255,255,255,.8);">'+badge+'</span></div>'+
-      '<div style="background:var(--g1);border:1px solid var(--b1);border-top:none;border-radius:0 0 8px 8px;padding:8px;">'+
-      (players.length ? players.map(function(n){return row(n,key);}).join('') :
-       '<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">Empty -- move players here</div>')+
-      '</div></div>';
-  }
-
-  // Update pills
-  const xi=sq.xi.length, bench=sq.bench.length, res=sq.reserves.length;
-  var pxi=document.getElementById('mt_xi_A');     if(pxi)  pxi.textContent='XI: '+xi+'/11';
-  var pbn=document.getElementById('mt_bench_A');  if(pbn)  pbn.textContent='Bench: '+bench+'/5';
-  var prs=document.getElementById('mt_res_A');    if(prs)  prs.textContent='Reserves: '+res;
-  var val=document.getElementById('mt_val_A');
-  if(val){
-    var msgs=[];
-    if(roster.length>=11&&xi!==11) msgs.push('XI needs 11 (has '+xi+')');
-    if(roster.length>=16&&bench!==5) msgs.push('Bench needs 5 (has '+bench+')');
-    val.style.display=msgs.length?'block':'none';
-    val.textContent=msgs.join(' . ');
-  }
-
-  el.innerHTML =
-    section('\u26a1 Playing XI',  'linear-gradient(90deg,#4A35A0,#6C54C8)', 'xi',    xi+'/11')  +
-    section('\u1fa91 Bench',       'linear-gradient(90deg,#065F46,#059669)', 'bench', bench+'/5')+
-    section('\u1f4e6 Reserves',    'linear-gradient(90deg,#374151,#6B7280)', 'reserves', res+'');
-}
 
 window.mt_move_A = function(name, from, to){
   const sq = _sqSavedA || {xi:[],bench:[],reserves:[]};
