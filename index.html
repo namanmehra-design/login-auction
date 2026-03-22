@@ -4491,8 +4491,15 @@ function _mtGetMyRosterA(){
 
 async function _mtLoadSquadA(){
   if(!user||!roomId) return;
+  if(!myTeamName){
+    setTimeout(_mtLoadSquadA, 500);
+    return;
+  }
   const roster=_mtGetMyRosterA();
-  if(!roster.length){ _mtRenderA(); return; }
+  if(!roster.length){
+    setTimeout(()=>{ if(_mtGetMyRosterA().length) _mtLoadSquadA(); else _mtRenderA(); }, 800);
+    return;
+  }
   try{
     const snap=await get(ref(db,`users/${user.uid}/squads/auctions/${ roomId }`));
     const saved=snap.val();
