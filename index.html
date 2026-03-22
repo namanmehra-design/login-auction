@@ -2798,7 +2798,7 @@ function renderLeaderboard(data){
 
  // Stats strip
  document.getElementById('lb-matches').textContent=matchIds.length;
- document.getElementById('lb-players-scored').textContent=Object.keys(playerTotal).length;
+ var _allPlayers=new Set(); Object.values(teamPlayerSet).forEach(function(s){s.forEach(function(k){_allPlayers.add(k);});}); document.getElementById('lb-players-scored').textContent=_allPlayers.size;
  const topPts=sorted.length?sorted[0][1].pts:0;
  document.getElementById('lb-top-pts').textContent=topPts;
 
