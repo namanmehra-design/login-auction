@@ -4330,7 +4330,7 @@ async function cbzPopulateRooms(){
 window.cbzPushToRoom = function(){
   const innings=cbzParsedScorecard?.innings||[];
   if(!innings.length){ cbzSetStatus('cbzPushStatus','No innings data loaded.','fail'); return; }
-  cbzSetStatus('cbzPushStatus','Merging all innings and populating Scorecards tab…','loading');
+  cbzSetStatus('cbzPushStatus','Populating Scorecards tab with all innings…','loading');
 
   if(typeof window.switchDashTab==='function') window.switchDashTab('scorecards');
 
@@ -4340,70 +4340,28 @@ window.cbzPushToRoom = function(){
 
     const sv=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&v!=='') el.value=v; };
 
-    // Meta
+    // Meta fields
     sv('gscMatchLabel', cbzParsedScorecard.matchLbl);
     sv('gscWinner',     cbzParsedScorecard.winnerTeam);
     const res=document.getElementById('gscResult');
     if(res&&cbzParsedScorecard.resultStr)
       [...res.options].forEach(o=>{ if(o.value===cbzParsedScorecard.resultStr) o.selected=true; });
 
-    // ── Merge all innings ──
-    // Batting: all batsmen from every innings (each innings is a separate team batting)
-    const allBatting = innings.flatMap(inn=>inn.batting||[]);
-
-    // Bowling: merge by name — same bowler can bowl in multiple innings
-    const bowlerMap={};
-    innings.forEach(inn=>{
-      (inn.bowling||[]).forEach(bw=>{
-        const key=(bw.name||'').toLowerCase();
-        if(!key) return;
-        if(!bowlerMap[key]){
-          bowlerMap[key]={name:bw.name,overs:0,runs:0,wickets:0,maidens:0,economy:0,_balls:0};
-        }
-        const b=bowlerMap[key];
-        // Convert cricket overs to balls (3.4 = 3 overs 4 balls = 22 balls)
-        const ovParts=String(bw.overs||0).split('.');
-        const balls=(parseInt(ovParts[0])||0)*6+(parseInt(ovParts[1])||0);
-        b._balls+=balls;
-        b.runs+=parseInt(bw.runs)||0;
-        b.wickets+=parseInt(bw.wickets)||0;
-        b.maidens+=parseInt(bw.maidens)||0;
-      });
-    });
-    // Convert merged balls back to cricket overs notation and recalculate eco
-    const allBowling=Object.values(bowlerMap).map(b=>{
-      const totalOv=Math.floor(b._balls/6);
-      const remBalls=b._balls%6;
-      const oversStr=remBalls>0?`${totalOv}.${remBalls}`:`${totalOv}`;
-      const trueOvers=b._balls/6;
-      const eco=trueOvers>0?(b.runs/trueOvers).toFixed(2):'0.00';
-      return {...b, overs:oversStr, economy:eco};
-    });
-
-    // Fielding: merge by name across innings
-    const fieldingMap={};
-    innings.forEach(inn=>{
-      (inn.fielding||[]).forEach(f=>{
-        const key=(f.name||'').toLowerCase();
-        if(!key) return;
-        if(!fieldingMap[key]) fieldingMap[key]={name:f.name,catches:0,stumpings:0,runouts:0};
-        fieldingMap[key].catches+=(f.catches||0);
-        fieldingMap[key].stumpings+=(f.stumpings||0);
-        fieldingMap[key].runouts+=(f.runouts||0);
-      });
-    });
-    const allFielding=Object.values(fieldingMap);
+    // ── Simple concatenation: Inn1 first, Inn2 after ──
+    // Batting: all batsmen from Inn1, then all batsmen from Inn2
+    const allBatting  = innings.flatMap(inn=>(inn.batting||[]));
+    // Bowling: all bowlers from Inn1, then all bowlers from Inn2
+    const allBowling  = innings.flatMap(inn=>(inn.bowling||[]));
+    // Fielding: all fielders from Inn1, then all fielders from Inn2
+    const allFielding = innings.flatMap(inn=>(inn.fielding||[]));
 
     // Clear and reset
-    const bRows=document.getElementById('gscBattingRows');
-    const bowRows=document.getElementById('gscBowlingRows');
-    const fRows=document.getElementById('gscFieldingRows');
-    if(bRows) bRows.innerHTML='';
-    if(bowRows) bowRows.innerHTML='';
-    if(fRows) fRows.innerHTML='';
+    document.getElementById('gscBattingRows').innerHTML='';
+    document.getElementById('gscBowlingRows').innerHTML='';
+    document.getElementById('gscFieldingRows').innerHTML='';
     gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
 
-    // Populate batting
+    // Populate batting (Inn1 batsmen first, then Inn2 batsmen)
     allBatting.forEach(b=>{
       window.addGscBattingRow();
       const id=gscBattingCount-1;
@@ -4416,7 +4374,7 @@ window.cbzPushToRoom = function(){
       if(dis)[...dis.options].forEach(o=>{ if(o.value===(b.dismissal||'out')) o.selected=true; });
     });
 
-    // Populate bowling (merged)
+    // Populate bowling (Inn1 bowlers first, then Inn2 bowlers)
     allBowling.forEach(bw=>{
       window.addGscBowlingRow();
       const id=gscBowlingCount-1;
@@ -4427,11 +4385,11 @@ window.cbzPushToRoom = function(){
       sv(`gscbow${id}maidens`,bw.maidens??'');
       if(bw.economy){
         const eEl=document.getElementById(`gscbow${id}eco`);
-        if(eEl){ eEl.value=bw.economy; eEl.dataset.manual='1'; }
+        if(eEl){ eEl.value=parseFloat(bw.economy).toFixed(2); eEl.dataset.manual='1'; }
       }
     });
 
-    // Populate fielding (merged)
+    // Populate fielding (Inn1 fielders first, then Inn2 fielders)
     allFielding.forEach(f=>{
       if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)===0) return;
       window.addGscFieldingRow();
@@ -4442,9 +4400,9 @@ window.cbzPushToRoom = function(){
       sv(`gscfld${id}runouts`,   f.runouts||'');
     });
 
-    cbzSetStatus('cbzPushStatus',`✅ Both innings merged — ${allBatting.length} batters · ${allBowling.length} bowlers. Add dot balls then Save & Push.`,'done');
+    cbzSetStatus('cbzPushStatus',`✅ ${allBatting.length} batters · ${allBowling.length} bowlers · ${allFielding.filter(f=>f.catches||f.stumpings||f.runouts).length} fielders from ${innings.length} innings. Add dot balls then Save & Push.`,'done');
   }, 300);
-};;;;
+};;;;;
 
 </script>
 </body>
