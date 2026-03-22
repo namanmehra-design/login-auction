@@ -87,18 +87,18 @@ body::before{
 ::-webkit-scrollbar-track{background:transparent;}
 
 /* ── Polish: display font for key headings ── */
-.pname,.auth-brand,.at-title,.tb-title{font-family:var(--fd);}
-.pname{letter-spacing:-.03em;}
+.auth-brand,.at-title,.tb-title{font-family:var(--fd);}
 .auth-brand{letter-spacing:-.01em;}
-.bid-amt{font-family:var(--fd);letter-spacing:-.03em;}
 .sval{font-family:var(--fd);}
 .setup-stat-val{font-family:var(--fd);}
+.bid-amt{font-family:var(--fd);letter-spacing:-.03em;}
+.pname{font-family:var(--fd);letter-spacing:-.03em;}
 
-/* ── Polish: smoother card hover, better focus rings ── */
+/* ── Polish: smoother transitions ── */
 .card,.tcard,.pts-card,.spill,.rc{transition:all .22s cubic-bezier(.4,0,.2,1);}
 input:focus,select:focus,textarea:focus{transition:border-color .2s,box-shadow .2s;}
 
-/* ── Polish: subtle backdrop noise texture ── */
+/* ── Polish: subtle noise texture ── */
 body::after{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   opacity:.018;
@@ -1303,8 +1303,8 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
     <div id="mt_val_A" style="display:none;padding:6px 16px;font-size:.79rem;color:var(--err);font-weight:500;"></div>
     <div id="mt_body_A" style="padding:12px;"><div style="padding:20px;text-align:center;color:var(--dim);">Loading…</div></div>
   </div>
-</div><!-- /myteam-tab --><!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div></div>
-<div id="leaderboardBody"></div></div>
+</div>
+<!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div><div id="leaderboardBody"></div></div></div>
 <div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
 <!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div></div><!-- /auction-view --></div><!-- /content -->
 </div><!-- /app-shell --><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script type="module">
@@ -1987,7 +1987,6 @@ function loadRoom(rid){
  renderLeaderboard(data);
  renderAnalytics(data);
  if(document.getElementById('myteam-tab')?.style.display==='block') _mtRenderA();
- // Also keep squad cache in sync even when tab is hidden
  else if(myTeamName && data.teams && data.teams[myTeamName]) { _sqSavedA = null; }
  renderMatchData(data);
  });
@@ -4528,14 +4527,11 @@ let _sqHistA  = [];
 function _myRosterA(){
   const st = roomState;
   if(!st) return [];
-  // Try uid lookup first, then myTeamName
   let tn = (user && st.members && st.members[user.uid] && st.members[user.uid].teamName)
              || myTeamName || '';
   if(!tn) return [];
-  // Also update myTeamName if it was blank but uid lookup found it
   if(!myTeamName && tn) myTeamName = tn;
   let team = st.teams && st.teams[tn];
-  // Fallback: case-insensitive / trimmed lookup
   if(!team && st.teams){
     const tnL = tn.trim().toLowerCase();
     const match = Object.keys(st.teams).find(function(k){ return k.trim().toLowerCase() === tnL; });
@@ -4553,7 +4549,6 @@ function _mtRenderA(){
 
   const roster = _myRosterA();
 
-  // ── Show helpful message if no roster ──
   if(!roster.length){
     const st = roomState;
     const tn  = (user && st && st.members && st.members[user.uid] && st.members[user.uid].teamName) || myTeamName || '';
@@ -4561,14 +4556,12 @@ function _mtRenderA(){
       el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--dim);font-size:.84rem;line-height:1.8;">' +
         '<div style="font-size:2rem;margin-bottom:8px;">👋</div>' +
         '<strong style="color:var(--txt);">Register your team first</strong><br>' +
-        'Go to the Setup tab and register your team name to get started.' +
-        '</div>';
+        'Go to the Setup tab and register your team name to get started.</div>';
     } else {
       el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--dim);font-size:.84rem;line-height:1.8;">' +
         '<div style="font-size:2rem;margin-bottom:8px;">🏏</div>' +
         '<strong style="color:var(--txt);">No players yet</strong><br>' +
-        'Your roster will appear here once players are sold to <strong style="color:var(--accent);">' + tn + '</strong>.' +
-        '</div>';
+        'Your roster will appear here once players are sold to <strong style="color:var(--accent);">' + tn + '</strong>.</div>';
     }
     return;
   }
