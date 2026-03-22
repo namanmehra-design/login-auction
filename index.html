@@ -1257,23 +1257,24 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
  ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleScFiles(event.dataTransfer.files)"><div style="font-size:2rem;margin-bottom:6px;"></div><div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots here</div><div style="font-size:.75rem;color:var(--muted);margin-top:4px;">PNG · JPG · WEBP · up to 4 files · all innings in one go</div></div><input type="file" id="scFiles" accept="image/*" multiple style="display:none" onchange="window.handleScFiles(this.files)"><!-- Preview thumbnails --><div id="scThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div><!-- Match label + parse button --><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" id="matchLabel" placeholder="Match label e.g. CSK vs MI – Mar 23 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;"><button id="geminiParseBtn" onclick="window.parseWithGemini()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--ff);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .2s;">Parse with Gemini</button></div><div class="ai-status" id="aiStatus" style="margin-top:8px;"></div><!-- Fallback JSON paste --><details style="margin-top:14px;"><summary style="font-size:.78rem;color:var(--muted);cursor:pointer;user-select:none;">Or paste JSON manually (fallback)</summary><textarea id="scJsonInput" class="sc-textarea" style="min-height:100px;font-family:monospace;font-size:.76rem;margin-top:8px;" placeholder='{"matchLabel":"...","winner":"CSK","motm":"Noor Ahmad","result":"normal","batting":[...],"bowling":[...],"fielding":[]}'></textarea><button onclick="window.importFromJson()" style="margin-top:6px;background:var(--sur);border:1px solid var(--bdr);color:var(--txt);border-radius:var(--r);padding:7px 14px;font-size:.8rem;cursor:pointer;font-family:var(--fb);">📥 Import JSON</button></details></div><!-- Manual form (auto-populated by AI, also editable manually) --><div style="padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;"><span style="font-size:.8rem;color:var(--muted);">Review and edit the data below before saving.</span><button class="btn btn-ghost btn-sm" onclick="window.toggleMatchForm()">▼ Expand / Collapse form</button></div><div id="matchFormBody" style="display:none;"><!-- Match meta --><div class="match-form"><div class="fld"><label>Winning IPL Team</label><input type="text" id="mfWinner" placeholder="e.g. MI"></div><div class="fld"><label>Man of the Match</label><input type="text" id="mfMotm" placeholder="Player name"></div><div class="fld"><label>Result</label><select id="mfResult"><option value="normal">Normal Result</option><option value="noresult">No Result (abandoned)</option><option value="superover">Super Over</option></select></div></div><div class="section-hdr">BATTING PERFORMANCES</div><div id="battingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addBattingRow()">+ Add Batter</button></div><div class="section-hdr">BOWLING PERFORMANCES</div><div id="bowlingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addBowlingRow()">+ Add Bowler</button></div><div class="section-hdr">FIELDING — CATCHES / STUMPINGS / RUN-OUTS</div><div id="fieldingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--bdr);"><button class="btn btn-ghost btn-sm" onclick="window.addFieldingRow()">+ Add Fielder</button></div><div style="padding:16px 20px;display:flex;gap:10px;"><button class="btn btn-gold" onclick="window.submitMatch()" style="max-width:220px;">Calculate &amp; Save Points</button><button class="btn btn-ghost btn-sm" onclick="window.previewPoints()">Preview First</button></div></div></div>
 <!-- ════ MY TEAM TAB ════ -->
 <!-- MY TEAM TAB -->
+<!-- MY TEAM TAB -->
 <div id="myteam-tab" style="display:none;">
   <div class="pts-card">
     <div class="pts-hdr">
       <span class="pts-title">My Team</span>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-sm btn-ghost" id="mtUndoBtnA" onclick="window.mtUndoA()" style="display:none;width:auto;padding:5px 12px;">↩ Undo</button>
-        <button class="btn btn-sm btn-gold" onclick="window.mtSaveA()" style="width:auto;padding:6px 16px;">Save Squad</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="mt_undo_A" onclick="window.mt_undo_A()" style="display:none;padding:5px 12px;font-size:.80rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);">↩ Undo</button>
+        <button onclick="window.mt_save_A()" style="padding:6px 16px;font-size:.82rem;border-radius:var(--r);border:none;background:var(--accent);color:#fff;cursor:pointer;font-family:var(--f);font-weight:600;">Save Squad</button>
       </div>
     </div>
     <div style="padding:10px 16px;border-bottom:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <span style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(108,84,200,.12);color:var(--accent);border:1px solid var(--accent-bg2);" id="mtPillXIA">XI: 0/11</span>
-      <span style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.2);" id="mtPillBenchA">Bench: 0/5</span>
-      <span style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:var(--b1);color:var(--txt2);border:1px solid var(--b2);" id="mtPillResA">Reserves: 0</span>
+      <span id="mt_xi_A"    style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(108,84,200,.12);color:var(--accent);border:1px solid var(--accent-bg2);">XI: 0/11</span>
+      <span id="mt_bench_A" style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.2);">Bench: 0/5</span>
+      <span id="mt_res_A"   style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:var(--b1);color:var(--txt2);border:1px solid var(--b2);">Reserves: 0</span>
       <span style="font-size:.72rem;color:var(--dim);margin-left:auto;">XI + Bench score · Reserves earn 0</span>
     </div>
-    <div id="mtValidA" style="display:none;padding:6px 16px;font-size:.79rem;color:var(--err);font-weight:500;"></div>
-    <div style="padding:12px;" id="mtBodyA"><div class="empty">Loading squad…</div></div>
+    <div id="mt_val_A" style="display:none;padding:6px 16px;font-size:.79rem;color:var(--err);font-weight:500;"></div>
+    <div id="mt_body_A" style="padding:12px;"><div style="padding:20px;text-align:center;color:var(--dim);">Loading…</div></div>
   </div>
 </div><!-- Points preview modal result --><div id="previewBox" style="display:none;background:var(--bg2);border:1px solid var(--bdr-g);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;"><div style="font-family:var(--ff);font-size:18px;color:var(--gold);margin-bottom:10px;">Points Preview</div><div id="previewContent"></div><button class="btn btn-gold" onclick="window.submitMatch(true)" style="max-width:180px;margin-top:12px;">Confirm &amp; Save</button></div><!-- Match history selector --><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Player Points</span><div style="display:flex;gap:8px;align-items:center;"><select id="matchFilter" onchange="window.renderPointsTab()" style="padding:8px 12px;font-size:.83rem;width:180px;"><option value="all">All Matches (Total)</option></select><button class="btn btn-info btn-sm" onclick="window.downloadPointsCSV()">CSV</button></div></div><div class="twrap"><table><thead><tr><th>#</th><th>Player</th><th>IPL Team</th><th>Owned By</th><th>Role</th><th>Matches</th><th>Points</th><th>History</th></tr></thead><tbody id="pointsTbody"></tbody></table></div></div></div><!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div></div>
 <div id="leaderboardBody"></div></div>
@@ -4490,159 +4491,188 @@ function cbzRenderAllInnings(){
 }
 
 
-// ══════════════════════
-// MY TEAM — AUCTION (v2)
-// ══════════════════════
-let _sqA = {xi:[], bench:[], reserves:[]};
-let _sqHistA = [];
-let _sqLoadedA = false; // has Firebase been queried this session?
+
+// MY TEAM A — simple synchronous render
+let _sqSavedA = null; // cached Firebase squad
+let _sqHistA  = [];
 
 function _myRosterA(){
-  // Get current user's roster directly from state — no myTeamName needed
-  if(!roomState||!user) return [];
-  const tName = roomState.members?.[user.uid]?.teamName || myTeamName || '';
-  if(!tName) return [];
-  const team = roomState.teams?.[tName];
+  const st = roomState;
+  if(!st) return [];
+  // Try uid lookup first, then myTeamName
+  const tn = (user && st.members && st.members[user.uid] && st.members[user.uid].teamName)
+             || myTeamName || '';
+  if(!tn) return [];
+  const team = st.teams && st.teams[tn];
   if(!team) return [];
   const r = team.roster;
-  return Array.isArray(r) ? r : Object.values(r||{});
+  return Array.isArray(r) ? r : Object.values(r || {});
 }
 
-function _mtBuildHtmlA(){
+function _mtRenderA(){
+  const el = document.getElementById('mt_body_A');
+  if(!el) return;
+
   const roster = _myRosterA();
-  if(!roster.length) return '<div class="empty" style="padding:24px;text-align:center;">No players in your squad yet.</div>';
 
-  const allNames = roster.map(p=>p.name||p.n||'');
-  const rMap = {};
-  roster.forEach(p=>{ rMap[(p.name||p.n||'').toLowerCase()]=p; });
+  // ── Show debug info if no roster ──
+  if(!roster.length){
+    const st = roomState;
+    const uid = (user && user.uid) || 'not logged in';
+    const tn  = (user && st && st.members && st.members[user.uid] && st.members[user.uid].teamName) || myTeamName || '';
+    el.innerHTML = '<div style="padding:14px;font-size:.80rem;color:var(--txt2);line-height:2;background:var(--g1);border-radius:var(--r);">' +
+      '<b>My Team</b> — waiting for data…<br>' +
+      'state: ' + (st?'✅':'❌ null') + '<br>' +
+      'uid: ' + uid.substring(0,16) + '<br>' +
+      'teamName: "' + tn + '"<br>' +
+      'teams: ' + (st&&st.teams?Object.keys(st.teams).join(', '):'none') + '<br>' +
+      'members: ' + (st&&st.members?Object.values(st.members).map(m=>m.teamName).join(', '):'none') +
+      '</div>';
+    return;
+  }
 
-  // Sync squad with current roster (add new players to reserves, remove released ones)
-  const inSquad = new Set([..._sqA.xi, ..._sqA.bench, ..._sqA.reserves]);
-  allNames.forEach(n=>{ if(!inSquad.has(n)) _sqA.reserves.push(n); });
-  _sqA.xi       = _sqA.xi.filter(n=>allNames.includes(n));
-  _sqA.bench    = _sqA.bench.filter(n=>allNames.includes(n));
-  _sqA.reserves = _sqA.reserves.filter(n=>allNames.includes(n));
+  const allNames = roster.map(function(p){ return p.name||p.n||''; });
 
-  // Points map
+  // Build squad from saved or auto-assign
+  let sq = _sqSavedA;
+  if(!sq || !sq.xi){
+    sq = { xi: allNames.slice(0,11), bench: allNames.slice(11,16), reserves: allNames.slice(16) };
+  } else {
+    // Sync: add new players to reserves, remove released ones
+    const assigned = new Set(sq.xi.concat(sq.bench).concat(sq.reserves));
+    allNames.forEach(function(n){ if(!assigned.has(n)) sq.reserves.push(n); });
+    sq.xi       = sq.xi.filter(function(n){ return allNames.indexOf(n)>=0; });
+    sq.bench    = sq.bench.filter(function(n){ return allNames.indexOf(n)>=0; });
+    sq.reserves = sq.reserves.filter(function(n){ return allNames.indexOf(n)>=0; });
+  }
+  _sqSavedA = sq;
+
+  // Points
   const ptsMap = {};
-  Object.values(roomState?.matches||{}).forEach(m=>{
-    if(!m?.players) return;
-    Object.values(m.players).forEach(p=>{
+  const matches = (roomState && roomState.matches) || {};
+  Object.values(matches).forEach(function(m){
+    if(!m||!m.players) return;
+    Object.values(m.players).forEach(function(p){
       const k=(p.name||'').toLowerCase();
       ptsMap[k]=(ptsMap[k]||0)+(p.pts||0);
     });
   });
 
-  function sectionHTML(title, color, key, countStr){
-    const players = _sqA[key]||[];
-    const targets = key==='xi'   ? [['bench','→ Bench'],['reserves','→ Res']] :
-                    key==='bench' ? [['xi','→ XI'],['reserves','→ Res']] :
-                                    [['xi','→ XI'],['bench','→ Bench']];
-    const rows = players.map(name=>{
-      const p = rMap[name.toLowerCase()]||{};
-      const role = p.role||p.r||'';
-      const ipl  = p.iplTeam||p.t||'';
-      const os   = p.isOverseas||p.o||false;
-      const pts  = ptsMap[name.toLowerCase()]||0;
-      const btnHTML = targets.map(([t,l])=>
-        `<button onclick="window.mtMoveA('${name.replace(/'/g,"\'")}','${key}','${t}')" style="font-size:.68rem;padding:3px 8px;border-radius:20px;border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);white-space:nowrap;">${l}</button>`
-      ).join('');
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--g2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:5px;">
-        ${os?'<span style="width:7px;height:7px;border-radius:50%;background:var(--warn);flex-shrink:0;display:inline-block;" title="Overseas"></span>':''}
-        <span style="flex:1;font-size:.85rem;font-weight:600;color:var(--txt);">${name}</span>
-        <span style="font-size:.68rem;color:var(--dim2);">${ipl}</span>
-        <span style="font-size:.68rem;padding:2px 6px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:700;">${role||'—'}</span>
-        <span style="font-size:.72rem;font-weight:700;min-width:44px;text-align:right;color:${pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)'};">${pts>0?'+':''}${pts}pts</span>
-        <div style="display:flex;gap:3px;">${btnHTML}</div>
-      </div>`;
+  // Build player row
+  function row(name, section){
+    const p = roster.find(function(x){ return (x.name||x.n||'')===name; })||{};
+    const role = p.role||p.r||'';
+    const ipl  = p.iplTeam||p.t||'';
+    const os   = p.isOverseas||p.o||false;
+    const pts  = ptsMap[name.toLowerCase()]||0;
+    const mvTargets = section==='xi' ? [['bench','Bench'],['reserves','Res']] :
+                      section==='bench' ? [['xi','XI'],['reserves','Res']] :
+                      [['xi','XI'],['bench','Bench']];
+    const mvBtns = mvTargets.map(function(tb){
+      var enc=encodeURIComponent(name);
+      return '<button data-n="'+enc+'" data-f="'+section+'" data-t="'+tb[0]+'" '
+        +'onclick="window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" '
+        +'style="font-size:.67rem;padding:3px 9px;border-radius:20px;border:1px solid var(--b2);'
+        +'background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);">'
+        +'→'+tb[1]+'</button>';
     }).join('');
-    return `<div style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:var(--r) var(--r) 0 0;background:${color};">
-        <span style="font-size:.84rem;font-weight:700;color:#fff;">${title}</span>
-        <span style="font-size:.76rem;color:rgba(255,255,255,.8);font-weight:600;">${countStr}</span>
-      </div>
-      <div style="background:var(--g1);border:1px solid var(--b1);border-top:none;border-radius:0 0 var(--r) var(--r);padding:8px;">
-        ${rows||'<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">Empty</div>'}
-      </div>
-    </div>`;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;'+
+      'background:var(--g2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:5px;">'+
+      (os?'<span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;flex-shrink:0;display:inline-block;"></span>':'')+
+      '<span style="flex:1;font-size:.84rem;font-weight:600;color:var(--txt);">'+name+'</span>'+
+      '<span style="font-size:.68rem;color:var(--dim);">'+ipl+'</span>'+
+      '<span style="font-size:.68rem;padding:1px 6px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:700;">'+role+'</span>'+
+      '<span style="font-size:.72rem;font-weight:700;min-width:42px;text-align:right;color:'+(pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)')+';">'+(pts>0?'+':'')+pts+'</span>'+
+      '<div style="display:flex;gap:3px;">'+mvBtns+'</div>'+
+      '</div>';
   }
 
-  const xi=_sqA.xi.length, bench=_sqA.bench.length, res=_sqA.reserves.length;
-  document.getElementById('mtPillXIA').textContent=`XI: ${xi}/11`;
-  document.getElementById('mtPillBenchA').textContent=`Bench: ${bench}/5`;
-  document.getElementById('mtPillResA').textContent=`Reserves: ${res}`;
-  const msgs=[];
-  if(roster.length>=11&&xi!==11) msgs.push(`XI needs 11 (has ${xi})`);
-  if(roster.length>=16&&bench!==5) msgs.push(`Bench needs 5 (has ${bench})`);
-  const v=document.getElementById('mtValidA');
-  if(v){v.style.display=msgs.length?'block':'none';v.textContent=msgs.join(' · ');}
-
-  return sectionHTML('⚡ Playing XI','linear-gradient(90deg,#4A35A0,#6C54C8)','xi',`${xi}/11`) +
-         sectionHTML('🪑 Bench','linear-gradient(90deg,#065F46,#059669)','bench',`${bench}/5`) +
-         sectionHTML('📦 Reserves','linear-gradient(90deg,#374151,#6B7280)','reserves',`${res} players`);
-}
-
-async function _mtInitA(){
-  if(!user||!roomId) return;
-  const roster = _myRosterA();
-  if(!roster.length){ setTimeout(_mtInitA,600); return; }
-  const allNames = roster.map(p=>p.name||p.n||'');
-  if(!_sqLoadedA){
-    _sqLoadedA = true;
-    try{
-      const snap = await get(ref(db,`users/${user.uid}/squads/drafts/${roomId}`));
-      const saved = snap.val();
-      if(saved&&saved.xi&&saved.xi.length){
-        const xi    = (saved.xi||[]).filter(n=>allNames.includes(n));
-        const bench = (saved.bench||[]).filter(n=>allNames.includes(n)&&!xi.includes(n));
-        const assigned = new Set([...xi,...bench]);
-        _sqA = {xi, bench, reserves:allNames.filter(n=>!assigned.has(n))};
-      } else {
-        _sqA = {xi:allNames.slice(0,11), bench:allNames.slice(11,16), reserves:allNames.slice(16)};
-      }
-    }catch(e){
-      _sqA = {xi:allNames.slice(0,11), bench:allNames.slice(11,16), reserves:allNames.slice(16)};
-    }
+  function section(title, col, key, badge){
+    const players = sq[key]||[];
+    return '<div style="margin-bottom:14px;">'+
+      '<div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:8px 8px 0 0;background:'+col+';">'+
+      '<span style="font-size:.84rem;font-weight:700;color:#fff;">'+title+'</span>'+
+      '<span style="font-size:.75rem;color:rgba(255,255,255,.8);">'+badge+'</span></div>'+
+      '<div style="background:var(--g1);border:1px solid var(--b1);border-top:none;border-radius:0 0 8px 8px;padding:8px;">'+
+      (players.length ? players.map(function(n){return row(n,key);}).join('') :
+       '<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">Empty — move players here</div>')+
+      '</div></div>';
   }
-  _mtRefreshA();
+
+  // Update pills
+  const xi=sq.xi.length, bench=sq.bench.length, res=sq.reserves.length;
+  var pxi=document.getElementById('mt_xi_A');     if(pxi)  pxi.textContent='XI: '+xi+'/11';
+  var pbn=document.getElementById('mt_bench_A');  if(pbn)  pbn.textContent='Bench: '+bench+'/5';
+  var prs=document.getElementById('mt_res_A');    if(prs)  prs.textContent='Reserves: '+res;
+  var val=document.getElementById('mt_val_A');
+  if(val){
+    var msgs=[];
+    if(roster.length>=11&&xi!==11) msgs.push('XI needs 11 (has '+xi+')');
+    if(roster.length>=16&&bench!==5) msgs.push('Bench needs 5 (has '+bench+')');
+    val.style.display=msgs.length?'block':'none';
+    val.textContent=msgs.join(' · ');
+  }
+
+  el.innerHTML =
+    section('⚡ Playing XI',  'linear-gradient(90deg,#4A35A0,#6C54C8)', 'xi',    xi+'/11')  +
+    section('🪑 Bench',       'linear-gradient(90deg,#065F46,#059669)', 'bench', bench+'/5')+
+    section('📦 Reserves',    'linear-gradient(90deg,#374151,#6B7280)', 'reserves', res+'');
 }
 
-function _mtRefreshA(){
-  const el = document.getElementById('mtBodyA');
-  if(!el) return;
-  el.innerHTML = _mtBuildHtmlA();
-}
-
-window.mtMoveA = function(name, from, to){
-  _sqHistA.push(JSON.parse(JSON.stringify(_sqA)));
-  const ub=document.getElementById('mtUndoBtnA'); if(ub) ub.style.display='flex';
-  _sqA[from] = (_sqA[from]||[]).filter(n=>n!==name);
-  if(!_sqA[to]) _sqA[to]=[];
-  _sqA[to].push(name);
-  _mtRefreshA();
+window.mt_move_A = function(name, from, to){
+  const sq = _sqSavedA || {xi:[],bench:[],reserves:[]};
+  _sqHistA.push(JSON.parse(JSON.stringify(sq)));
+  var ub=document.getElementById('mt_undo_A'); if(ub) ub.style.display='flex';
+  sq[from] = (sq[from]||[]).filter(function(n){return n!==name;});
+  if(!sq[to]) sq[to]=[];
+  sq[to].push(name);
+  _sqSavedA = sq;
+  _mtRenderA();
 };
 
-window.mtUndoA = function(){
+window.mt_undo_A = function(){
   if(!_sqHistA.length) return;
-  _sqA = _sqHistA.pop();
-  if(!_sqHistA.length){const ub=document.getElementById('mtUndoBtnA');if(ub)ub.style.display='none';}
-  _mtRefreshA();
+  _sqSavedA = _sqHistA.pop();
+  if(!_sqHistA.length){var ub=document.getElementById('mt_undo_A');if(ub)ub.style.display='none';}
+  _mtRenderA();
 };
 
-window.mtSaveA = async function(){
+window.mt_save_A = async function(){
   if(!user||!roomId) return;
-  const r=_myRosterA(); const xi=_sqA.xi.length; const bench=_sqA.bench.length;
-  if(r.length>=11&&xi!==11){window.showAlert('XI must have exactly 11 players.');return;}
-  if(r.length>=16&&bench!==5){window.showAlert('Bench must have exactly 5 players.');return;}
+  const sq=_sqSavedA;
+  if(!sq){window.showAlert('No squad to save.');return;}
+  const r=_myRosterA();
+  if(r.length>=11&&sq.xi.length!==11){window.showAlert('XI must have exactly 11 players.');return;}
+  if(r.length>=16&&sq.bench.length!==5){window.showAlert('Bench must have exactly 5 players.');return;}
   try{
-    await set(ref(db,`users/${user.uid}/squads/drafts/${roomId}`),{xi:_sqA.xi,bench:_sqA.bench,savedAt:Date.now()});
+    await set(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId),{xi:sq.xi,bench:sq.bench,savedAt:Date.now()});
     window.showAlert('Squad saved!','ok');
     _sqHistA=[];
-    const ub=document.getElementById('mtUndoBtnA');if(ub)ub.style.display='none';
+    var ub=document.getElementById('mt_undo_A');if(ub)ub.style.display='none';
   }catch(e){window.showAlert('Save failed: '+e.message);}
 };
 
-window.renderMyTeamA = function(){ _mtInitA(); };
+// Load saved squad from Firebase then render
+window.renderMyTeamA = function(){
+  // Always render immediately with whatever we have
+  _mtRenderA();
+  // Then load saved squad from Firebase if we have user+id
+  if(user && roomId && !_sqSavedA){
+    get(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId))
+      .then(function(snap){
+        var saved=snap.val();
+        if(saved&&saved.xi&&saved.xi.length){
+          var allNames=_myRosterA().map(function(p){return p.name||p.n||'';});
+          var xi=(saved.xi||[]).filter(function(n){return allNames.indexOf(n)>=0;});
+          var bench=(saved.bench||[]).filter(function(n){return allNames.indexOf(n)>=0&&xi.indexOf(n)<0;});
+          var assigned=new Set(xi.concat(bench));
+          _sqSavedA={xi:xi,bench:bench,reserves:allNames.filter(function(n){return!assigned.has(n);})};
+          _mtRenderA();
+        }
+      }).catch(function(){});
+  }
+};
+
 </script>
 </body>
 </html>
