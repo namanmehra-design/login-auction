@@ -85,14 +85,8 @@ body::before{
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
 ::-webkit-scrollbar-track{background:transparent;}
-
-/* ── Polish ── */
-.auth-brand,.at-title,.tb-title{font-family:var(--fd);}
-.sval,.setup-stat-val,.bid-amt,.pname{font-family:var(--fd);}
+.auth-brand,.at-title,.tb-title,.sval,.setup-stat-val,.bid-amt,.pname{font-family:var(--fd);}
 .card,.tcard,.pts-card,.spill,.rc{transition:all .22s cubic-bezier(.4,0,.2,1);}
-body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.018;
-background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px 200px;}
-body.dark::after{opacity:.035;}
 
 /* ── Toast ── */
 #toast{
@@ -1294,7 +1288,7 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
 <!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div><div id="leaderboardBody"></div></div></div>
 <div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
 <!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div></div><!-- /auction-view --></div><!-- /content -->
-</div><!-- /app-shell --><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script type="module">
+</div><!-- /app-shell --><script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 import{getAI,getGenerativeModel,GoogleAIBackend}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-ai.js";
@@ -2807,8 +2801,7 @@ body.innerHTML=sorted.map(([name,info],i)=>{
   :`<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;color:var(--dim);flex-shrink:0;">${i+1}</div>`;
  const medal=rankEl;
  const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
- const dq=!info.squadValid;
-  return `<div class="lb-row"${dq?' style="opacity:.45"':''}>${medal}<div style="flex:1;"><div class="lb-team">${name}${dq?` <span style="font-size:.62rem;padding:1px 5px;border-radius:8px;background:var(--err-bg);color:var(--err);border:1px solid var(--err-bdr);font-weight:700;margin-left:5px;">DQ</span>`:``}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--accent),var(--accent-l));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
+ const dq=!info.squadValid;return `<div class="lb-row"${dq?' style="opacity:.45"':''}>${medal}<div style="flex:1;"><div class="lb-team">${name}${dq?` <span style="font-size:.62rem;padding:1px 5px;border-radius:8px;background:var(--err-bg);color:var(--err);border:1px solid var(--err-bdr);font-weight:700;margin-left:5px;">DQ</span>`:``}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) · ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--accent),var(--accent-l));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
  }).join('');
 }
 
@@ -4513,20 +4506,19 @@ let _sqSavedA = null; // cached Firebase squad
 let _sqHistA  = [];
 
 function _myRosterA(){
-  const st = roomState;
+  var st = roomState;
   if(!st) return [];
-  let tn = (user && st.members && st.members[user.uid] && st.members[user.uid].teamName)
-             || myTeamName || '';
+  var tn = (user && st.members && st.members[user.uid] && st.members[user.uid].teamName) || myTeamName || '';
   if(!tn) return [];
   if(!myTeamName && tn) myTeamName = tn;
-  let team = st.teams && st.teams[tn];
+  var team = st.teams && st.teams[tn];
   if(!team && st.teams){
-    const tnL = tn.trim().toLowerCase();
-    const match = Object.keys(st.teams).find(function(k){ return k.trim().toLowerCase() === tnL; });
+    var tnL = tn.trim().toLowerCase();
+    var match = Object.keys(st.teams).find(function(k){ return k.trim().toLowerCase() === tnL; });
     if(match) team = st.teams[match];
   }
   if(!team) return [];
-  const r = team.roster;
+  var r = team.roster;
   if(!r) return [];
   return Array.isArray(r) ? r : Object.values(r);
 }
@@ -4558,7 +4550,9 @@ function _mtRenderA(){
 
   var sq = _sqSavedA;
   if(!sq || !sq.xi){
-    sq = { xi: allNames.slice(0,11), bench: allNames.slice(11,16), reserves: allNames.slice(16) };
+    var _xiEnd = Math.min(11, allNames.length);
+    var _benchEnd = Math.min(_xiEnd + 5, allNames.length);
+    sq = { xi: allNames.slice(0, _xiEnd), bench: allNames.slice(_xiEnd, _benchEnd), reserves: allNames.slice(_benchEnd) };
   } else {
     var assigned = new Set(sq.xi.concat(sq.bench).concat(sq.reserves));
     allNames.forEach(function(n){ if(!assigned.has(n)) sq.reserves.push(n); });
@@ -4585,14 +4579,20 @@ function _mtRenderA(){
   var xiBowlCount = sq.xi.filter(canBowl).length;
   var xiWkCount = sq.xi.filter(isWk).length;
 
+  // Adapt rules to actual roster size
+  var totalPlayers = allNames.length;
+  var needBench = totalPlayers > 11;  // bench only required if >11 players
+  var xiTarget = Math.min(11, totalPlayers);
+  var benchTarget = needBench ? Math.min(5, totalPlayers - 11) : 0;
+
   var checks = [
-    { label:'XI Size', val:xiCount+'/11', ok:xiCount===11 },
-    { label:'Bench', val:benchCount+'/5', ok:benchCount===5 },
-    { label:'XI Overseas', val:xiOsCount+'/4 max', ok:xiOsCount<=4 },
-    { label:'Bench OS', val:benchOsCount+'/2 max', ok:benchOsCount<=2 },
-    { label:'Bowlers XI', val:xiBowlCount+'/5 min', ok:xiBowlCount>=5 },
-    { label:'Keeper XI', val:xiWkCount+'/1', ok:xiWkCount===1 }
+    { label:'XI Size', val:xiCount+'/'+xiTarget, ok:xiCount===xiTarget }
   ];
+  if(needBench) checks.push({ label:'Bench', val:benchCount+'/'+benchTarget, ok:benchCount===benchTarget });
+  checks.push({ label:'XI Overseas', val:xiOsCount+'/4 max', ok:xiOsCount<=4 });
+  if(needBench) checks.push({ label:'Bench OS', val:benchOsCount+'/2 max', ok:benchOsCount<=2 });
+  if(xiCount>=5) checks.push({ label:'Bowlers XI', val:xiBowlCount+'/5 min', ok:xiBowlCount>=5 });
+  checks.push({ label:'Keeper XI', val:xiWkCount+'/1', ok:xiWkCount===1 });
   var allValid = checks.every(function(c){ return c.ok; });
 
   // Save validity to a global so leaderboard/points can check it
@@ -4730,9 +4730,9 @@ window.mt_save_A = async function(){
   if(!sq){window.showAlert('No squad to save.');return;}
   const r=_myRosterA();
   var msgs=[];
-  if(r.length>=11&&sq.xi.length!==11) msgs.push('XI needs exactly 11 (has '+sq.xi.length+')');
-  if(r.length>=16&&sq.bench.length!==5) msgs.push('Bench needs exactly 5 (has '+sq.bench.length+')');
-  // Squad composition rules validation
+  var _xiTarget=Math.min(11,r.length), _needBench=r.length>11, _benchTarget=_needBench?Math.min(5,r.length-11):0;
+  if(sq.xi.length!==_xiTarget) msgs.push('XI needs '+_xiTarget+' (has '+sq.xi.length+')');
+  if(_needBench&&sq.bench.length!==_benchTarget) msgs.push('Bench needs '+_benchTarget+' (has '+sq.bench.length+')');
   function _pd(name){ return r.find(function(x){ return (x.name||x.n||'')===name; })||{}; }
   function _pr(name){ return (_pd(name).role||_pd(name).r||'').toLowerCase(); }
   function _po(name){ return !!(_pd(name).isOverseas||_pd(name).o); }
@@ -4742,14 +4742,13 @@ window.mt_save_A = async function(){
   var xiBowl=sq.xi.filter(_cb).length, xiWk=sq.xi.filter(_wk).length;
   if(xiOs>4) msgs.push('XI has '+xiOs+' overseas (max 4)');
   if(benchOs>2) msgs.push('Bench has '+benchOs+' overseas (max 2)');
-  if(sq.xi.length===11&&xiBowl<5) msgs.push('XI needs 5+ bowlers/all-rounders (has '+xiBowl+')');
-  if(sq.xi.length===11&&xiWk!==1) msgs.push('XI needs exactly 1 wicketkeeper (has '+xiWk+')');
-  if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName'),{squadValid:false}).catch(function(){});
-  if(msgs.length){window.showAlert(msgs.join(' \u00b7 '));return;}
+  if(sq.xi.length===_xiTarget&&_xiTarget>=5&&xiBowl<5) msgs.push('XI needs 5+ bowlers/all-rounders (has '+xiBowl+')');
+  if(sq.xi.length===_xiTarget&&xiWk!==1) msgs.push('XI needs exactly 1 wicketkeeper (has '+xiWk+')');
+  if(msgs.length){if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:false}).catch(function(){});window.showAlert(msgs.join(' \u00b7 '));return;}
   try{
     await set(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId),{xi:sq.xi,bench:sq.bench,savedAt:Date.now()});
     window.showAlert('Squad saved!','ok');
-    if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName'),{squadValid:true}).catch(function(){});
+    if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:true}).catch(function(){});
     _sqHistA=[];
     var ub=document.getElementById('mt_undo_A');if(ub)ub.style.display='none';
   }catch(e){window.showAlert('Save failed: '+e.message);}
