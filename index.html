@@ -1208,7 +1208,11 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
 
     <!-- Step 4: Select room + push -->
     <div class="cbz-section" id="cbzStep4" style="display:none;">
-      <div class="cbz-section-title">Step 4 — Push to Room</div>
+      <div class="cbz-section-title">Step 4 — Edit &amp; Push to All Rooms</div>
+      <p style="font-size:.82rem;color:var(--dim);margin-bottom:12px;">Sends this scorecard to the <strong style="color:var(--txt)">Scorecards tab</strong> where you can fill in dot balls, edit any values, then click <em>Save &amp; Push to All My Rooms</em> to publish to every auction and draft room.</p>
+      <button class="btn btn-gold" onclick="window.cbzPushToRoom()" style="width:auto;padding:11px 28px;">Send to Scorecards Tab →</button>
+      <div class="cbz-status" id="cbzPushStatus"></div>
+    </div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div class="fld" style="flex:2;min-width:160px;margin-bottom:0;">
           <label>Select Auction Room <button class="btn btn-sm btn-ghost" onclick="window.cbzPopulateRoomsManual()" style="width:auto;padding:3px 8px;font-size:.65rem;margin-left:6px;">Load Rooms</button></label>
@@ -4279,10 +4283,11 @@ function cbzRenderPreview(idx){
     </tbody>
   </table>
   <div class="cbz-inn-header" style="margin-top:12px;">Bowling</div>
+  <p style="font-size:.70rem;color:var(--warn);margin:4px 0 6px;">⚠ Dot balls not available from Cricbuzz summary API — enter manually in the Scorecards form after importing.</p>
   <table class="cbz-preview-table">
     <thead><tr><th>Bowler</th><th>Ov</th><th>R</th><th>W</th><th>Eco</th><th>0s</th><th>Mdns</th></tr></thead>
     <tbody>
-    ${inn.bowling.map(b=>`<tr><td><strong>${b.name}</strong></td><td>${b.overs}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.economy}</td><td>${b.dots}</td><td>${b.maidens}</td></tr>`).join('')}
+    ${inn.bowling.map(b=>`<tr><td><strong>${b.name}</strong></td><td>${b.overs}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.economy}</td><td style="color:var(--warn)">—</td><td>${b.maidens}</td></tr>`).join('')}
     </tbody>
   </table>`;
   if(inn.fielding.length){
@@ -4321,49 +4326,79 @@ async function cbzPopulateRooms(){
   }catch(e){ console.error('cbzPopulateRooms:',e); }
 }
 
-// ── Step 4: Push to room (calls populateFormFromAI equivalent) ──
-window.cbzPushToRoom = async function(){
-  const rid=document.getElementById('cbzRoomSelect')?.value;
-  if(!rid){ cbzSetStatus('cbzPushStatus','Select a room first.','fail'); return; }
+// ── Step 4: Populate global scorecard form so admin can edit then push to all rooms ──
+window.cbzPushToRoom = function(){
   const inn=cbzParsedScorecard?.innings?.[cbzActiveInningsIdx];
   if(!inn){ cbzSetStatus('cbzPushStatus','No innings data loaded.','fail'); return; }
+  cbzSetStatus('cbzPushStatus','Populating Scorecards tab…','loading');
 
-  cbzSetStatus('cbzPushStatus','Pushing to room…','loading');
+  if(typeof window.switchDashTab==='function') window.switchDashTab('scorecards');
 
-  // Navigate to the selected room then populate the scorecard form
-  try{
-    // Build the parsed object in the same format populateFormFromAI expects
-    const parsed={
-      matchLabel : cbzParsedScorecard.matchLbl,
-      winner     : cbzParsedScorecard.winnerTeam,
-      motm       : cbzParsedScorecard.motm,
-      result     : cbzParsedScorecard.resultStr,
-      batting    : inn.batting,
-      bowling    : inn.bowling.map(b=>({...b, economy:b.economy, econ:b.economy, economyRate:b.economy})),
-      fielding   : inn.fielding,
-    };
+  setTimeout(()=>{
+    // Show the global scorecard form
+    const fb=document.getElementById('gscFormBody');
+    if(fb) fb.style.display='block';
 
-    // Switch to the target room
-    roomId=rid;
-    const snap=await get(ref(db,`auctions/${rid}`));
-    roomState=snap.val();
+    const sv=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&v!=='') el.value=v; };
 
-    // Switch to matches tab and open form
-    if(typeof window.switchTab==='function') window.switchTab('matches');
+    // Meta fields
+    sv('gscMatchLabel', cbzParsedScorecard.matchLbl);
+    sv('gscWinner',     cbzParsedScorecard.winnerTeam);
+    const res=document.getElementById('gscResult');
+    if(res&&cbzParsedScorecard.resultStr)
+      [...res.options].forEach(o=>{ if(o.value===cbzParsedScorecard.resultStr) o.selected=true; });
 
-    // Give DOM a moment to render, then populate
-    setTimeout(()=>{
-      // Open a fresh match entry form
-      if(typeof window.openNewMatchForm==='function') window.openNewMatchForm();
-      setTimeout(()=>{
-        populateFormFromAI(parsed);
-        cbzSetStatus('cbzPushStatus','✅ Scorecard populated in the Match Data tab. Review and save.','done');
-      },300);
-    },200);
-  }catch(e){
-    cbzSetStatus('cbzPushStatus',`❌ ${e.message}`,'fail');
-  }
-};
+    // Clear existing rows and reset counters
+    const bRows=document.getElementById('gscBattingRows');
+    const bowRows=document.getElementById('gscBowlingRows');
+    const fRows=document.getElementById('gscFieldingRows');
+    if(bRows) bRows.innerHTML='';
+    if(bowRows) bowRows.innerHTML='';
+    if(fRows) fRows.innerHTML='';
+    gscBattingCount=0; gscBowlingCount=0; gscFieldingCount=0;
+
+    // Batting — uses gscBattingCount, fields: gscbr{id}name/runs/balls/fours/sixes/dis
+    (inn.batting||[]).forEach(b=>{
+      window.addGscBattingRow();
+      const id=gscBattingCount-1;
+      sv(`gscbr${id}name`,  b.name||'');
+      sv(`gscbr${id}runs`,  b.runs??'');
+      sv(`gscbr${id}balls`, b.balls??'');
+      sv(`gscbr${id}fours`, b.fours??'');
+      sv(`gscbr${id}sixes`, b.sixes??'');
+      const dis=document.getElementById(`gscbr${id}dis`);
+      if(dis)[...dis.options].forEach(o=>{ if(o.value===(b.dismissal||'out')) o.selected=true; });
+    });
+
+    // Bowling — uses gscBowlingCount, fields: gscbow{id}name/overs/runs/wkts/eco/dots/maidens
+    (inn.bowling||[]).forEach(bw=>{
+      window.addGscBowlingRow();
+      const id=gscBowlingCount-1;
+      sv(`gscbow${id}name`,   bw.name||'');
+      sv(`gscbow${id}overs`,  bw.overs??'');
+      sv(`gscbow${id}runs`,   bw.runs??'');
+      sv(`gscbow${id}wkts`,   bw.wickets??'');
+      sv(`gscbow${id}maidens`,bw.maidens??'');
+      if(bw.economy){
+        const eEl=document.getElementById(`gscbow${id}eco`);
+        if(eEl){ eEl.value=parseFloat(bw.economy).toFixed(2); eEl.dataset.manual='1'; }
+      }
+    });
+
+    // Fielding — uses gscFieldingCount, fields: gscfld{id}name/catches/stumpings/runouts
+    (inn.fielding||[]).forEach(f=>{
+      if((f.catches||0)+(f.stumpings||0)+(f.runouts||0)===0) return;
+      window.addGscFieldingRow();
+      const id=gscFieldingCount-1;
+      sv(`gscfld${id}name`,      f.name||'');
+      sv(`gscfld${id}catches`,   f.catches||'');
+      sv(`gscfld${id}stumpings`, f.stumpings||'');
+      sv(`gscfld${id}runouts`,   f.runouts||'');
+    });
+
+    cbzSetStatus('cbzPushStatus','✅ Scorecard populated — add dot balls, then Save & Push to All Rooms.','done');
+  }, 300);
+};;;
 
 </script>
 </body>
