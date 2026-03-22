@@ -1202,17 +1202,18 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
     <!-- Step 3: Preview & select innings -->
     <div class="cbz-section" id="cbzStep3" style="display:none;">
       <div class="cbz-section-title">Step 3 — Preview Innings</div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;" id="cbzInningsButtons"></div>
+      <div id="cbzInningsButtons" style="display:none;"></div>
       <div id="cbzPreview" style="overflow-x:auto;"></div>
     </div>
-
-    <!-- Step 4: Select room + push -->
     <div class="cbz-section" id="cbzStep4" style="display:none;">
-      <div class="cbz-section-title">Step 4 — Edit &amp; Push to All Rooms</div>
-      <p style="font-size:.82rem;color:var(--dim);margin-bottom:12px;">Sends this scorecard to the <strong style="color:var(--txt)">Scorecards tab</strong> where you can fill in dot balls, edit any values, then click <em>Save &amp; Push to All My Rooms</em> to publish to every auction and draft room.</p>
+      <div class="cbz-section-title">Step 4 — Send to Scorecards Tab</div>
+      <p style="font-size:.82rem;color:var(--dim);margin-bottom:12px;">Sends <strong style="color:var(--txt)">both innings combined</strong> to the Scorecards tab — all batsmen, bowlers and fielders in one go. Add dot balls there, then click <em>Save &amp; Push to All My Rooms</em>.</p>
       <button class="btn btn-gold" onclick="window.cbzPushToRoom()" style="width:auto;padding:11px 28px;">Send to Scorecards Tab →</button>
       <div class="cbz-status" id="cbzPushStatus"></div>
     </div>
+
+    <!-- Step 4: Select room + push -->
+    
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div class="fld" style="flex:2;min-width:160px;margin-bottom:0;">
           <label>Select Auction Room <button class="btn btn-sm btn-ghost" onclick="window.cbzPopulateRoomsManual()" style="width:auto;padding:3px 8px;font-size:.65rem;margin-left:6px;">Load Rooms</button></label>
@@ -4404,6 +4405,35 @@ window.cbzPushToRoom = function(){
   }, 300);
 };;;;;
 
+
+// ── Render all innings combined in preview ──
+function cbzRenderAllInnings(){
+  const innings=cbzParsedScorecard?.innings||[];
+  const prev=document.getElementById('cbzPreview');
+  if(!prev||!innings.length) return;
+  let html='';
+  innings.forEach((inn,i)=>{
+    html+=`<div class="cbz-inn-header" style="${i>0?'margin-top:18px;':''}${i===0?'':'border-top:1px solid var(--b1);padding-top:12px;'}">${inn.inningsLabel} — Batting</div>
+    <table class="cbz-preview-table">
+      <thead><tr><th>Player</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Dismissal</th></tr></thead>
+      <tbody>${inn.batting.map(b=>`<tr><td><strong>${b.name}</strong></td><td>${b.runs}</td><td>${b.balls}</td><td>${b.fours}</td><td>${b.sixes}</td><td>${b.sr||'—'}</td><td style="font-size:.72rem;color:var(--dim)">${b.dismissal}</td></tr>`).join('')}</tbody>
+    </table>
+    <div class="cbz-inn-header" style="margin-top:10px;">${inn.inningsLabel} — Bowling</div>
+    <p style="font-size:.70rem;color:var(--warn);margin:3px 0 5px;">⚠ Dot balls not available from API — enter manually.</p>
+    <table class="cbz-preview-table">
+      <thead><tr><th>Bowler</th><th>Ov</th><th>R</th><th>W</th><th>Eco</th><th>Mdns</th></tr></thead>
+      <tbody>${inn.bowling.map(b=>`<tr><td><strong>${b.name}</strong></td><td>${b.overs}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.economy}</td><td>${b.maidens}</td></tr>`).join('')}</tbody>
+    </table>`;
+    if(inn.fielding.length){
+      html+=`<div class="cbz-inn-header" style="margin-top:10px;">${inn.inningsLabel} — Fielding</div>
+      <table class="cbz-preview-table">
+        <thead><tr><th>Player</th><th>Catches</th><th>Stumpings</th><th>Run-outs</th></tr></thead>
+        <tbody>${inn.fielding.map(f=>`<tr><td>${f.name}</td><td>${f.catches||0}</td><td>${f.stumpings||0}</td><td>${f.runouts||0}</td></tr>`).join('')}</tbody>
+      </table>`;
+    }
+  });
+  prev.innerHTML=html;
+}
 </script>
 </body>
 </html>
