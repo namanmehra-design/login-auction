@@ -1461,7 +1461,12 @@ window.createNewRoom=function(){
  upd[`auctions/${nr.key}/createdAt`]=Date.now();
  update(ref(db),upd)
  .then(()=>window.location.search=`?room=${nr.key}`)
- .catch(e=>window.showAlert(e.message));
+ .catch(e=>{
+ const msg = e.code === 'PERMISSION_DENIED' || (e.message||'').includes('PERMISSION_DENIED')
+   ? 'Permission denied. Please check your Firebase database rules allow authenticated users to create rooms.'
+   : e.message;
+ window.showAlert(msg);
+});
 };
 
 // ── Delete Room ──
