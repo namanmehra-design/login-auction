@@ -4107,9 +4107,9 @@ async function cbzLoadMatches(endpoint){
           // Only include IPL / T20 type if possible, else include all
           allMatches.push({
             matchId: mi.matchId,
-            teams: `${mi.team1?.teamSName||'?'} vs ${mi.team2?.teamSName||'?'}`,
-            series: series.seriesName||mi.seriesName||'',
-            venue: mi.venueInfo?.ground||'',
+            teams: `${mi.team1?.teamSName||mi.team1?.teamsname||'?'} vs ${mi.team2?.teamSName||mi.team2?.teamsname||'?'}`,
+            series: series.seriesName||mi.seriesName||series.seriesname||mi.seriesname||'',
+            venue: mi.venueInfo?.ground||mi.venueinfo?.ground||'',
             state: mi.state||'',
             status: mi.status||'',
             score1: ms.team1Score?.inngs1 ? `${ms.team1Score.inngs1.runs}/${ms.team1Score.inngs1.wickets}` : '',
@@ -4166,90 +4166,72 @@ window.cbzFetchScorecard = async function(){
   document.getElementById('cbzStep3').style.display='none';
   document.getElementById('cbzStep4').style.display='none';
   try{
-    const [scardData, infoData] = await Promise.all([
+
+    const [scardData,infoData]=await Promise.all([
       cbzFetch(`/mcenter/v1/${cbzSelectedMatchId}/scard`),
       cbzFetch(`/mcenter/v1/${cbzSelectedMatchId}`),
     ]);
 
-    // Parse match meta from info
-    const matchHeader = infoData.matchHeader||{};
-    const winnerTeam  = matchHeader.result?.winningTeam || '';
-    const motm        = matchHeader.playersOfTheMatch?.[0]?.name || '';
-    const resultType  = matchHeader.result?.resultType||'';
-    const resultStr   = resultType==='W'?'normal': resultType==='T'?'tie': resultType==='D'?'noresult': 'normal';
-    const matchLbl    = `${cbzSelectedMatchLabel} — ${matchHeader.seriesName||''}`;
+    // ── Match meta — info is a FLAT object (no matchHeader wrapper) ──
+    const winnerTeam = (infoData.shortstatus||'').replace(' won','').trim();
+    const motm       = '';  // not available in this endpoint
+    const resultStr  = infoData.state==='Complete' ? 'normal' : 'noresult';
+    const matchLbl   = `${cbzSelectedMatchLabel} — ${infoData.seriesname||''}`;
 
-    // Parse innings from scorecard
-    const innings = [];
-    (scardData.scoreCard||[]).forEach((inn, ii)=>{
-      const innLabel = inn.batTeamDetails?.batTeamName || `Innings ${ii+1}`;
+    // ── Innings — scorecard (lowercase) is a flat array ──
+    const innings=[];
+    (scardData.scorecard||[]).forEach((inn,ii)=>{
+      const innLabel = inn.batteamname || `Innings ${ii+1}`;
       const batting  = [];
       const bowling  = [];
       const fielding = {};
 
-      // Batting — batsman details
-      Object.values(inn.batTeamDetails?.batsmenData||{}).forEach(b=>{
-        const dismissal = b.outDesc===''||!b.outDesc ? 'notout' :
-                          b.outDesc?.toLowerCase().includes('run out') ? 'runout' :
-                          b.outDesc?.toLowerCase().includes('stumped') ? 'stumped' :
-                          b.outDesc?.toLowerCase().includes('not out') ? 'notout' : 'out';
+      // Batting — flat array of batsman objects
+      (inn.batsman||[]).forEach(b=>{
+        const outdec = b.outdec||'';
+        const dismissal = !outdec || outdec==='' ? 'notout' :
+          outdec.toLowerCase().includes('run out') ? 'runout' :
+          outdec.toLowerCase().includes('stumped')  ? 'stumped' :
+          outdec.toLowerCase().includes('not out')  ? 'notout' : 'out';
         batting.push({
-          name    : b.batName,
-          runs    : b.runs,
-          balls   : b.balls,
-          fours   : b.fours,
-          sixes   : b.sixes,
-          sr      : b.strikeRate,
+          name     : b.name,
+          runs     : b.runs,
+          balls    : b.balls,
+          fours    : b.fours,
+          sixes    : b.sixes,
+          sr       : b.strkrate,
           dismissal,
         });
-
-        // Extract fielding from dismissal text
-        const txt = b.outDesc||'';
-        // catches: "c Rohit b Bumrah" — fielder is "Rohit"
-        const catchM = txt.match(/^c ([^b]+) b /i);
-        if(catchM){
-          const fielder=catchM[1].trim();
-          if(!fielding[fielder]) fielding[fielder]={name:fielder,catches:0,stumpings:0,runouts:0};
-          fielding[fielder].catches++;
-        }
-        // stumped: "st Pant b Kuldeep"
-        const stumpM = txt.match(/^st ([^b]+) b /i);
-        if(stumpM){
-          const fielder=stumpM[1].trim();
-          if(!fielding[fielder]) fielding[fielder]={name:fielder,catches:0,stumpings:0,runouts:0};
-          fielding[fielder].stumpings++;
-        }
-        // run out: "run out (Kohli)"
-        const runoutM = txt.match(/run out[^(]*\(([^)]+)\)/i);
-        if(runoutM){
-          const fielder=runoutM[1].trim();
-          if(!fielding[fielder]) fielding[fielder]={name:fielder,catches:0,stumpings:0,runouts:0};
-          fielding[fielder].runouts++;
-        }
+        // Auto-extract fielding from dismissal text
+        const catchM  = outdec.match(/^c ([^b]+) b /i);
+        const stumpM  = outdec.match(/^st ([^b]+) b /i);
+        const runoutM = outdec.match(/run out[^(]*\(([^)]+)\)/i);
+        if(catchM) { const f=catchM[1].trim();  if(!fielding[f]) fielding[f]={name:f,catches:0,stumpings:0,runouts:0}; fielding[f].catches++; }
+        if(stumpM) { const f=stumpM[1].trim();  if(!fielding[f]) fielding[f]={name:f,catches:0,stumpings:0,runouts:0}; fielding[f].stumpings++; }
+        if(runoutM){ const f=runoutM[1].trim(); if(!fielding[f]) fielding[f]={name:f,catches:0,stumpings:0,runouts:0}; fielding[f].runouts++; }
       });
 
-      // Bowling
-      Object.values(inn.bowlTeamDetails?.bowlersData||{}).forEach(bw=>{
-        const ov   = parseFloat(bw.overs)||0;
-        const runs = parseInt(bw.runs)||0;
-        const eco  = ov>0 ? (runs/cbzNormalizeOvers(ov)).toFixed(2) : '0.00';
+      // Bowling — flat array of bowler objects
+      (inn.bowler||[]).forEach(bw=>{
+        const overs  = bw.overs||0;
+        const runs   = parseInt(bw.runs)||0;
+        const eco    = parseFloat(bw.economy)||0;
+        // dots: API returns 0, calculate from balls - (scoring balls)
+        // balls = bw.balls, but dots not reliable from API — leave as 0
         bowling.push({
-          name    : bw.bowlName,
-          overs   : bw.overs,
-          runs    : bw.runs,
+          name    : bw.name,
+          overs   : overs,
+          runs    : runs,
           wickets : bw.wickets,
-          economy : eco,
+          economy : eco.toFixed(2),
+          econ    : eco.toFixed(2),
+          economyRate: eco.toFixed(2),
           dots    : bw.dots||0,
           maidens : bw.maidens||0,
         });
       });
 
-      innings.push({
-        inningsLabel : innLabel,
-        batting,
-        bowling,
-        fielding : Object.values(fielding),
-      });
+      innings.push({inningsLabel:innLabel, batting, bowling, fielding:Object.values(fielding)});
     });
 
     cbzParsedScorecard = { innings, winnerTeam, motm, resultStr, matchLbl };
