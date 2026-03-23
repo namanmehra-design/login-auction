@@ -1968,7 +1968,12 @@ function loadRoom(rid){
  renderLeaderboard(data);
  renderAnalytics(data);
  if(document.getElementById('myteam-tab')?.style.display==='block') _mtRenderA();
- else if(myTeamName && data.teams && data.teams[myTeamName]) { _sqSavedA = null; }
+ else if(myTeamName && data.teams && data.teams[myTeamName]) {
+   var _newRLen = 0;
+   var _r = data.teams[myTeamName].roster;
+   if(_r) _newRLen = Array.isArray(_r) ? _r.length : Object.keys(_r).length;
+   if(!_sqSavedA || !_sqSavedA._rLen || _sqSavedA._rLen !== _newRLen) { _sqSavedA = null; }
+  }
  renderMatchData(data);
  });
  }); // end Promise.all .then()
@@ -4596,7 +4601,7 @@ function _mtRenderA(){
   var benchOsList = sq.bench.filter(pOs);
   while(benchOsList.length > 2){ var v=benchOsList.pop(); sq.bench=sq.bench.filter(function(n){return n!==v;}); sq.reserves.push(v); }
 
-  _sqSavedA = sq;
+  sq._rLen = allNames.length; _sqSavedA = sq;
 
   var xiCount = sq.xi.length, benchCount = sq.bench.length, resCount = sq.reserves.length;
   var xiOsCount = sq.xi.filter(pOs).length;
@@ -4735,10 +4740,13 @@ window.mt_save_A = async function(){
 
 // Load saved squad from Firebase then render
 window.renderMyTeamA = function(){
-  // Always render immediately with whatever we have
-  _mtRenderA();
-  // Then load saved squad from Firebase if we have user+id
-  if(user && roomId && !_sqSavedA){
+  // If we already have a squad in memory, just render
+  if(_sqSavedA && _sqSavedA.xi){
+    _mtRenderA();
+    return;
+  }
+  // Load saved squad from Firebase, THEN render
+  if(user && roomId){
     get(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId))
       .then(function(snap){
         var saved=snap.val();
@@ -4747,10 +4755,12 @@ window.renderMyTeamA = function(){
           var xi=(saved.xi||[]).filter(function(n){return allNames.indexOf(n)>=0;});
           var bench=(saved.bench||[]).filter(function(n){return allNames.indexOf(n)>=0&&xi.indexOf(n)<0;});
           var assigned=new Set(xi.concat(bench));
-          _sqSavedA={xi:xi,bench:bench,reserves:allNames.filter(function(n){return!assigned.has(n);})};
-          _mtRenderA();
+          _sqSavedA={xi:xi,bench:bench,reserves:allNames.filter(function(n){return!assigned.has(n);})}; 
         }
-      }).catch(function(){});
+        _mtRenderA();
+      }).catch(function(){ _mtRenderA(); });
+  } else {
+    _mtRenderA();
   }
 };
 
