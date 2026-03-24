@@ -3778,10 +3778,10 @@ window.toggleSquadLock_A=function(){
 // ═══════════════════════════════════════════════════════════
 (function(){
   const GROUPS = {
-    auction: { tabs: ['setup','auction'], labels: { setup:'Setup', auction:'Live Auction' } },
+    auction: { tabs: ['setup','auction','trades'], labels: { setup:'Setup', auction:'Live Auction', trades:'Trade Center' } },
     squad:   { tabs: ['teams','roster','myteam'], labels: { teams:'Team Purses', roster:'Player Ledger', myteam:'My Squad' } },
-    season:  { tabs: ['points','leaderboard','players-season'], labels: { points:'Points Table', leaderboard:'Leaderboard', 'players-season':'Player Stats' } },
-    data:    { tabs: ['analytics','matches','schedule','trades'], labels: { analytics:'Analytics', matches:'Match Data', schedule:'Schedule', trades:'Trade Center' } }
+    season:  { tabs: ['points','leaderboard','players-season','schedule'], labels: { points:'Points Table', leaderboard:'Leaderboard', 'players-season':'Player Stats', schedule:'Schedule' } },
+    data:    { tabs: ['analytics','matches'], labels: { analytics:'Analytics', matches:'Match Data' } }
   };
   const GROUP_ORDER = ['auction','squad','season','data'];
 
