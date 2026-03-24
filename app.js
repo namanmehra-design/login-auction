@@ -931,6 +931,9 @@ window.switchTab=function(t){
  try{
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
   if(on&&id==='myteam') window.renderMyTeamA();
+  if(on&&id==='schedule') window.renderSchedule();
+  if(on&&id==='analytics'&&roomState) renderAnalytics(roomState);
+  if(on&&id==='trades'&&roomState) window.loadTradeDropdowns();
  }catch(e){ console.error('switchTab render error:',e); }
  });
 };
@@ -3769,4 +3772,3 @@ window.toggleSquadLock_A=function(){
  var upd={}; upd['auctions/'+roomId+'/squadLocked']=!currentLock;
  update(ref(db),upd).then(function(){ window.showAlert(!currentLock?'My Team changes LOCKED.':'My Team changes UNLOCKED.','ok'); }).catch(function(e){ window.showAlert('Failed: '+e.message); });
 };
-
