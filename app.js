@@ -3772,3 +3772,78 @@ window.toggleSquadLock_A=function(){
  var upd={}; upd['auctions/'+roomId+'/squadLocked']=!currentLock;
  update(ref(db),upd).then(function(){ window.showAlert(!currentLock?'My Team changes LOCKED.':'My Team changes UNLOCKED.','ok'); }).catch(function(e){ window.showAlert('Failed: '+e.message); });
 };
+
+// ═══════════════════════════════════════════════════════════
+// GROUPED NAVIGATION CONTROLLER
+// ═══════════════════════════════════════════════════════════
+(function(){
+  const GROUPS = {
+    auction: { tabs: ['setup','auction'], labels: { setup:'Setup', auction:'Live Auction' } },
+    squad:   { tabs: ['teams','roster','myteam'], labels: { teams:'Team Purses', roster:'Player Ledger', myteam:'My Squad' } },
+    season:  { tabs: ['points','leaderboard','players-season'], labels: { points:'Points Table', leaderboard:'Leaderboard', 'players-season':'Player Stats' } },
+    data:    { tabs: ['analytics','matches','schedule','trades'], labels: { analytics:'Analytics', matches:'Match Data', schedule:'Schedule', trades:'Trade Center' } }
+  };
+  const GROUP_ORDER = ['auction','squad','season','data'];
+
+  function getGroupForTab(tabId) {
+    for (const g of GROUP_ORDER) {
+      if (GROUPS[g].tabs.includes(tabId)) return g;
+    }
+    return null;
+  }
+
+  function renderSubTabs(groupId) {
+    const bar = document.getElementById('subTabBar');
+    if (!bar) return;
+    const group = GROUPS[groupId];
+    if (!group) { bar.innerHTML = ''; return; }
+    
+    bar.innerHTML = group.tabs.map(t => {
+      const btn = document.getElementById('btn-' + t);
+      const isActive = btn && btn.classList.contains('active');
+      return `<button class="sub-tab${isActive ? ' active' : ''}" onclick="window.switchTab('${t}')">${group.labels[t] || t}</button>`;
+    }).join('');
+  }
+
+  function highlightGroup(groupId) {
+    GROUP_ORDER.forEach(g => {
+      const el = document.getElementById('gnav-' + g);
+      if (el) el.classList.toggle('active', g === groupId);
+    });
+  }
+
+  // Wrap the original switchTab
+  const _origSwitchTab = window.switchTab;
+  window.switchTab = function(t) {
+    _origSwitchTab(t);
+    const g = getGroupForTab(t);
+    if (g) {
+      highlightGroup(g);
+      renderSubTabs(g);
+    }
+  };
+
+  // Group click handler — switches to first tab in group
+  window.switchGroup = function(groupId) {
+    const group = GROUPS[groupId];
+    if (group && group.tabs.length) {
+      window.switchTab(group.tabs[0]);
+    }
+  };
+
+  // Initialize on load
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      // Find which tab is currently active
+      const activeBtn = document.querySelector('.anav-btn.active');
+      if (activeBtn) {
+        const tabId = activeBtn.id.replace('btn-', '');
+        const g = getGroupForTab(tabId);
+        if (g) {
+          highlightGroup(g);
+          renderSubTabs(g);
+        }
+      }
+    }, 500);
+  });
+})();
