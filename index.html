@@ -1273,6 +1273,7 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="mt_undo_A" onclick="window.mt_undo_A()" style="display:none;padding:5px 12px;font-size:.80rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);">↩ Undo</button>
         <button onclick="window.mt_save_A()" style="padding:6px 16px;font-size:.82rem;border-radius:var(--r);border:none;background:var(--accent);color:#fff;cursor:pointer;font-family:var(--f);font-weight:600;">Save Squad</button>
+        <button id="mt_lock_btn_A" onclick="window.toggleSquadLock_A()" style="display:none;padding:6px 16px;font-size:.82rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);font-weight:600;">Lock Changes</button>
       </div>
     </div>
     <div style="padding:10px 16px;border-bottom:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -2046,6 +2047,15 @@ function loadRoom(rid){
   }
  renderMatchData(data);
  window.renderTrades(data);
+ // Update squad lock button for admin
+ var _lockBtn=document.getElementById('mt_lock_btn_A');
+ if(_lockBtn){
+  if(isAdmin){ _lockBtn.style.display='inline-block'; }
+  _lockBtn.textContent=data.squadLocked?'Unlock Changes':'Lock Changes';
+  _lockBtn.style.background=data.squadLocked?'var(--err-bg)':'var(--g1)';
+  _lockBtn.style.color=data.squadLocked?'var(--err)':'var(--txt2)';
+  _lockBtn.style.borderColor=data.squadLocked?'var(--err-bdr)':'var(--b2)';
+ }
  if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
  });
  }); // end Promise.all .then()
@@ -4716,7 +4726,11 @@ function _mtRenderA(){
   });
   tHtml += '</div>';
 
-  var statusHtml = allValid
+  
+  // Check if squad changes are locked by admin
+  var _isLocked = !!(roomState.squadLocked);
+  var _isAdminUser = !!isAdmin;
+var statusHtml = allValid
     ? '<div style="padding:8px 16px;background:var(--ok-bg);border-bottom:1px solid var(--ok-bdr);font-size:.80rem;font-weight:600;color:var(--ok);text-align:center;">&#10003; Squad valid &mdash; all criteria met</div>'
     : '<div style="padding:8px 16px;background:var(--err-bg);border-bottom:1px solid var(--err-bdr);font-size:.80rem;font-weight:600;color:var(--err);text-align:center;">&#10007; Squad not valid &mdash; fix red criteria above. Team is DISQUALIFIED from scoring until valid.</div>';
 
@@ -4748,7 +4762,10 @@ function _mtRenderA(){
   var prs=document.getElementById('mt_res_A'); if(prs) prs.textContent='Reserves: '+resCount;
   var vl=document.getElementById('mt_val_A'); if(vl) vl.style.display='none';
 
-  el.innerHTML = statusHtml + tHtml + '<div style="padding:12px;">'
+  var lockBanner = _isLocked
+    ? '<div style="padding:10px 16px;background:var(--warn-bg);border-bottom:1px solid var(--warn-bdr);font-size:.82rem;font-weight:600;color:var(--warn);text-align:center;">Squad changes are LOCKED by admin</div>'
+    : '';
+  el.innerHTML = lockBanner + statusHtml + tHtml + '<div style="padding:12px;">'
     + sec('&#9889; Playing XI', 'linear-gradient(90deg,#4A35A0,#6C54C8)', 'xi', xiCount+'/11')
     + sec('&#129681; Bench', 'linear-gradient(90deg,#065F46,#059669)', 'bench', benchCount+'/5')
     + sec('&#128230; Reserves', 'linear-gradient(90deg,#374151,#6B7280)', 'reserves', resCount+'')
@@ -4759,6 +4776,7 @@ function _mtRenderA(){
 
 
 window.mt_move_A = function(name, from, to){
+  if(roomState&&roomState.squadLocked&&!isAdmin){window.showAlert('Squad changes are locked by admin.');return;}
   const sq = _sqSavedA || {xi:[],bench:[],reserves:[]};
   _sqHistA.push(JSON.parse(JSON.stringify(sq)));
   var ub=document.getElementById('mt_undo_A'); if(ub) ub.style.display='flex';
@@ -4777,6 +4795,7 @@ window.mt_undo_A = function(){
 };
 
 window.mt_save_A = async function(){
+  if(roomState&&roomState.squadLocked&&!isAdmin){window.showAlert('Squad changes are locked by admin.');return;}
   if(!user||!roomId) return;
   const sq=_sqSavedA;
   if(!sq){window.showAlert('No squad to save.');return;}
@@ -5076,6 +5095,19 @@ window.renderTrades=function(data){
     +'<div style="font-size:.75rem;color:var(--dim);margin-top:4px;">Sent: '+t.sending.join(', ')+' | Received: '+t.receiving.join(', ')+'</div></div>';
   }).join('');
  }
+};
+
+// Squad lock: admin controls whether My Team edits are allowed
+window.toggleSquadLock_A=function(){
+ if(!isAdmin||!roomId) return;
+ var state=roomState;
+ var currentLock = state && state.squadLocked;
+ var newLock = !currentLock;
+ var upd={};
+ upd['auctions/'+roomId+'/squadLocked']=newLock;
+ update(ref(db),upd).then(function(){
+  window.showAlert(newLock ? 'My Team changes LOCKED for all users.' : 'My Team changes UNLOCKED.','ok');
+ }).catch(function(e){ window.showAlert('Failed: '+e.message); });
 };
 
 </script>
