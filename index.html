@@ -1256,7 +1256,7 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
     
   </div>
 </div>
-<!-- All rooms list --><div class="card"><div class="card-hdr"><span class="card-title">️ All Rooms on Platform</span><button class="btn btn-ghost btn-sm" onclick="renderSuperAdminPanel()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button></div><div id="saRoomsList" style="padding:0;"><div class="empty" style="padding:20px;">Loading…</div></div></div></div></div><!-- AUCTION VIEW --><div id="auction-view" class="view"><div class="at"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="window.backToDashboard()">← Dashboard</button><span class="at-title" id="roomTitleDisplay">Loading...</span><span class="badge" id="roomRoleBadge"></span></div><button class="btn btn-outline btn-sm" onclick="window.copyInviteLink()">Copy Invite</button></div><!-- Stats strip --><div class="srow" id="statsRow" style="display:none;"><div class="spill"><div class="sval" id="stat-total">—</div><div class="slb">Total</div></div><div class="spill"><div class="sval" id="stat-avail">—</div><div class="slb">Available</div></div><div class="spill"><div class="sval" id="stat-sold">—</div><div class="slb">Sold</div></div><div class="spill"><div class="sval" id="stat-unsold">—</div><div class="slb">Unsold</div></div><div class="spill"><div class="sval" id="stat-teams">—</div><div class="slb">Teams</div></div></div><div id="quotaWarningA" style="display:none;margin-bottom:8px;padding:12px 16px;background:var(--warn-bg);border:1px solid var(--warn-bdr);border-radius:var(--r);"></div><div class="anav"><button class="anav-btn active" id="btn-setup" onclick="window.switchTab('setup')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>Setup</button><button class="anav-btn" id="btn-auction" onclick="window.switchTab('auction')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Block</button><button class="anav-btn" id="btn-teams" onclick="window.switchTab('teams')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Purses</button><button class="anav-btn" id="btn-roster" onclick="window.switchTab('roster')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Ledger</button><button class="anav-btn" id="btn-points" onclick="window.switchTab('points')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Points</button><button class="anav-btn" id="btn-myteam" onclick="window.switchTab('myteam')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="21" x2="23" y2="19"/><line x1="19" y1="21" x2="19" y2="19"/><line x1="21" y1="17" x2="21" y2="23"/></svg>My Team</button><button class="anav-btn" id="btn-leaderboard" onclick="window.switchTab('leaderboard')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Leaderboard</button><button class="anav-btn" id="btn-players-season" onclick="window.switchTab('players-season')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Players</button><button class="anav-btn" id="btn-analytics" onclick="window.switchTab('analytics')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics</button><button class="anav-btn" id="btn-matches" onclick="window.switchTab('matches')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</button></div><!-- Setup Tab --><div id="setup-tab" class="card"><div class="card-hdr"><span class="card-title">Room Setup</span><span class="badge br">Admin Only</span></div><div class="card-bdy"><!-- Room config summary --><div id="setupConfigBox" style="margin-bottom:4px;"></div><!-- Join progress --><div class="jp-wrap"><div class="jp-header"><span class="jp-label">Teams Joined</span><span class="jp-count" id="jpCount">0 / 0</span></div><div class="jp-bar"><div id="jpBarFill" class="jp-fill" style="width:0%;"></div></div><div id="jpStatus" class="jp-status waiting">Waiting for teams to join…</div></div><!-- Admin register banner (shown until admin registers their team) --><div id="adminRegBanner" style="display:none;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><div style="font-weight:600;color:#c084fc;font-size:.88rem;">Register your own team to bid in this auction</div><div style="font-size:.78rem;color:var(--dim);margin-top:2px;">As admin you can also place bids — register your team name first.</div></div><button class="btn btn-sm" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.4);flex-shrink:0;width:auto;" onclick="window.adminRegisterTeam()">Register My Team →</button></div></div><!-- Initialize button — gated on all teams joined + admin registered --><button class="btn btn-gold" id="initBtn" onclick="window.initializeAuctionData()" disabled>Initialize Auction — Waiting for all teams…
+<!-- All rooms list --><div class="card"><div class="card-hdr"><span class="card-title">️ All Rooms on Platform</span><button class="btn btn-ghost btn-sm" onclick="renderSuperAdminPanel()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button></div><div id="saRoomsList" style="padding:0;"><div class="empty" style="padding:20px;">Loading…</div></div></div></div></div><!-- AUCTION VIEW --><div id="auction-view" class="view"><div class="at"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="window.backToDashboard()">← Dashboard</button><span class="at-title" id="roomTitleDisplay">Loading...</span><span class="badge" id="roomRoleBadge"></span></div><button class="btn btn-outline btn-sm" onclick="window.copyInviteLink()">Copy Invite</button></div><!-- Stats strip --><div class="srow" id="statsRow" style="display:none;"><div class="spill"><div class="sval" id="stat-total">—</div><div class="slb">Total</div></div><div class="spill"><div class="sval" id="stat-avail">—</div><div class="slb">Available</div></div><div class="spill"><div class="sval" id="stat-sold">—</div><div class="slb">Sold</div></div><div class="spill"><div class="sval" id="stat-unsold">—</div><div class="slb">Unsold</div></div><div class="spill"><div class="sval" id="stat-teams">—</div><div class="slb">Teams</div></div></div><div class="anav"><button class="anav-btn active" id="btn-setup" onclick="window.switchTab('setup')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>Setup</button><button class="anav-btn" id="btn-auction" onclick="window.switchTab('auction')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Block</button><button class="anav-btn" id="btn-teams" onclick="window.switchTab('teams')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Purses</button><button class="anav-btn" id="btn-roster" onclick="window.switchTab('roster')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Ledger</button><button class="anav-btn" id="btn-points" onclick="window.switchTab('points')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Points</button><button class="anav-btn" id="btn-myteam" onclick="window.switchTab('myteam')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="21" x2="23" y2="19"/><line x1="19" y1="21" x2="19" y2="19"/><line x1="21" y1="17" x2="21" y2="23"/></svg>My Team</button><button class="anav-btn" id="btn-leaderboard" onclick="window.switchTab('leaderboard')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Leaderboard</button><button class="anav-btn" id="btn-players-season" onclick="window.switchTab('players-season')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Players</button><button class="anav-btn" id="btn-analytics" onclick="window.switchTab('analytics')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics</button><button class="anav-btn" id="btn-matches" onclick="window.switchTab('matches')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</button><button class="anav-btn" id="btn-trades" onclick="window.switchTab('trades')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>Trades</button></div><!-- Setup Tab --><div id="setup-tab" class="card"><div class="card-hdr"><span class="card-title">Room Setup</span><span class="badge br">Admin Only</span></div><div class="card-bdy"><!-- Room config summary --><div id="setupConfigBox" style="margin-bottom:4px;"></div><!-- Join progress --><div class="jp-wrap"><div class="jp-header"><span class="jp-label">Teams Joined</span><span class="jp-count" id="jpCount">0 / 0</span></div><div class="jp-bar"><div id="jpBarFill" class="jp-fill" style="width:0%;"></div></div><div id="jpStatus" class="jp-status waiting">Waiting for teams to join…</div></div><!-- Admin register banner (shown until admin registers their team) --><div id="adminRegBanner" style="display:none;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><div style="font-weight:600;color:#c084fc;font-size:.88rem;">Register your own team to bid in this auction</div><div style="font-size:.78rem;color:var(--dim);margin-top:2px;">As admin you can also place bids — register your team name first.</div></div><button class="btn btn-sm" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.4);flex-shrink:0;width:auto;" onclick="window.adminRegisterTeam()">Register My Team →</button></div></div><!-- Initialize button — gated on all teams joined + admin registered --><button class="btn btn-gold" id="initBtn" onclick="window.initializeAuctionData()" disabled>Initialize Auction — Waiting for all teams…
  </button><p style="font-size:.78rem;color:var(--dim);margin-top:8px;" id="initHint">The button unlocks once all <strong id="initHintMax">?</strong>teams have joined and you've registered your own team.</p><!-- Registered teams list --><div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--b1);"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="slbl" style="margin-bottom:0;">Registered Teams <span id="memberCountBadge" class="badge bb" style="margin-left:6px;"></span></div></div><div id="membersList"><div class="empty">No teams yet — share the invite link!</div></div></div></div></div><!-- Auction Block Tab --><div id="auction-tab" class="card" style="display:none;"><div class="card-bdy"><!-- Live members bar --><div id="liveMembersBar" style="margin-bottom:14px;display:none;"><div class="slbl" style="margin-bottom:8px;">Live in Room</div><div id="liveMembersList" style="display:flex;gap:8px;flex-wrap:wrap;"></div></div><!-- My team indicator for members --><div class="my-team-badge" id="myTeamBadge" style="display:none;">Bidding as: <strong id="myTeamName">—</strong></div><!-- Admin: pull player controls --><div id="adminPullControls"><div class="fld"><label>Pull Specific Player</label><div style="display:flex;gap:8px;"><select id="manualPlayerSelect" style="flex:1;"><option value="">-- Select player --</option></select><button class="btn btn-outline btn-sm" style="width:auto;white-space:nowrap;" onclick="window.pullSpecificPlayer()">Call to Block</button></div></div></div><!-- Live bidder strip --><div class="bidder-strip" id="bidderStrip"><div class="bidder-dot"></div><span class="bidder-name" id="bidderName">—</span><span class="bidder-lbl">is the current highest bidder</span></div><!-- Auction block display --><div class="ablock" id="auctionBlockDisplay"><div style="color:var(--dim);padding:20px 0;">Waiting for auctioneer to call a player...</div></div><!-- Bidding controls (everyone can bid) --><div id="biddingControls" style="display:none;"><div class="bid-disp"><div class="bid-lbl">Current Bid (Cr)</div><div class="bid-amt" id="liveBidText">₹0.00</div></div><div class="qgrid" id="quickBidGrid"></div><!-- Not Interested strip — shows who has opted out --><div class="ni-strip" id="niStrip"><span style="color:var(--dim);font-size:.78rem;font-weight:600;white-space:nowrap;">Not interested:</span><div id="niTeamsList" style="display:flex;gap:6px;flex-wrap:wrap;"></div></div><!-- Not Interested button — for non-admin members (hidden for admin) --><div id="niControls" style="display:none;"><button class="ni-btn" id="niBtn" onclick="window.pressNotInterested()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Not Interested</button></div><!-- SOLD/Pass: admin only — winner auto-assigned to last bidder --><div id="adminSoldControls" style="display:none;"><div id="soldPreview" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:10px 14px;font-size:.85rem;color:var(--ok);margin-bottom:12px;display:none;">Will sell to: <strong id="soldPreviewName">—</strong></div><div class="agrid"><button class="btn btn-success" style="font-size:1rem;padding:15px;" onclick="window.sellPlayer()">SOLD</button><button class="btn btn-danger" onclick="window.markUnsold()">Pass / Unsold</button></div></div></div><!-- Admin: random player --><div id="adminRandomBtn" style="margin-top:16px;"><button class="btn btn-ghost" onclick="window.pullRandomPlayer()">Random Player</button></div></div></div><!-- Teams Tab --><div id="teams-tab" style="display:none;"><div class="tgrid" id="teamGrid"><div class="empty">Initialize the auction first.</div></div></div><!-- Roster / Ledger Tab --><div id="roster-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Full Player Ledger</span><div style="display:flex;gap:8px;align-items:center;"><span id="rosterCount" class="badge bb"></span><button class="btn btn-info btn-sm" onclick="window.downloadCSV()">Download CSV</button></div></div><div class="search-bar"><input type="text" id="searchInp" placeholder="Search player or team..." oninput="window.filterLedger()" style="flex:2;"><select id="filterRole" onchange="window.filterLedger()" style="width:140px;"><option value="">All Roles</option><option>Batter</option><option>Bowler</option><option>All-rounder</option><option>Wicketkeeper</option></select><select id="filterIPLTeam" onchange="window.filterLedger()" style="width:110px;"><option value="">All Teams</option><option>CSK</option><option>MI</option><option>KKR</option><option>RCB</option><option>PBKS</option><option>GT</option><option>RR</option><option>SRH</option><option>LSG</option><option>DC</option></select><select id="filterOrigin" onchange="window.filterLedger()" style="width:120px;"><option value="">All Origin</option><option value="Indian">🇮🇳 Indian</option><option value="Overseas">🌍 Overseas</option></select><select id="filterStatus" onchange="window.filterLedger()" style="width:130px;"><option value="">All Status</option><option value="available">Available</option><option value="sold">Sold</option><option value="unsold">Unsold</option></select></div><div class="twrap"><table><thead><tr><th>#</th><th>Player</th><th>IPL Team</th><th>Role</th><th>Type</th><th>Base (Cr)</th><th>Status</th><th>Sold (Cr)</th><th>Buyer</th></tr></thead><tbody id="rosterTbody"></tbody></table></div></div><!-- ════ POINTS TAB ════ --><div id="points-tab" style="display:none;"><!-- Admin: add match scorecard --><div class="pts-card" id="addMatchCard" style="display:none;"><div class="pts-hdr"><span class="pts-title">📥 Enter Match Scorecard</span><span class="badge bb">Admin Only</span></div><!-- ── GEMINI SCORECARD PARSER ── --><div class="ai-parse-box" style="margin:16px 20px 0;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;"><div class="ai-parse-title">Gemini Scorecard Parser</div><span class="badge bb" style="font-size:.68rem;">Firebase AI Logic</span></div><div class="ai-parse-sub">Upload 1–4 scorecard screenshots (MI innings, CSK innings, summary page etc). Gemini reads all of them together and fills the form automatically.</div><!-- Multi-file drop zone --><div id="scDropZone" onclick="document.getElementById('scFiles').click()"
  style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
  ondragover="event.preventDefault();this.style.borderColor='rgba(99,102,241,.7)'"
@@ -1287,7 +1287,66 @@ body.dark .dark-toggle:hover { background: var(--accent-bg); color: var(--accent
 </div>
 <!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div><div id="leaderboardBody"></div></div></div>
 <div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
-<!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div></div><!-- /auction-view --></div><!-- /content -->
+<!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div>
+<!-- ════ TRADES TAB ════ -->
+<div id="trades-tab" style="display:none;">
+<div class="pts-card">
+<div class="pts-hdr"><span class="pts-title">Trade Center</span><span style="font-size:.78rem;color:var(--dim);">Propose and manage multi-player trades</span></div>
+
+<!-- Propose Trade Form -->
+<div style="padding:16px;">
+<div style="font-weight:600;font-size:.88rem;color:var(--txt);margin-bottom:12px;">Propose a Trade</div>
+<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start;">
+
+<!-- Your side -->
+<div style="background:var(--g1);border:1px solid var(--b1);border-radius:var(--r);padding:12px;">
+<div style="font-size:.78rem;font-weight:600;color:var(--accent);margin-bottom:8px;">You Send</div>
+<div id="tradeSendList" style="min-height:40px;margin-bottom:8px;"></div>
+<select id="tradeSendSelect" style="width:100%;padding:8px;font-size:.82rem;border:1px solid var(--b1);border-radius:var(--r);background:var(--g2);color:var(--txt);font-family:var(--f);">
+<option value="">-- Select player to send --</option>
+</select>
+<button onclick="window.addTradePlayer('send')" style="margin-top:6px;padding:5px 12px;font-size:.76rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);">+ Add</button>
+</div>
+
+<div style="display:flex;align-items:center;font-size:1.5rem;color:var(--dim);padding-top:30px;">&#8596;</div>
+
+<!-- Their side -->
+<div style="background:var(--g1);border:1px solid var(--b1);border-radius:var(--r);padding:12px;">
+<div style="font-size:.78rem;font-weight:600;color:var(--accent);margin-bottom:8px;">You Receive</div>
+<div style="margin-bottom:8px;">
+<select id="tradePartnerSelect" onchange="window.loadPartnerPlayers()" style="width:100%;padding:8px;font-size:.82rem;border:1px solid var(--b1);border-radius:var(--r);background:var(--g2);color:var(--txt);font-family:var(--f);margin-bottom:6px;">
+<option value="">-- Select trade partner --</option>
+</select>
+</div>
+<div id="tradeReceiveList" style="min-height:40px;margin-bottom:8px;"></div>
+<select id="tradeReceiveSelect" style="width:100%;padding:8px;font-size:.82rem;border:1px solid var(--b1);border-radius:var(--r);background:var(--g2);color:var(--txt);font-family:var(--f);">
+<option value="">-- Select player to receive --</option>
+</select>
+<button onclick="window.addTradePlayer('receive')" style="margin-top:6px;padding:5px 12px;font-size:.76rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--g1);color:var(--txt2);cursor:pointer;font-family:var(--f);">+ Add</button>
+</div>
+</div>
+
+<div style="margin-top:14px;display:flex;gap:10px;">
+<button class="btn btn-gold" onclick="window.proposeTrade()" style="max-width:220px;">Propose Trade</button>
+<button class="btn btn-ghost btn-sm" onclick="window.clearTradeForm()" style="width:auto;">Clear</button>
+</div>
+</div>
+
+<!-- Pending Trades -->
+<div style="border-top:1px solid var(--b1);padding:16px;">
+<div style="font-weight:600;font-size:.88rem;color:var(--txt);margin-bottom:12px;">Pending Trades</div>
+<div id="pendingTradesList"><div class="empty">No pending trades.</div></div>
+</div>
+
+<!-- Trade History -->
+<div style="border-top:1px solid var(--b1);padding:16px;">
+<div style="font-weight:600;font-size:.88rem;color:var(--txt);margin-bottom:12px;">Trade History</div>
+<div id="tradeHistoryList"><div class="empty">No completed trades yet.</div></div>
+</div>
+</div>
+</div>
+
+</div><!-- /auction-view --></div><!-- /content -->
 </div><!-- /app-shell --><script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
@@ -1962,15 +2021,13 @@ function loadRoom(rid){
 
  // Auction block
 
- // Auto-add: Dasun Shanaka to existing rooms if missing
+ // Auto-add: Dasun Shanaka to existing auction rooms
  if(data.players && roomId){
   var _allP = Array.isArray(data.players) ? data.players : Object.values(data.players||{});
   var _hasShanaka = _allP.some(function(p){ return (p.name||p.n||'').indexOf('Dasun Shanaka')>=0; });
   if(!_hasShanaka){
    var _newP = {name:"Dasun Shanaka* (SL)",n:"Dasun Shanaka* (SL)",iplTeam:"RR",t:"RR",role:"All-rounder",r:"All-rounder",isOverseas:true,o:true,status:"unsold",basePrice:2};
-   
-   _allP.push(_newP);
-   data.players = _allP;
+   _allP.push(_newP); data.players = _allP;
    set(ref(db,'auctions/'+roomId+'/players'),_allP).catch(function(){});
   }
  }
@@ -1979,26 +2036,6 @@ function loadRoom(rid){
  // Points tabs -- always re-render when data changes
  renderPointsTab();
  renderLeaderboard(data);
-
- // Quota check: show warning if any team is below maxPlayers
- (function(){
-  var cfg=data.config||{};
-  var maxP=cfg.maxPlayers||20;
-  var teams=data.teams?Object.values(data.teams):[];
-  var shortTeams=[];
-  teams.forEach(function(t){
-   var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-   if(roster.length<maxP) shortTeams.push({name:t.name,has:roster.length,needs:maxP-roster.length});
-  });
-  var box=document.getElementById('quotaWarningA');
-  if(!box) return;
-  if(shortTeams.length>0 && data.setup && data.setup.isStarted){
-   box.style.display='block';
-   box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
-    +'<div><div style="font-weight:600;color:var(--warn);font-size:.84rem;">Roster quota imbalance</div>'
-    +'<div style="font-size:.75rem;color:var(--dim2);margin-top:3px;">'+shortTeams.map(function(t){return t.name+': '+t.has+'/'+maxP+' (needs '+t.needs+' more)';}).join(' . ')+'</div></div></div>';
-  } else { box.style.display='none'; }
- })();
  renderAnalytics(data);
  if(document.getElementById('myteam-tab')?.style.display==='block') _mtRenderA();
  else if(myTeamName && data.teams && data.teams[myTeamName]) {
@@ -2008,6 +2045,8 @@ function loadRoom(rid){
    if(!_sqSavedA || !_sqSavedA._rLen || _sqSavedA._rLen !== _newRLen) { _sqSavedA = null; }
   }
  renderMatchData(data);
+ window.renderTrades(data);
+ if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
  });
  }); // end Promise.all .then()
 }
@@ -2240,7 +2279,7 @@ window.downloadCSV=function(){
 
 // -- Tab switching --
 window.switchTab=function(t){
- ['setup','auction','teams','roster','points','leaderboard','players-season','analytics','matches','myteam'].forEach(id=>{
+ ['setup','auction','teams','roster','points','leaderboard','players-season','analytics','matches','myteam','trades'].forEach(id=>{
  const el=document.getElementById(`${id}-tab`);
  const btn=document.getElementById(`btn-${id}`);
  if(!el||!btn)return;
@@ -2250,6 +2289,7 @@ window.switchTab=function(t){
  try{
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
   if(on&&id==='myteam') window.renderMyTeamA();
+  if(on&&id==='trades') window.loadTradeDropdowns();
  }catch(e){ console.error('switchTab render error:',e); }
  });
 };
@@ -2662,7 +2702,6 @@ window.submitMatch=function(confirmed=false){
  timestamp:Date.now(),
  players:{}
  };
- // Build ownership map from current rosters
  var _ownerMap={};
  if(roomState&&roomState.teams){
   Object.values(roomState.teams).forEach(function(t){
@@ -3719,16 +3758,8 @@ window.saveGlobalScorecard=async function(){
  timestamp:Date.now(),
  players:{}
  };
- // Build ownership map from current rosters
- var _ownerMap={};
- if(roomState&&roomState.teams){
-  Object.values(roomState.teams).forEach(function(t){
-   var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-   roster.forEach(function(p){ _ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name; });
-  });
- }
  Object.entries(data.playerPts).forEach(([key,val])=>{
- matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | '),ownedBy:_ownerMap[(val.name||'').toLowerCase().trim()]||''};
+ matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
  });
 
  try{
@@ -4626,13 +4657,17 @@ function _mtRenderA(){
     sq.reserves = sq.reserves.filter(function(n){ return allNames.indexOf(n)>=0; });
   }
 
-  // Enforce XI: max 4 overseas
-  var xiOsList = sq.xi.filter(pOs);
-  while(xiOsList.length > 4){ var v=xiOsList.pop(); sq.xi=sq.xi.filter(function(n){return n!==v;}); sq.reserves.push(v); }
-  // Keeper rule: minimum 1 in XI (no max limit, multiple keepers allowed)
-  // Enforce Bench: max 2 overseas
-  var benchOsList = sq.bench.filter(pOs);
-  while(benchOsList.length > 2){ var v=benchOsList.pop(); sq.bench=sq.bench.filter(function(n){return n!==v;}); sq.reserves.push(v); }
+  // Enforce: max 6 overseas in Playing 16 (XI + Bench combined)
+  var playing16Os = sq.xi.filter(pOs).concat(sq.bench.filter(pOs));
+  while(playing16Os.length > 6){
+   // Remove from bench first, then XI
+   var victim = null;
+   var benchOs = sq.bench.filter(pOs);
+   if(benchOs.length > 0){ victim = benchOs[benchOs.length-1]; sq.bench = sq.bench.filter(function(n){return n!==victim;}); }
+   else { var xiOs = sq.xi.filter(pOs); victim = xiOs[xiOs.length-1]; sq.xi = sq.xi.filter(function(n){return n!==victim;}); }
+   sq.reserves.push(victim);
+   playing16Os = sq.xi.filter(pOs).concat(sq.bench.filter(pOs));
+  }
 
   sq._rLen = allNames.length; _sqSavedA = sq;
 
@@ -4652,8 +4687,8 @@ function _mtRenderA(){
     { label:'XI Size', val:xiCount+'/'+xiTarget, ok:xiCount===xiTarget }
   ];
   if(needBench) checks.push({ label:'Bench', val:benchCount+'/'+benchTarget, ok:benchCount===benchTarget });
-  checks.push({ label:'XI Overseas', val:xiOsCount+'/4 max', ok:xiOsCount<=4 });
-  if(needBench) checks.push({ label:'Bench OS', val:benchOsCount+'/2 max', ok:benchOsCount<=2 });
+  var p16OsCount = xiOsCount + benchOsCount;
+  checks.push({ label:'Overseas (XI+Bench)', val:p16OsCount+'/6 max', ok:p16OsCount<=6 });
   if(xiCount>=5) checks.push({ label:'Bowlers XI', val:xiBowlCount+'/5 min', ok:xiBowlCount>=5 });
   checks.push({ label:'Keeper XI', val:xiWkCount+'/1 min', ok:xiWkCount>=1 });
   var allValid = checks.every(function(c){ return c.ok; });
@@ -4757,8 +4792,8 @@ window.mt_save_A = async function(){
   function _wk(name){ var rl=_pr(name); return rl.indexOf('wicketkeeper')>=0||rl.indexOf('keeper')>=0; }
   var xiOs=sq.xi.filter(_po).length, benchOs=sq.bench.filter(_po).length;
   var xiBowl=sq.xi.filter(_cb).length, xiWk=sq.xi.filter(_wk).length;
-  if(xiOs>4) msgs.push('XI has '+xiOs+' overseas (max 4)');
-  if(benchOs>2) msgs.push('Bench has '+benchOs+' overseas (max 2)');
+  var p16Os=xiOs+benchOs;
+  if(p16Os>6) msgs.push('Playing 16 has '+p16Os+' overseas (max 6)');
   if(sq.xi.length===_xiTarget&&_xiTarget>=5&&xiBowl<5) msgs.push('XI needs 5+ bowlers/all-rounders (has '+xiBowl+')');
   if(sq.xi.length===_xiTarget&&xiWk<1) msgs.push('XI needs at least 1 wicketkeeper (has '+xiWk+')');
   if(msgs.length){if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:false}).catch(function(){});window.showAlert(msgs.join(' \u00b7 '));return;}
@@ -4773,12 +4808,7 @@ window.mt_save_A = async function(){
 
 // Load saved squad from Firebase then render
 window.renderMyTeamA = function(){
-  // If we already have a squad in memory, just render
-  if(_sqSavedA && _sqSavedA.xi){
-    _mtRenderA();
-    return;
-  }
-  // Load saved squad from Firebase, THEN render
+  if(_sqSavedA && _sqSavedA.xi){ _mtRenderA(); return; }
   if(user && roomId){
     get(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId))
       .then(function(snap){
@@ -4792,9 +4822,260 @@ window.renderMyTeamA = function(){
         }
         _mtRenderA();
       }).catch(function(){ _mtRenderA(); });
-  } else {
-    _mtRenderA();
+  } else { _mtRenderA(); }
+};
+
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// TRADING MODULE
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+var _tradeSendPlayers=[];
+var _tradeReceivePlayers=[];
+
+window.addTradePlayer=function(side){
+ var selId = side==='send' ? 'tradeSendSelect' : 'tradeReceiveSelect';
+ var listId = side==='send' ? 'tradeSendList' : 'tradeReceiveList';
+ var arr = side==='send' ? _tradeSendPlayers : _tradeReceivePlayers;
+ var sel = document.getElementById(selId);
+ if(!sel||!sel.value) return;
+ var name=sel.options[sel.selectedIndex].text;
+ var val=sel.value;
+ if(arr.some(function(p){return p.val===val;})) return window.showAlert('Player already added.');
+ arr.push({val:val,name:name});
+ window._renderTradeList(listId, arr, side);
+ sel.selectedIndex=0;
+};
+
+window._renderTradeList=function(listId, arr, side){
+ var el=document.getElementById(listId);
+ if(!el) return;
+ if(!arr.length){ el.innerHTML='<div style="font-size:.78rem;color:var(--dim);padding:4px;">No players selected</div>'; return; }
+ el.innerHTML=arr.map(function(p,i){
+  return '<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--g2);border-radius:6px;margin-bottom:4px;font-size:.82rem;">'
+   +'<span style="flex:1;">'+p.name+'</span>'
+   +'<button onclick="window._removeTradePlayer(\''+side+'\','+i+')" style="background:none;border:none;color:var(--err);cursor:pointer;font-size:.9rem;">x</button>'
+   +'</div>';
+ }).join('');
+};
+
+window._removeTradePlayer=function(side, idx){
+ var arr = side==='send' ? _tradeSendPlayers : _tradeReceivePlayers;
+ var listId = side==='send' ? 'tradeSendList' : 'tradeReceiveList';
+ arr.splice(idx,1);
+ window._renderTradeList(listId, arr, side);
+};
+
+window.clearTradeForm=function(){
+ _tradeSendPlayers=[];
+ _tradeReceivePlayers=[];
+ window._renderTradeList('tradeSendList', [], 'send');
+ window._renderTradeList('tradeReceiveList', [], 'receive');
+ var s1=document.getElementById('tradeSendSelect'); if(s1) s1.selectedIndex=0;
+ var s2=document.getElementById('tradeReceiveSelect'); if(s2) s2.selectedIndex=0;
+ var s3=document.getElementById('tradePartnerSelect'); if(s3) s3.selectedIndex=0;
+};
+
+window.loadTradeDropdowns=function(){
+ var state=roomState;
+ if(!state||!state.teams) return;
+ // Populate partner dropdown (all teams except mine)
+ var partnerSel=document.getElementById('tradePartnerSelect');
+ if(partnerSel){
+  var html='<option value="">-- Select trade partner --</option>';
+  Object.values(state.teams).forEach(function(t){
+   if(t.name!==myTeamName) html+='<option value="'+t.name+'">'+t.name+'</option>';
+  });
+  partnerSel.innerHTML=html;
+ }
+ // Populate my players
+ var sendSel=document.getElementById('tradeSendSelect');
+ if(sendSel){
+  var myTeam=state.teams[myTeamName];
+  var roster=myTeam?(Array.isArray(myTeam.roster)?myTeam.roster:(myTeam.roster?Object.values(myTeam.roster):[])):[];
+  var html2='<option value="">-- Select player to send --</option>';
+  roster.forEach(function(p){
+   var name=p.name||p.n||'';
+   html2+='<option value="'+encodeURIComponent(name)+'">'+name+' ('+( p.iplTeam||p.t||'')+' | '+(p.role||p.r||'')+')</option>';
+  });
+  sendSel.innerHTML=html2;
+ }
+};
+
+window.loadPartnerPlayers=function(){
+ var state=roomState;
+ var partnerName=document.getElementById('tradePartnerSelect')?.value;
+ var recSel=document.getElementById('tradeReceiveSelect');
+ if(!recSel||!partnerName||!state?.teams) return;
+ var partner=state.teams[partnerName];
+ var roster=partner?(Array.isArray(partner.roster)?partner.roster:(partner.roster?Object.values(partner.roster):[])):[];
+ var html='<option value="">-- Select player to receive --</option>';
+ roster.forEach(function(p){
+  var name=p.name||p.n||'';
+  html+='<option value="'+encodeURIComponent(name)+'">'+name+' ('+(p.iplTeam||p.t||'')+' | '+(p.role||p.r||'')+')</option>';
+ });
+ recSel.innerHTML=html;
+};
+
+window.proposeTrade=function(){
+ if(!roomId||!myTeamName) return window.showAlert('Join a room first.');
+ if(!_tradeSendPlayers.length) return window.showAlert('Select at least one player to send.');
+ if(!_tradeReceivePlayers.length) return window.showAlert('Select at least one player to receive.');
+ var partner=document.getElementById('tradePartnerSelect')?.value;
+ if(!partner) return window.showAlert('Select a trade partner.');
+
+ var trade={
+  from:myTeamName,
+  to:partner,
+  sending:_tradeSendPlayers.map(function(p){return decodeURIComponent(p.val);}),
+  receiving:_tradeReceivePlayers.map(function(p){return decodeURIComponent(p.val);}),
+  status:'pending',
+  proposedAt:Date.now(),
+  proposedBy:(user&&user.uid)||''
+ };
+
+ push(ref(db,'auctions/'+roomId+'/trades'),trade).then(function(){
+  window.showAlert('Trade proposed to '+partner+'! They need to accept.','ok');
+  window.clearTradeForm();
+ }).catch(function(e){ window.showAlert('Failed: '+e.message); });
+};
+
+window.acceptTrade=function(tradeId){
+ if(!roomId) return;
+ get(ref(db,'auctions/'+roomId)).then(function(snap){
+  var data=snap.val();
+  if(!data) return window.showAlert('Room data not found.');
+  var trade=data.trades&&data.trades[tradeId];
+  if(!trade||trade.status!=='pending') return window.showAlert('Trade no longer pending.');
+
+  // Verify the accepting user owns the "to" team
+  if(myTeamName!==trade.to) return window.showAlert('Only '+trade.to+' can accept this trade.');
+
+  var fromTeam=data.teams[trade.from];
+  var toTeam=data.teams[trade.to];
+  if(!fromTeam||!toTeam) return window.showAlert('Team not found.');
+
+  var fromRoster=Array.isArray(fromTeam.roster)?fromTeam.roster.slice():(fromTeam.roster?Object.values(fromTeam.roster):[]);
+  var toRoster=Array.isArray(toTeam.roster)?toTeam.roster.slice():(toTeam.roster?Object.values(toTeam.roster):[]);
+
+  // Move "sending" players: from -> to
+  var sendingPlayers=[];
+  trade.sending.forEach(function(name){
+   var idx=fromRoster.findIndex(function(p){return(p.name||p.n||'')===name;});
+   if(idx>=0){ sendingPlayers.push(fromRoster[idx]); fromRoster.splice(idx,1); }
+  });
+
+  // Move "receiving" players: to -> from
+  var receivingPlayers=[];
+  trade.receiving.forEach(function(name){
+   var idx=toRoster.findIndex(function(p){return(p.name||p.n||'')===name;});
+   if(idx>=0){ receivingPlayers.push(toRoster[idx]); toRoster.splice(idx,1); }
+  });
+
+  // Add to new teams
+  sendingPlayers.forEach(function(p){ toRoster.push(p); });
+  receivingPlayers.forEach(function(p){ fromRoster.push(p); });
+
+  var upd={};
+  upd['auctions/'+roomId+'/teams/'+trade.from+'/roster']=fromRoster;
+  upd['auctions/'+roomId+'/teams/'+trade.to+'/roster']=toRoster;
+  upd['auctions/'+roomId+'/trades/'+tradeId+'/status']='accepted';
+  upd['auctions/'+roomId+'/trades/'+tradeId+'/completedAt']=Date.now();
+
+  // Also update draftedBy/soldTo in the players array if it exists
+  if(data.players){
+   var allP=Array.isArray(data.players)?data.players:Object.values(data.players||{});
+   trade.sending.forEach(function(name){
+    var pIdx=allP.findIndex(function(p){return(p.name||p.n||'')===name;});
+    if(pIdx>=0){
+     upd['auctions/'+roomId+'/players/'+pIdx+'/draftedBy']=trade.to;
+     upd['auctions/'+roomId+'/players/'+pIdx+'/soldTo']=trade.to;
+    }
+   });
+   trade.receiving.forEach(function(name){
+    var pIdx=allP.findIndex(function(p){return(p.name||p.n||'')===name;});
+    if(pIdx>=0){
+     upd['auctions/'+roomId+'/players/'+pIdx+'/draftedBy']=trade.from;
+     upd['auctions/'+roomId+'/players/'+pIdx+'/soldTo']=trade.from;
+    }
+   });
   }
+
+  // Invalidate squad caches for both teams
+  upd['auctions/'+roomId+'/teams/'+trade.from+'/squadValid']=null;
+  upd['auctions/'+roomId+'/teams/'+trade.to+'/squadValid']=null;
+
+  update(ref(db),upd).then(function(){
+   window.showAlert('Trade accepted! Rosters updated.','ok');
+  }).catch(function(e){ window.showAlert('Trade failed: '+e.message); });
+ });
+};
+
+window.rejectTrade=function(tradeId){
+ if(!roomId) return;
+ var upd={};
+ upd['auctions/'+roomId+'/trades/'+tradeId+'/status']='rejected';
+ upd['auctions/'+roomId+'/trades/'+tradeId+'/completedAt']=Date.now();
+ update(ref(db),upd).then(function(){
+  window.showAlert('Trade rejected.','ok');
+ });
+};
+
+window.cancelTrade=function(tradeId){
+ if(!roomId) return;
+ var upd={};
+ upd['auctions/'+roomId+'/trades/'+tradeId+'/status']='cancelled';
+ update(ref(db),upd).then(function(){
+  window.showAlert('Trade cancelled.','ok');
+ });
+};
+
+window.renderTrades=function(data){
+ if(!data) return;
+ var trades=data.trades?Object.entries(data.trades):[];
+ var pendingEl=document.getElementById('pendingTradesList');
+ var historyEl=document.getElementById('tradeHistoryList');
+ if(!pendingEl||!historyEl) return;
+
+ var pending=trades.filter(function(e){return e[1].status==='pending';}).sort(function(a,b){return(b[1].proposedAt||0)-(a[1].proposedAt||0);});
+ var history=trades.filter(function(e){return e[1].status!=='pending';}).sort(function(a,b){return(b[1].completedAt||b[1].proposedAt||0)-(a[1].completedAt||a[1].proposedAt||0);});
+
+ if(!pending.length){ pendingEl.innerHTML='<div class="empty">No pending trades.</div>'; }
+ else {
+  pendingEl.innerHTML=pending.map(function(e){
+   var tid=e[0], t=e[1];
+   var isMine = t.from===myTeamName;
+   var isForMe = t.to===myTeamName;
+   var actions='';
+   if(isForMe) actions='<button class="btn btn-sm" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bdr);" onclick="window.acceptTrade(\''+tid+'\')">Accept</button><button class="btn btn-ghost btn-sm" onclick="window.rejectTrade(\''+tid+'\')">Reject</button>';
+   else if(isMine) actions='<button class="btn btn-ghost btn-sm" onclick="window.cancelTrade(\''+tid+'\')">Cancel</button>';
+   else actions='<span style="font-size:.75rem;color:var(--dim);">Between other teams</span>';
+
+   return '<div style="background:var(--g1);border:1px solid var(--b1);border-radius:var(--r);padding:12px;margin-bottom:8px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    +'<span style="font-weight:600;font-size:.85rem;color:var(--txt);">'+t.from+' &#8596; '+t.to+'</span>'
+    +'<span style="font-size:.72rem;color:var(--dim);">'+new Date(t.proposedAt).toLocaleDateString()+'</span></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
+    +'<div><div style="font-size:.72rem;color:var(--dim);margin-bottom:4px;">'+t.from+' sends:</div>'
+    +t.sending.map(function(n){return '<div style="font-size:.82rem;font-weight:500;color:var(--err);">- '+n+'</div>';}).join('')+'</div>'
+    +'<div><div style="font-size:.72rem;color:var(--dim);margin-bottom:4px;">'+t.to+' sends:</div>'
+    +t.receiving.map(function(n){return '<div style="font-size:.82rem;font-weight:500;color:var(--ok);">- '+n+'</div>';}).join('')+'</div></div>'
+    +'<div style="display:flex;gap:8px;">'+actions+'</div></div>';
+  }).join('');
+ }
+
+ if(!history.length){ historyEl.innerHTML='<div class="empty">No completed trades yet.</div>'; }
+ else {
+  historyEl.innerHTML=history.slice(0,20).map(function(e){
+   var t=e[1];
+   var statusCol = t.status==='accepted'?'var(--ok)':t.status==='rejected'?'var(--err)':'var(--dim)';
+   var statusLabel = t.status==='accepted'?'Completed':t.status==='rejected'?'Rejected':'Cancelled';
+   return '<div style="background:var(--g1);border:1px solid var(--b0);border-radius:var(--r);padding:10px;margin-bottom:6px;opacity:'+(t.status==='accepted'?'1':'.6')+';">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:.82rem;font-weight:500;">'+t.from+' &#8596; '+t.to+'</span>'
+    +'<span style="font-size:.72rem;font-weight:600;color:'+statusCol+';">'+statusLabel+'</span></div>'
+    +'<div style="font-size:.75rem;color:var(--dim);margin-top:4px;">Sent: '+t.sending.join(', ')+' | Received: '+t.receiving.join(', ')+'</div></div>';
+  }).join('');
+ }
 };
 
 </script>
