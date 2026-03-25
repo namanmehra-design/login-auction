@@ -1,11 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
    IPL FANTASY AUCTION 2026 — REDESIGN v1.0
    Dark-first. Broadcast quality. Dynamic. Reactive.
-   Font: Satoshi + Space Mono for numbers
+   Fonts loaded via <link> in index.html
    ═══════════════════════════════════════════════════════════ */
-
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
 :root {
   /* ── Core palette: midnight with electric accents ── */
@@ -145,8 +142,16 @@ body::before {
 /* ═══════════════════════════════════════
    VIEW SYSTEM
    ═══════════════════════════════════════ */
-.view { display: none; overflow-x: hidden; max-width: 100%; }
-.view.active { display: block; animation: viewIn .35s var(--ease) both; }
+.view { display: none; overflow: hidden; max-width: 100%; }
+.view.active { display: block; animation: viewIn .35s var(--ease) both; overflow-x: hidden; }
+
+/* Auction room tabs — hidden tabs must be fully contained */
+[id$="-tab"] { overflow: hidden; max-width: 100%; }
+[id$="-tab"][style*="display:none"], [id$="-tab"][style*="display: none"] {
+  overflow: hidden !important;
+  max-height: 0 !important;
+  visibility: hidden !important;
+}
 @keyframes viewIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
