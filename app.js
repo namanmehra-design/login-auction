@@ -1347,14 +1347,29 @@ window.submitMatch=function(confirmed=false){
  players:{}
  };
  var _ownerMap={};
+ // Build activeSquad set per team: only XI + Bench players score
+ var _activeSquadMap={}; // teamName -> Set of lowercase player names in XI+Bench
  if(roomState&&roomState.teams){
   Object.values(roomState.teams).forEach(function(t){
    var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
    roster.forEach(function(p){ _ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name; });
+   // activeSquad is saved when user clicks "Save Squad" — contains XI+Bench names
+   var squad=t.activeSquad||null;
+   if(squad&&Array.isArray(squad)){
+    _activeSquadMap[t.name]=new Set(squad.map(function(n){return n.toLowerCase().trim();}));
+   } else {
+    // No saved squad — fall back to counting ALL roster players (backwards compatible)
+    _activeSquadMap[t.name]=new Set(roster.map(function(p){return(p.name||p.n||'').toLowerCase().trim();}));
+   }
   });
  }
  Object.entries(data.playerPts).forEach(([key,val])=>{
- matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | '),ownedBy:_ownerMap[(val.name||'').toLowerCase().trim()]||''};
+ var ownerTeam=_ownerMap[(val.name||'').toLowerCase().trim()]||'';
+ var inSquad=false;
+ if(ownerTeam&&_activeSquadMap[ownerTeam]){
+  inSquad=_activeSquadMap[ownerTeam].has((val.name||'').toLowerCase().trim());
+ }
+ matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | '),ownedBy:ownerTeam,inActiveSquad:inSquad};
  });
 
  set(ref(db,`auctions/${roomId}/matches/${matchId}`),matchRecord)
@@ -1476,29 +1491,41 @@ function renderLeaderboard(data){
  });
  }
 
- // Aggregate all match points per player, then map to teams
- const playerTotal={};
+ // Aggregate match points per player PER TEAM — only count if inActiveSquad
+ // This ensures reserves earn 0 for matches where they weren't in XI/Bench
+ const teamPlayerPts={}; // teamName -> {playerKey -> totalPts}
  matchIds.forEach(mid=>{
  const m=matches[mid];
  if(!m?.players) return;
  Object.values(m.players).forEach(p=>{
  const key=(p.name||'').toLowerCase();
  playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
+ // For leaderboard: only count if player was in active squad for this match
+ const owner=p.ownedBy||'';
+ if(owner){
+  if(!teamPlayerPts[owner]) teamPlayerPts[owner]={};
+  // inActiveSquad flag: true = XI/Bench, false = reserves, undefined = old match (count all for backwards compat)
+  var shouldCount = (p.inActiveSquad===true)||(p.inActiveSquad===undefined);
+  if(shouldCount){
+   teamPlayerPts[owner][key]=(teamPlayerPts[owner][key]||0)+(p.pts||0);
+  }
+ }
  });
  });
 
- // Assign to teams
+ // Assign to teams using squad-aware totals
  if(data.teams){
  Object.values(data.teams).forEach(team=>{
- const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
- roster.forEach(p=>{
- const key=(p.name||p.n||'').toLowerCase();
- const pts=playerTotal[key]||0;
+ const myPts=teamPlayerPts[team.name]||{};
+ Object.entries(myPts).forEach(([key,pts])=>{
  teamPts[team.name].pts+=pts;
  teamPts[team.name].playerCount++;
  if(pts>teamPts[team.name].topPts){
  teamPts[team.name].topPts=pts;
- teamPts[team.name].topPlayer=p.name||p.n||'--';
+ // Find display name from roster
+ const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+ const found=roster.find(p=>(p.name||p.n||'').toLowerCase()===key);
+ teamPts[team.name].topPlayer=found?(found.name||found.n||'--'):key;
  }
  });
  });
@@ -2420,6 +2447,52 @@ window.saveGlobalScorecard=async function(){
 
  if(totalRooms>0){
  await update(ref(db),fanOutWrites);
+ // Post-push: enrich each room's match with inActiveSquad flags
+ // Read each room's team data and tag players who are in activeSquad
+ const enrichPromises=[];
+ Object.keys(aRooms).forEach(rid=>{
+  enrichPromises.push(get(ref(db,`auctions/${rid}/teams`)).then(tSnap=>{
+   const teams=tSnap.val()||{};
+   const ownerMap={},squadMap={};
+   Object.values(teams).forEach(t=>{
+    const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+    roster.forEach(p=>{ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+    const sq=t.activeSquad||null;
+    if(sq&&Array.isArray(sq)) squadMap[t.name]=new Set(sq.map(n=>n.toLowerCase().trim()));
+    else squadMap[t.name]=new Set(roster.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+   });
+   const upd={};
+   Object.entries(matchRecord.players).forEach(([k,p])=>{
+    const owner=ownerMap[(p.name||'').toLowerCase().trim()]||'';
+    const inSquad=owner&&squadMap[owner]?squadMap[owner].has((p.name||'').toLowerCase().trim()):false;
+    upd[`auctions/${rid}/matches/${matchId}/players/${k}/ownedBy`]=owner;
+    upd[`auctions/${rid}/matches/${matchId}/players/${k}/inActiveSquad`]=inSquad;
+   });
+   if(Object.keys(upd).length) return update(ref(db),upd);
+  }).catch(()=>{}));
+ });
+ Object.keys(dRooms).forEach(rid=>{
+  enrichPromises.push(get(ref(db,`drafts/${rid}/teams`)).then(tSnap=>{
+   const teams=tSnap.val()||{};
+   const ownerMap={},squadMap={};
+   Object.values(teams).forEach(t=>{
+    const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+    roster.forEach(p=>{ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+    const sq=t.activeSquad||null;
+    if(sq&&Array.isArray(sq)) squadMap[t.name]=new Set(sq.map(n=>n.toLowerCase().trim()));
+    else squadMap[t.name]=new Set(roster.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+   });
+   const upd={};
+   Object.entries(matchRecord.players).forEach(([k,p])=>{
+    const owner=ownerMap[(p.name||'').toLowerCase().trim()]||'';
+    const inSquad=owner&&squadMap[owner]?squadMap[owner].has((p.name||'').toLowerCase().trim()):false;
+    upd[`drafts/${rid}/matches/${matchId}/players/${k}/ownedBy`]=owner;
+    upd[`drafts/${rid}/matches/${matchId}/players/${k}/inActiveSquad`]=inSquad;
+   });
+   if(Object.keys(upd).length) return update(ref(db),upd);
+  }).catch(()=>{}));
+ });
+ await Promise.all(enrichPromises);
  }
 
  statusEl.className='ai-status done';
@@ -2634,6 +2707,51 @@ window.saPushToAll=async function(){
  }
 
  await update(ref(db),fanOut);
+
+ // Enrich each room's match with inActiveSquad flags (super admin push)
+ const saEnrichPromises=[];
+ Object.values(usersData).forEach(udata=>{
+  if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>{
+   saEnrichPromises.push(get(ref(db,`auctions/${rid}/teams`)).then(tSnap=>{
+    const teams=tSnap.val()||{}; const oMap={},sMap={};
+    Object.values(teams).forEach(t=>{
+     const r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+     r2.forEach(p=>{oMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+     const sq2=t.activeSquad||null;
+     if(sq2&&Array.isArray(sq2)) sMap[t.name]=new Set(sq2.map(n=>n.toLowerCase().trim()));
+     else sMap[t.name]=new Set(r2.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+    });
+    const u2={};
+    Object.entries(matchRecord.players||{}).forEach(([k,p])=>{
+     const ow=oMap[(p.name||'').toLowerCase().trim()]||'';
+     u2[`auctions/${rid}/matches/${mid}/players/${k}/ownedBy`]=ow;
+     u2[`auctions/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has((p.name||'').toLowerCase().trim()):false;
+    });
+    if(Object.keys(u2).length) return update(ref(db),u2);
+   }).catch(()=>{}));
+  });
+  if(udata.drafts) Object.keys(udata.drafts).forEach(rid=>{
+   saEnrichPromises.push(get(ref(db,`drafts/${rid}/teams`)).then(tSnap=>{
+    const teams=tSnap.val()||{}; const oMap={},sMap={};
+    Object.values(teams).forEach(t=>{
+     const r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+     r2.forEach(p=>{oMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+     const sq2=t.activeSquad||null;
+     if(sq2&&Array.isArray(sq2)) sMap[t.name]=new Set(sq2.map(n=>n.toLowerCase().trim()));
+     else sMap[t.name]=new Set(r2.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+    });
+    const u2={};
+    Object.entries(matchRecord.players||{}).forEach(([k,p])=>{
+     const ow=oMap[(p.name||'').toLowerCase().trim()]||'';
+     u2[`drafts/${rid}/matches/${mid}/players/${k}/ownedBy`]=ow;
+     u2[`drafts/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has((p.name||'').toLowerCase().trim()):false;
+    });
+    if(Object.keys(u2).length) return update(ref(db),u2);
+   }).catch(()=>{}));
+  });
+ });
+ await Promise.all(saEnrichPromises);
+
  statusEl.className='ai-status done';
  statusEl.textContent=`"${matchRecord.label}" pushed to ${aCount} auction + ${dCount} draft rooms across the entire platform.`;
 
@@ -3433,11 +3551,11 @@ window.mt_save_A = async function(){
   if(p16Os>6) msgs.push('Playing 16 has '+p16Os+' overseas (max 6)');
   if(sq.xi.length===_xiTarget&&_xiTarget>=5&&xiBowl<5) msgs.push('XI needs 5+ bowlers/all-rounders (has '+xiBowl+')');
   if(sq.xi.length===_xiTarget&&xiWk<1) msgs.push('XI needs at least 1 wicketkeeper (has '+xiWk+')');
-  if(msgs.length){if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:false}).catch(function(){});window.showAlert(msgs.join(' \u00b7 '));return;}
+  if(msgs.length){if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:false,activeSquad:null}).catch(function(){});window.showAlert(msgs.join(' \u00b7 '));return;}
   try{
     await set(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId),{xi:sq.xi,bench:sq.bench,savedAt:Date.now()});
     window.showAlert('Squad saved!','ok');
-    if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:true}).catch(function(){});
+    if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:true,activeSquad:sq.xi.concat(sq.bench)}).catch(function(){});
     _sqHistA=[];
     var ub=document.getElementById('mt_undo_A');if(ub)ub.style.display='none';
   }catch(e){window.showAlert('Save failed: '+e.message);}
