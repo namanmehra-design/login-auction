@@ -927,9 +927,6 @@ window.switchTab=function(t){
  if(!el||!btn)return;
  const on=id===t;
  el.style.display=on?'block':'none';
- el.style.overflow=on?'visible':'hidden';
- el.style.maxHeight=on?'':'0';
- el.style.visibility=on?'visible':'hidden';
  btn.classList.toggle('active',on);
  try{
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
