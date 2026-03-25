@@ -209,7 +209,7 @@ window.createNewRoom=function(){
  const budget=parseFloat(document.getElementById('newRoomBudget').value)||100;
  const maxTeams=parseInt(document.getElementById('newRoomMaxTeams').value)||6;
  const maxPlayers=parseInt(document.getElementById('newRoomMaxPlayers').value)||20;
- const maxOverseas=Math.min(8,Math.max(4,parseInt(document.getElementById('newRoomMaxOverseas')?.value)||8));
+ const maxOverseas=Math.max(2,parseInt(document.getElementById('newRoomMaxOverseas')?.value)||8);
  const nr=push(ref(db,'auctions'));
  const upd={};
  // Write to user's admin list
