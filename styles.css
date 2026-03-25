@@ -145,8 +145,13 @@ body::before {
 .view { display: none; overflow: hidden; max-width: 100%; }
 .view.active { display: block; animation: viewIn .35s var(--ease) both; overflow-x: hidden; }
 
-/* Auction room tabs */
-[id$="-tab"] { max-width: 100%; }
+/* Auction room tabs — hidden tabs must be fully contained */
+[id$="-tab"] { overflow: hidden; max-width: 100%; }
+[id$="-tab"][style*="display:none"], [id$="-tab"][style*="display: none"] {
+  overflow: hidden !important;
+  max-height: 0 !important;
+  visibility: hidden !important;
+}
 @keyframes viewIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
