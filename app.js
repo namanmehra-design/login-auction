@@ -673,20 +673,22 @@ function loadRoom(rid){
  // Auction block
 
  if(data.players&&roomId){ var _ap=Array.isArray(data.players)?data.players:Object.values(data.players||{}); if(!_ap.some(function(p){return(p.name||p.n||'').indexOf('Dasun Shanaka')>=0;})){ _ap.push({name:"Dasun Shanaka* (SL)",n:"Dasun Shanaka* (SL)",iplTeam:"RR",t:"RR",role:"All-rounder",r:"All-rounder",isOverseas:true,o:true,status:"unsold",basePrice:2}); data.players=_ap; set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(){}); } }
- renderBlock(data);
+ try{renderBlock(data);}catch(e){console.error("renderBlock:",e);}
 
  // Points tabs -- always re-render when data changes
- renderPointsTab();
- renderLeaderboard(data);
- renderAnalytics(data);
+ try{renderPointsTab();}catch(e){console.error("renderPointsTab:",e);}
+ try{renderLeaderboard(data);}catch(e){console.error("renderLeaderboard:",e);}
+ try{renderAnalytics(data);}catch(e){console.error("renderAnalytics:",e);}
+ try{
  if(document.getElementById('myteam-tab')?.style.display==='block') _mtRenderA();
  else if(myTeamName && data.teams && data.teams[myTeamName]) {
    var _newRLen=0; var _r=data.teams[myTeamName].roster;
    if(_r) _newRLen=Array.isArray(_r)?_r.length:Object.keys(_r).length;
    if(!_sqSavedA||!_sqSavedA._rLen||_sqSavedA._rLen!==_newRLen){ _sqSavedA=null; }
   }
- renderMatchData(data);
- window.renderTrades(data);
+ }catch(e){console.error('myteam:',e);}
+ try{renderMatchData(data);}catch(e){console.error("renderMatchData:",e);}
+ try{window.renderTrades(data);}catch(e){console.error("renderTrades:",e);}
  var _lBtn=document.getElementById('mt_lock_btn_A'); if(_lBtn){ if(isAdmin) _lBtn.style.display='inline-block'; _lBtn.textContent=data.squadLocked?'Unlock Changes':'Lock Changes'; _lBtn.style.background=data.squadLocked?'var(--err-bg)':'var(--surface)'; _lBtn.style.color=data.squadLocked?'var(--err)':'var(--txt2)'; }
  if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
  });
@@ -932,7 +934,7 @@ window.switchTab=function(t){
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
   if(on&&id==='myteam') window.renderMyTeamA();
   if(on&&id==='schedule') window.renderSchedule();
-  if(on&&id==='trades') window.loadTradeDropdowns();
+  if(on&&id==='trades'){ window.loadTradeDropdowns(); if(roomState) window.renderTrades(roomState); }
  }catch(e){ console.error('switchTab render error:',e); }
  });
 };
@@ -1492,7 +1494,6 @@ function renderLeaderboard(data){
 
  // Aggregate match points per player PER TEAM — only count if inActiveSquad
  // This ensures reserves earn 0 for matches where they weren't in XI/Bench
- const playerTotal={}; // global player totals (for stats display)
  const teamPlayerPts={}; // teamName -> {playerKey -> totalPts}
  matchIds.forEach(mid=>{
  const m=matches[mid];
@@ -3759,6 +3760,10 @@ window.proposeTrade=function(){
  push(ref(db,'auctions/'+roomId+'/trades'),trade).then(function(){
   window.showAlert('Trade proposed to '+partner+'! They need to accept.','ok');
   window.clearTradeForm();
+  // Force re-read and re-render trades
+  get(ref(db,'auctions/'+roomId)).then(function(snap){
+   var d=snap.val(); if(d) window.renderTrades(d);
+  });
  }).catch(function(e){ window.showAlert('Failed: '+e.message); });
 };
 
@@ -3840,6 +3845,7 @@ window.rejectTrade=function(tradeId){
  upd['auctions/'+roomId+'/trades/'+tradeId+'/completedAt']=Date.now();
  update(ref(db),upd).then(function(){
   window.showAlert('Trade rejected.','ok');
+  get(ref(db,'auctions/'+roomId)).then(function(s){if(s.val())window.renderTrades(s.val());});
  });
 };
 
@@ -3849,6 +3855,7 @@ window.cancelTrade=function(tradeId){
  upd['auctions/'+roomId+'/trades/'+tradeId+'/status']='cancelled';
  update(ref(db),upd).then(function(){
   window.showAlert('Trade cancelled.','ok');
+  get(ref(db,'auctions/'+roomId)).then(function(s){if(s.val())window.renderTrades(s.val());});
  });
 };
 
