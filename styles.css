@@ -386,3 +386,231 @@ tbody tr:last-child td{border-bottom:none!important}tbody tr:hover{background:va
 
 /* Force dark mode - hide toggle */
 .dark-toggle{display:none!important}
+
+
+/* ═══════════════════════════════════════════════════════════
+   UI/UX OVERHAUL — OVERRIDE ALL INLINE STYLES
+   Same color scheme, completely new visual language
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Global spacing & layout polish ── */
+.content{padding:20px 16px!important;max-width:960px!important}
+
+/* ── Auth card: glassmorphism ── */
+.auth-card{border-radius:24px!important;overflow:hidden!important;box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(45,212,191,.08)!important;border:none!important}
+.auth-hdr{padding:48px 40px 32px!important;background:linear-gradient(170deg,rgba(45,212,191,.12) 0%,rgba(45,212,191,.03) 40%,transparent 70%)!important;border-bottom:none!important}
+.auth-logo{width:60px!important;height:60px!important;border-radius:18px!important;box-shadow:0 10px 40px rgba(45,212,191,.35)!important}
+.auth-brand{font-size:28px!important;letter-spacing:-.04em!important}
+.auth-bdy{padding:32px 40px!important}
+.auth-lbl{font-size:.88rem!important;font-weight:400!important;color:var(--txt2)!important;margin-bottom:24px!important}
+
+/* ── Inputs: taller, more rounded ── */
+input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{
+  padding:13px 16px!important;border-radius:12px!important;font-size:.88rem!important;
+  background:rgba(255,255,255,.03)!important;border:1px solid rgba(255,255,255,.08)!important;
+  transition:all .2s!important;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--accent)!important;
+  box-shadow:0 0 0 4px rgba(45,212,191,.10),0 0 24px rgba(45,212,191,.06)!important;
+  background:rgba(255,255,255,.05)!important;
+}
+
+/* ── Buttons: pill-shaped, bolder ── */
+.btn{border-radius:12px!important;padding:12px 20px!important;font-weight:700!important;font-size:.86rem!important;letter-spacing:-.01em!important;transition:all .2s cubic-bezier(.4,0,.2,1)!important}
+.btn-gold{border-radius:12px!important;background:linear-gradient(135deg,#0d9488,#2dd4bf)!important;box-shadow:0 4px 20px rgba(45,212,191,.30),0 0 0 1px rgba(45,212,191,.15)!important}
+.btn-gold:hover{box-shadow:0 8px 32px rgba(45,212,191,.45),0 0 0 1px rgba(45,212,191,.25)!important;transform:translateY(-2px)!important}
+.btn-sm{border-radius:10px!important;padding:8px 16px!important}
+
+/* ── Topbar: taller, refined ── */
+.topbar{padding:14px 24px!important;border-bottom:1px solid rgba(255,255,255,.05)!important;background:rgba(12,12,18,.95)!important}
+.tb-logo{width:36px!important;height:36px!important;border-radius:12px!important;box-shadow:0 4px 16px rgba(45,212,191,.25)!important}
+.tb-title{font-size:16px!important;font-weight:800!important;letter-spacing:-.03em!important}
+
+/* ── Dashboard tabs: bigger, bolder ── */
+.dtabs{border-radius:16px!important;padding:5px!important;gap:3px!important;border:none!important;background:rgba(255,255,255,.03)!important}
+.dtab{border-radius:12px!important;padding:11px 16px!important;font-size:.80rem!important;font-weight:700!important;gap:8px!important}
+.dtab.active{background:rgba(45,212,191,.15)!important;box-shadow:0 0 0 1px rgba(45,212,191,.20) inset!important}
+.dtab svg,.dtab i{width:16px!important;height:16px!important}
+
+/* ── Cards: bigger radius, subtle glass ── */
+.card,.pts-card{border-radius:18px!important;border:1px solid rgba(255,255,255,.06)!important;background:rgba(255,255,255,.025)!important;box-shadow:0 2px 8px rgba(0,0,0,.3)!important;margin-bottom:16px!important}
+.card:hover,.pts-card:hover{border-color:rgba(255,255,255,.10)!important;box-shadow:0 8px 24px rgba(0,0,0,.4)!important}
+.card-hdr,.pts-hdr{padding:16px 22px!important;border-bottom:1px solid rgba(255,255,255,.04)!important;background:transparent!important;border-radius:18px 18px 0 0!important}
+.card-title,.pts-title{font-size:.90rem!important;font-weight:700!important;letter-spacing:-.02em!important}
+.card-bdy{padding:22px!important}
+
+/* ── Room cards: rounder, more lift ── */
+.rc{border-radius:14px!important;padding:14px 18px!important;margin-bottom:10px!important;border:1px solid rgba(255,255,255,.05)!important;background:rgba(255,255,255,.025)!important}
+.rc:hover{transform:translateY(-3px)!important;box-shadow:0 12px 32px rgba(0,0,0,.4),0 0 0 1px rgba(45,212,191,.15)!important;background:rgba(45,212,191,.06)!important}
+.rc-icon{width:42px!important;height:42px!important;border-radius:13px!important;box-shadow:0 4px 16px rgba(45,212,191,.25)!important}
+.rc-name{font-size:.88rem!important;font-weight:700!important}
+.rc-meta{font-size:.72rem!important;margin-top:3px!important;opacity:.6!important}
+
+/* ── Grouped nav: bigger, glass feel ── */
+.gnav{border-radius:18px!important;padding:8px!important;gap:8px!important;border:none!important;background:rgba(255,255,255,.025)!important;margin-bottom:8px!important}
+.gnav-item{border-radius:14px!important;padding:14px 16px!important;gap:12px!important;border:1px solid transparent!important}
+.gnav-item:hover{background:rgba(255,255,255,.04)!important;border-color:rgba(255,255,255,.06)!important}
+.gnav-item.active{background:linear-gradient(135deg,rgba(45,212,191,.12),rgba(45,212,191,.04))!important;border-color:rgba(45,212,191,.18)!important;box-shadow:0 0 24px rgba(45,212,191,.06),0 0 0 1px rgba(45,212,191,.10) inset!important}
+.gnav-icon{width:40px!important;height:40px!important;border-radius:12px!important}
+.gnav-item.active .gnav-icon{box-shadow:0 4px 16px rgba(45,212,191,.30)!important}
+.gnav-label{font-size:.86rem!important;font-weight:800!important;letter-spacing:-.02em!important}
+.gnav-sub{font-size:.66rem!important;opacity:.5!important;margin-top:2px!important}
+
+/* ── Sub-tabs: pill shaped ── */
+.sub-tabs{border-radius:14px!important;padding:5px!important;gap:4px!important;margin-bottom:20px!important;border:none!important;background:rgba(255,255,255,.025)!important}
+.sub-tab{border-radius:10px!important;padding:9px 18px!important;font-size:.80rem!important;font-weight:700!important}
+.sub-tab.active{box-shadow:0 4px 12px rgba(45,212,191,.25)!important;border-radius:10px!important}
+
+/* ── Stats strip: glass cards ── */
+.srow{gap:10px!important;margin-bottom:20px!important}
+.spill{border-radius:16px!important;padding:20px 14px!important;border:none!important;border-top:none!important;background:rgba(255,255,255,.03)!important;box-shadow:0 2px 8px rgba(0,0,0,.2)!important;position:relative!important;overflow:hidden!important}
+.spill::before{display:none!important}
+.spill::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;height:3px!important;background:linear-gradient(90deg,var(--accent),var(--accent-l))!important;display:block!important;border-radius:3px 3px 0 0!important}
+.spill:hover{transform:translateY(-3px)!important;box-shadow:0 8px 24px rgba(0,0,0,.3)!important}
+.sval{font-size:30px!important;font-weight:800!important;letter-spacing:-.05em!important}
+.slb{font-size:.64rem!important;margin-top:8px!important;opacity:.5!important;letter-spacing:.10em!important;font-weight:700!important;text-transform:uppercase!important}
+
+/* ── Room header ── */
+.at{border-radius:18px!important;padding:16px 22px!important;border:none!important;background:rgba(255,255,255,.025)!important;box-shadow:0 2px 8px rgba(0,0,0,.2)!important;margin-bottom:16px!important}
+.at-title{font-size:20px!important;font-weight:800!important;letter-spacing:-.04em!important}
+
+/* ── Badges: rounder ── */
+.badge{border-radius:8px!important;padding:3px 10px!important;font-size:.67rem!important;font-weight:700!important;letter-spacing:.02em!important}
+
+/* ── Auction block: dramatic ── */
+.ablock{border-radius:24px!important;padding:56px 28px!important;border:1px dashed rgba(255,255,255,.08)!important;background:rgba(255,255,255,.015)!important}
+.ablock.live{border:1px solid rgba(45,212,191,.20)!important;background:radial-gradient(ellipse at 50% 0%,rgba(45,212,191,.08) 0%,transparent 60%)!important;box-shadow:0 0 60px rgba(45,212,191,.04),0 0 0 1px rgba(45,212,191,.10)!important}
+.pname{font-size:3.2rem!important;font-weight:800!important;letter-spacing:-.06em!important}
+.bid-amt{font-size:4.2rem!important;font-weight:800!important;letter-spacing:-.06em!important}
+.ptag{border-radius:8px!important;padding:4px 14px!important;font-size:.74rem!important;font-weight:600!important}
+
+/* ── Quick bid grid: rounder ── */
+.qgrid{gap:10px!important}
+.qbtn{border-radius:14px!important;padding:16px!important;font-size:.92rem!important;font-weight:800!important;border:none!important;background:rgba(255,255,255,.04)!important}
+.qbtn:hover{background:rgba(45,212,191,.12)!important;box-shadow:0 8px 24px rgba(45,212,191,.12),0 0 0 1px rgba(45,212,191,.15)!important;transform:translateY(-3px)!important}
+
+/* ── Team cards: glass ── */
+.tgrid{gap:14px!important}
+.tcard{border-radius:18px!important;border:1px solid rgba(255,255,255,.05)!important;background:rgba(255,255,255,.025)!important}
+.tcard:hover{transform:translateY(-3px)!important;box-shadow:0 12px 32px rgba(0,0,0,.4)!important;border-color:rgba(255,255,255,.10)!important}
+.tcard-hdr{padding:16px 18px!important;border-bottom:1px solid rgba(255,255,255,.04)!important;background:transparent!important}
+.tcard-pills{gap:8px!important}
+.tpill{border-radius:12px!important;padding:10px 14px!important}
+.tpill-val{font-size:19px!important;font-weight:800!important}
+.tpill-lbl{font-size:.58rem!important;letter-spacing:.10em!important;margin-top:4px!important;opacity:.6!important}
+.tname{font-size:15px!important;font-weight:800!important;letter-spacing:-.02em!important}
+
+/* ── Tables: cleaner rows ── */
+thead th{padding:12px 14px!important;font-size:.66rem!important;letter-spacing:.08em!important;background:rgba(255,255,255,.02)!important;border-bottom:1px solid rgba(255,255,255,.06)!important}
+tbody td{padding:11px 14px!important;border-bottom:1px solid rgba(255,255,255,.03)!important;font-size:.84rem!important}
+tbody tr:hover{background:rgba(45,212,191,.04)!important}
+
+/* ── Search bar ── */
+.search-bar{padding:14px 18px!important;border-bottom:1px solid rgba(255,255,255,.04)!important;background:transparent!important;gap:10px!important}
+.search-bar input,.search-bar select{border-radius:10px!important;padding:10px 14px!important}
+
+/* ── Leaderboard: spacious ── */
+.lb-row{padding:16px 22px!important;border-bottom:1px solid rgba(255,255,255,.03)!important}
+.lb-row:hover{background:rgba(45,212,191,.04)!important;border-radius:12px!important}
+.lb-pts{font-size:28px!important;font-weight:800!important;letter-spacing:-.04em!important}
+.lb-team{font-size:.90rem!important;font-weight:700!important}
+
+/* ── Modals: glass ── */
+.modal-bg{background:rgba(0,0,0,.70)!important;backdrop-filter:blur(12px)!important}
+.modal{border-radius:24px!important;padding:36px!important;border:1px solid rgba(255,255,255,.08)!important;background:rgba(26,26,36,.97)!important;box-shadow:0 32px 80px rgba(0,0,0,.6)!important}
+.modal h3{font-size:20px!important;font-weight:800!important;letter-spacing:-.03em!important;margin-bottom:20px!important}
+
+/* ── Toast: refined ── */
+#toast{border-radius:60px!important;padding:12px 28px!important;border:none!important;background:rgba(26,26,36,.95)!important;box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06)!important}
+
+/* ── My Team sections: gradient headers bigger ── */
+.mt-section-hdr{padding:14px 20px!important;border-radius:14px 14px 0 0!important}
+.mt-section-title{font-size:.92rem!important;font-weight:800!important}
+.mt-section-body{border-radius:0 0 14px 14px!important;padding:10px!important}
+.mt-player-row{border-radius:12px!important;padding:12px 14px!important;margin-bottom:8px!important}
+.mt-player-row:hover{transform:translateY(-2px)!important;box-shadow:0 6px 20px rgba(0,0,0,.3)!important}
+
+/* ── Match blocks ── */
+.match-block{border-radius:16px!important;margin-bottom:10px!important;border:1px solid rgba(255,255,255,.05)!important}
+.match-block-hdr{padding:14px 20px!important}
+
+/* ── Setup stat cards ── */
+.setup-stat{border-radius:14px!important;padding:18px 14px!important}
+.setup-stat-val{font-size:26px!important;font-weight:800!important}
+.setup-config-box{border-radius:14px!important;padding:18px 20px!important}
+
+/* ── Member cards ── */
+.member-card{border-radius:12px!important;padding:12px 14px!important}
+.member-avatar{width:36px!important;height:36px!important;font-size:.80rem!important}
+
+/* ── Mode picker: bigger ── */
+.mode-btn{border-radius:16px!important;padding:18px 14px!important;border:1px solid rgba(255,255,255,.05)!important}
+.mode-btn.selected{border-color:rgba(45,212,191,.25)!important;box-shadow:0 0 0 3px rgba(45,212,191,.10)!important}
+
+/* ── Analytics stat cards ── */
+.stat-card{border-radius:14px!important}
+.stat-card-hdr{padding:12px 16px!important;font-size:.70rem!important}
+
+/* ── NI button ── */
+.ni-btn{border-radius:12px!important}
+
+/* ── Bidder strip ── */
+.bidder-strip{border-radius:12px!important;padding:12px 18px!important}
+.my-team-badge{border-radius:12px!important;padding:11px 16px!important}
+
+/* ── PST tables ── */
+.pst-team-hdr{border-radius:14px 14px 0 0!important;padding:14px 18px!important}
+.pst-wrap{border-radius:0 0 14px 14px!important}
+
+/* ── Join row ── */
+.join-row{gap:10px!important}
+.join-row input{border-radius:12px!important}
+
+/* ── Divider ── */
+.divider{margin:20px 0!important;opacity:.4!important}
+
+/* ── Empty state ── */
+.empty{padding:40px!important;font-size:.85rem!important;opacity:.5!important}
+
+/* ── Section headers ── */
+.section-hdr{padding:10px 22px!important;font-size:.64rem!important;letter-spacing:.12em!important;background:rgba(255,255,255,.02)!important;border-bottom:1px solid rgba(255,255,255,.04)!important}
+
+/* ── AI parse box ── */
+.ai-parse-box{border-radius:16px!important;padding:22px 24px!important}
+
+/* ── JP progress bar ── */
+.jp-bar{height:8px!important;border-radius:4px!important}
+.jp-fill,#jpBarFill{border-radius:4px!important}
+
+/* ── Prog bars ── */
+.prog-wrap{height:5px!important;border-radius:3px!important}
+
+/* ── Match form ── */
+.match-form{padding:18px 22px!important;gap:12px!important}
+
+/* ── Trade pills ── */
+.match-pill{border-radius:12px!important;padding:12px 16px!important}
+
+/* ── CBZ section ── */
+.cbz-section-title{font-size:.70rem!important;letter-spacing:.10em!important;margin-bottom:10px!important}
+
+/* ── Responsive polish ── */
+@media(max-width:768px){
+  .gnav{border-radius:14px!important;padding:6px!important;gap:5px!important}
+  .gnav-item{border-radius:11px!important;padding:10px 12px!important}
+  .content{padding:14px 12px!important}
+  .card,.pts-card{border-radius:14px!important}
+  .sub-tabs{border-radius:11px!important}
+  .auth-card{border-radius:18px!important}
+  .auth-hdr{padding:32px 24px 24px!important}
+  .auth-bdy{padding:24px!important}
+}
+@media(max-width:480px){
+  .pname{font-size:2.2rem!important}
+  .bid-amt{font-size:3rem!important}
+  .sval{font-size:22px!important}
+  .gnav-item{padding:8px 10px!important}
+  .gnav-icon{width:32px!important;height:32px!important}
+  .rc-icon{width:36px!important;height:36px!important}
+}
