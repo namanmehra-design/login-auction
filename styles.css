@@ -146,7 +146,7 @@ body::before {
 .view.active { display: block; animation: viewIn .35s var(--ease) both; overflow-x: hidden; }
 
 /* Auction room tabs — hidden tabs must be fully contained */
-[id$="-tab"] { overflow: hidden; max-width: 100%; }
+[id$="-tab"] { max-width: 100%; }
 [id$="-tab"][style*="display:none"], [id$="-tab"][style*="display: none"] {
   overflow: hidden !important;
   max-height: 0 !important;
