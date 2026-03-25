@@ -927,11 +927,13 @@ window.switchTab=function(t){
  if(!el||!btn)return;
  const on=id===t;
  el.style.display=on?'block':'none';
+ el.style.overflow=on?'':'hidden';
  btn.classList.toggle('active',on);
  try{
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
   if(on&&id==='myteam') window.renderMyTeamA();
   if(on&&id==='schedule') window.renderSchedule();
+  if(on&&id==='trades') window.loadTradeDropdowns();
  }catch(e){ console.error('switchTab render error:',e); }
  });
 };
