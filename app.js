@@ -1492,6 +1492,7 @@ function renderLeaderboard(data){
 
  // Aggregate match points per player PER TEAM — only count if inActiveSquad
  // This ensures reserves earn 0 for matches where they weren't in XI/Bench
+ const playerTotal={}; // global player totals (for stats display)
  const teamPlayerPts={}; // teamName -> {playerKey -> totalPts}
  matchIds.forEach(mid=>{
  const m=matches[mid];
