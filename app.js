@@ -932,7 +932,7 @@ window.switchTab=function(t){
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
   if(on&&id==='myteam') window.renderMyTeamA();
   if(on&&id==='schedule') window.renderSchedule();
-  if(on&&id==='trades'){ window.loadTradeDropdowns(); if(roomState) window.renderTrades(roomState); }
+  if(on&&id==='trades') window.loadTradeDropdowns();
  }catch(e){ console.error('switchTab render error:',e); }
  });
 };
@@ -3758,10 +3758,6 @@ window.proposeTrade=function(){
  push(ref(db,'auctions/'+roomId+'/trades'),trade).then(function(){
   window.showAlert('Trade proposed to '+partner+'! They need to accept.','ok');
   window.clearTradeForm();
-  // Force re-read and re-render trades
-  get(ref(db,'auctions/'+roomId)).then(function(snap){
-   var d=snap.val(); if(d) window.renderTrades(d);
-  });
  }).catch(function(e){ window.showAlert('Failed: '+e.message); });
 };
 
@@ -3843,7 +3839,6 @@ window.rejectTrade=function(tradeId){
  upd['auctions/'+roomId+'/trades/'+tradeId+'/completedAt']=Date.now();
  update(ref(db),upd).then(function(){
   window.showAlert('Trade rejected.','ok');
-  get(ref(db,'auctions/'+roomId)).then(function(s){if(s.val())window.renderTrades(s.val());});
  });
 };
 
@@ -3853,7 +3848,6 @@ window.cancelTrade=function(tradeId){
  upd['auctions/'+roomId+'/trades/'+tradeId+'/status']='cancelled';
  update(ref(db),upd).then(function(){
   window.showAlert('Trade cancelled.','ok');
-  get(ref(db,'auctions/'+roomId)).then(function(s){if(s.val())window.renderTrades(s.val());});
  });
 };
 
