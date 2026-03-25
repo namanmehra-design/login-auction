@@ -377,3 +377,12 @@ tbody tr:last-child td{border-bottom:none!important}tbody tr:hover{background:va
 @media(max-width:768px){.gnav{grid-template-columns:repeat(2,1fr);gap:4px}.gnav-sub{display:none}.gnav-item{padding:10px 12px}}
 @media(max-width:600px){.content{padding:10px!important}.gnav{grid-template-columns:repeat(2,1fr);gap:3px;padding:4px}.gnav-item{padding:8px 10px;gap:8px}.gnav-icon{width:30px;height:30px}.gnav-label{font-size:.76rem}.sub-tab{padding:6px 12px;font-size:.73rem}.card-hdr{padding:10px 14px!important}.card-bdy{padding:14px!important}.pname{font-size:2rem!important}.bid-amt{font-size:2.8rem!important}.qgrid{gap:5px}.qbtn{padding:11px 4px;font-size:.82rem}.tgrid{grid-template-columns:1fr}.agrid{grid-template-columns:1fr 1fr}.srow{grid-template-columns:repeat(2,1fr)!important}.mode-picker{flex-direction:column}.stat-grid{grid-template-columns:1fr}.auth-hdr{padding:28px 22px 22px!important}.auth-bdy{padding:20px 22px!important}.modal{padding:22px!important}.at{padding:10px 14px!important}.topbar{padding:9px 14px!important}}
 @media(max-width:400px){.gnav-icon{display:none}.gnav-item{padding:8px}.dtabs{gap:2px;padding:3px}.dtab{min-width:52px;font-size:.64rem;padding:6px 5px}}
+
+/* ═══ SCROLLABLE PURSES ═══ */
+.tgrid{max-height:70vh;overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+.tgrid::-webkit-scrollbar{width:4px}
+.tgrid::-webkit-scrollbar-thumb{background:rgba(45,212,191,.15);border-radius:2px}
+.tgrid::-webkit-scrollbar-track{background:transparent}
+
+/* Force dark mode - hide toggle */
+.dark-toggle{display:none!important}
