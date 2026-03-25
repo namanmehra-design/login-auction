@@ -927,7 +927,9 @@ window.switchTab=function(t){
  if(!el||!btn)return;
  const on=id===t;
  el.style.display=on?'block':'none';
- el.style.overflow=on?'':'hidden';
+ el.style.overflow=on?'visible':'hidden';
+ el.style.maxHeight=on?'':'0';
+ el.style.visibility=on?'visible':'hidden';
  btn.classList.toggle('active',on);
  try{
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
@@ -2865,37 +2867,54 @@ window.saPopulateOsRooms=async function(){
   try{
     const usersSnap=await get(ref(db,'users'));
     const users=usersSnap.val()||{};
-    const roomIds=new Set();
+    const auctionIds=new Set();
+    const draftIds=new Set();
     Object.values(users).forEach(u=>{
-      if(u.auctions) Object.keys(u.auctions).forEach(rid=>roomIds.add(rid));
+      if(u.auctions) Object.keys(u.auctions).forEach(rid=>auctionIds.add(rid));
+      if(u.drafts) Object.keys(u.drafts).forEach(rid=>draftIds.add(rid));
     });
     sel.innerHTML='<option value="">-- Select a room --</option>';
-    for(const rid of roomIds){
+    for(const rid of auctionIds){
       const nameSnap=await get(ref(db,`auctions/${rid}/roomName`));
       const name=nameSnap.val()||`Room ${rid.substring(0,6)}`;
       const osSnap=await get(ref(db,`auctions/${rid}/maxOverseas`));
       const curOs=osSnap.val()??8;
       const o=document.createElement('option');
-      o.value=rid;
-      o.textContent=`${name} (limit: ${curOs})`;
+      o.value='auction:'+rid;
+      o.textContent=`[Auction] ${name} (limit: ${curOs})`;
+      sel.appendChild(o);
+    }
+    for(const rid of draftIds){
+      const nameSnap=await get(ref(db,`drafts/${rid}/roomName`));
+      const name=nameSnap.val()||`Draft ${rid.substring(0,6)}`;
+      const osSnap=await get(ref(db,`drafts/${rid}/maxOverseas`));
+      const curOs=osSnap.val()??8;
+      const o=document.createElement('option');
+      o.value='draft:'+rid;
+      o.textContent=`[Draft] ${name} (limit: ${curOs})`;
       sel.appendChild(o);
     }
   }catch(e){console.error('saPopulateOsRooms:',e);}
 };
 
 window.saSetOverseasLimit=async function(){
-  const rid=document.getElementById('saOsRoomSelect')?.value;
+  const raw=document.getElementById('saOsRoomSelect')?.value||'';
   const limit=parseInt(document.getElementById('saOsLimit')?.value)||8;
   const st=document.getElementById('saOsStatus');
-  if(!rid){if(st){st.className='ai-status fail';st.textContent='Select a room first.';}return;}
+  if(!raw){if(st){st.className='ai-status fail';st.textContent='Select a room first.';}return;}
   if(limit<1||limit>15){if(st){st.className='ai-status fail';st.textContent='Limit must be 1-15.';}return;}
   if(st){st.className='ai-status parsing';st.textContent='Applying...';}
+  // Parse "auction:rid" or "draft:rid"
+  const parts=raw.split(':');
+  const type=parts[0];
+  const rid=parts.slice(1).join(':');
+  const basePath=type==='draft'?'drafts':'auctions';
   try{
     const upd={};
-    upd[`auctions/${rid}/maxOverseas`]=limit;
-    upd[`auctions/${rid}/setup/maxOverseas`]=limit;
+    upd[`${basePath}/${rid}/maxOverseas`]=limit;
+    upd[`${basePath}/${rid}/setup/maxOverseas`]=limit;
     await update(ref(db),upd);
-    if(st){st.className='ai-status done';st.textContent=`Overseas limit set to ${limit} -- takes effect immediately.`;}
+    if(st){st.className='ai-status done';st.textContent=`Overseas limit set to ${limit} for ${type} room — takes effect immediately.`;}
     await window.saPopulateOsRooms();
   }catch(e){if(st){st.className='ai-status fail';st.textContent=`\u274c ${e.message}`;}}
 };
