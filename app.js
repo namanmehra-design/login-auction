@@ -931,6 +931,7 @@ window.switchTab=function(t){
  try{
   if(on&&id==='players-season'&&roomState) renderPlayersSeason(roomState);
   if(on&&id==='myteam') window.renderMyTeamA();
+  if(on&&id==='schedule') window.renderSchedule();
  }catch(e){ console.error('switchTab render error:',e); }
  });
 };
