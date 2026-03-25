@@ -1,216 +1,1407 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>IPL Fantasy Auction 2026</title>
-<link rel="stylesheet" href="styles.css">
-<style>
-  /* Critical inline CSS — prevents FOUC */
-  body { background: #0B0E14; color: #F1F5F9; margin: 0; overflow-x: hidden; max-width: 100vw; }
-  .view { display: none !important; }
-  .view.active { display: block !important; }
-  #auth-view { display: none !important; position: fixed; inset: 0; }
-  #auth-view.active { display: flex !important; align-items: center; justify-content: center; z-index: 200; background: #0B0E14; }
-  #app-shell { display: none !important; }
-  #app-shell.active { display: flex !important; flex-direction: column; min-height: 100vh; }
-  [style*="display:none"] { overflow: hidden !important; }
-</style>
-<script>
-(function(){
-  // Default to dark mode (our primary theme)
-  if(!localStorage.getItem('ipl-theme')) localStorage.setItem('ipl-theme','dark');
-  if(localStorage.getItem('ipl-theme')==='light') document.body.classList.add('light');
-})();
-</script>
-</head>
-<body><div id="toast"><span class="tdot"></span><span id="tmsg"></span></div><!-- Team Name Modal (shown when joining a room) -->
-<div class="modal-bg" id="teamNameModal"><div class="modal"><h3>Register Your Team</h3><p style="color:var(--dim);font-size:.87rem;margin-bottom:18px;">Enter the name you want to bid under in this auction room.</p><div class="fld"><label>Your Team Name</label><input type="text" id="modalTeamName" placeholder="e.g. Royal Challengers" maxlength="30"></div><div style="display:flex;gap:10px;margin-top:6px;"><button class="btn btn-gold" onclick="window.confirmTeamName()">Join Room →</button><button class="btn btn-ghost btn-sm" onclick="window.closeTeamModal()" style="width:auto;">Cancel</button></div></div>
-</div><!-- Release Player Modal -->
-<div class="modal-bg" id="releaseModal"><div class="modal"><h3>Release Player</h3><p style="color:var(--dim);font-size:.87rem;margin-bottom:8px;">This will release the player back to the auction pool and refund the bid amount to the team's purse.</p><p style="color:var(--accent);font-weight:600;font-size:.9rem;margin-bottom:20px;" id="releasePlayerDesc"></p><div style="display:flex;gap:10px;"><button class="btn btn-success" onclick="window.confirmRelease()">Confirm Release</button><button class="btn btn-ghost btn-sm" onclick="window.closeReleaseModal()" style="width:auto;">Cancel</button></div></div>
-</div><!-- Delete Room Confirm Modal -->
-<div class="modal-bg" id="deleteModal"><div class="modal"><h3>Delete Room</h3><p style="color:var(--dim);font-size:.87rem;margin-bottom:8px;">This will permanently delete the room and all auction data. This cannot be undone.</p><p style="color:var(--err);font-weight:600;font-size:.87rem;margin-bottom:20px;" id="deleteRoomName"></p><div style="display:flex;gap:10px;"><button class="btn btn-danger" onclick="window.confirmDeleteRoom()">Delete Permanently</button><button class="btn btn-ghost btn-sm" onclick="window.closeDeleteModal()" style="width:auto;">Cancel</button></div></div>
-</div><!-- AUTH -->
-<div id="auth-view" class="view active"><div class="auth-card"><div class="auth-hdr"><div class="auth-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L8 8l4 4-4 6h8l-4-6 4-4-4-6z"/><line x1="7" y1="22" x2="17" y2="22"/></svg></div><div class="auth-brand">IPL <span>Fantasy</span></div><div class="auth-tag">Private fantasy league · Season 2026</div></div><div class="auth-bdy"><div class="auth-lbl" id="authLabel">Sign in to continue</div><div class="fld"><label>Email</label><input type="email" id="authEmail" placeholder="you@example.com"></div><div class="fld"><label>Password</label><input type="password" id="authPassword" placeholder="••••••••" minlength="6" onkeydown="if(event.key==='Enter')window.handleAuth()"><div class="pw-hint" id="pwHint" style="display:none;">Minimum 6 characters required</div></div><button class="btn btn-gold" id="authBtn" onclick="window.handleAuth()">Sign In</button><div class="divider">or</div><button class="btn btn-white" onclick="window.signInWithGoogle()"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="G">Continue with Google
- </button><div style="margin-top:16px;text-align:center;display:flex;flex-direction:column;gap:9px;"><button class="tbtn" id="authToggleBtn" onclick="window.toggleAuthMode()">Create an account instead</button><button class="tbtn" onclick="window.resetPassword()">Forgot password?</button></div></div></div>
-</div><!-- APP SHELL -->
-<div id="app-shell" class="view"><div class="topbar"><div style="display:flex;align-items:center;gap:12px;"><div class="tb-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L8 8l4 4-4 6h8l-4-6 4-4-4-6z"/><line x1="7" y1="22" x2="17" y2="22"/></svg></div><div><div class="tb-title">IPL Fantasy</div><div class="tb-user" id="topbarUser"></div></div></div><button class="theme-toggle" id="darkToggle" onclick="window.toggleDark()" title="Toggle dark mode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
-<button class="btn btn-danger btn-sm" onclick="window.logoutUser()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button></div><div class="content"><!-- DASHBOARD --><div id="dashboard-view" class="view"><div class="dtabs"><button class="dtab" id="dt-scorecards" onclick="switchDashTab('scorecards')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Scorecards</button><button class="dtab active" id="dt-created" onclick="switchDashTab('created')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>My Rooms</button><button class="dtab" id="dt-joined" onclick="switchDashTab('joined')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Joined Rooms</button><button class="dtab" id="dt-superadmin" onclick="switchDashTab('superadmin')" style="display:none;color:#f87171;border-color:rgba(239,68,68,.3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Super Admin</button></div><!-- ════ SCORECARDS TAB (Global — pushes to all owned rooms) ════ --><div id="tab-scorecards" style="display:none;"><!-- Gemini parser card (same as in-room, but global) --><div class="card" id="globalScorecardCard"><div class="card-hdr"><span class="card-title">Global Scorecard Entry</span><span class="badge bb" style="font-size:.68rem;">Pushes to ALL your rooms</span></div><div class="card-bdy"><p style="font-size:.82rem;color:var(--dim);margin-bottom:16px;">Enter a match scorecard here once and it will be saved to <strong style="color:var(--accent)">every room you own</strong>— both auction and draft — simultaneously. All your leagues update in one go.
- </p><!-- Gemini parser UI (global instance) --><div class="ai-parse-box" style="margin-bottom:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;"><div class="ai-parse-title">Gemini Scorecard Parser</div><span class="badge bb" style="font-size:.68rem;">Firebase AI Logic</span></div><div class="ai-parse-sub">Upload 1–4 scorecard screenshots. Gemini reads them and fills the form below.</div><div id="gscDropZone" onclick="document.getElementById('gscFiles').click()"
- style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
- ondragover="event.preventDefault();this.style.borderColor='rgba(99,102,241,.7)'"
- ondragleave="this.style.borderColor='rgba(99,102,241,.35)'"
- ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleGscFiles(event.dataTransfer.files)"><div style="font-size:1.8rem;margin-bottom:4px;"></div><div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots</div><div id="gscDropHint" style="font-size:.75rem;color:var(--dim);margin-top:4px;">PNG · JPG · WEBP · up to 4 files</div></div><input type="file" id="gscFiles" accept="image/*" multiple style="display:none" onchange="window.handleGscFiles(this.files)"><div id="gscThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" id="gscMatchLabel" placeholder="Match label e.g. CSK vs MI – Apr 6 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;"><button id="gscParseBtn" onclick="window.parseGlobalScorecard()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--f);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;">Parse with Gemini</button></div><div class="ai-status" id="gscParseStatus" style="margin-top:8px;"></div></div><!-- Match meta form --><div id="gscFormBody" style="display:none;"><div class="match-form" style="margin-bottom:0;"><div class="fld"><label>Winning IPL Team</label><input type="text" id="gscWinner" placeholder="e.g. CSK"></div><div class="fld"><label>Man of the Match</label><input type="text" id="gscMotm" placeholder="Player name"></div><div class="fld"><label>Result</label><select id="gscResult"><option value="normal">Normal Result</option><option value="noresult">No Result</option><option value="superover">Super Over</option></select></div></div><div class="section-hdr">BATTING</div><div id="gscBattingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBattingRow()">+ Add Batter</button></div><div class="section-hdr">BOWLING</div><div id="gscBowlingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscBowlingRow()">+ Add Bowler</button></div><div class="section-hdr">FIELDING</div><div id="gscFieldingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addGscFieldingRow()">+ Add Fielder</button></div><!-- Preview & save --><div id="gscPreviewBox" style="display:none;background:var(--bg2);border:1px solid var(--b0);border-radius:var(--rl);padding:16px 20px;margin:16px 20px 0;"><div style="font-family:var(--f);font-size:18px;color:var(--accent);margin-bottom:10px;">Points Preview</div><div id="gscPreviewContent"></div></div><div style="padding:16px 20px;display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="window.previewGlobalPoints()">Preview Points</button><button class="btn btn-gold" onclick="window.saveGlobalScorecard()" style="max-width:260px;">Save &amp; Push to All My Rooms</button></div><div class="ai-status" id="gscSaveStatus" style="margin:0 20px 16px;"></div></div></div></div><!-- Match history --><div class="card"><div class="card-hdr"><span class="card-title">Saved Matches</span></div><div id="gscHistoryList" style="padding:0;"><div class="empty" style="padding:20px;">No matches saved yet.</div></div></div></div><div id="tab-created"><div class="card"><div class="card-hdr"><span class="card-title">My Auction Rooms</span><button class="btn btn-gold btn-sm" id="createToggleBtn" onclick="toggleCreateForm()">+ Create New</button></div><div class="card-bdy"><div id="create-form" style="display:none;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--b1);"><div class="slbl">New Room Details</div><div class="g2"><div class="fld"><label>Room Name</label><input type="text" id="newRoomName" placeholder="e.g. Office League 2026"></div><div class="fld"><label>Budget / Team (Cr)</label><input type="number" id="newRoomBudget" value="100" min="50" max="500"></div><div class="fld"><label>Max Teams (2–10)</label><input type="number" id="newRoomMaxTeams" value="6" min="2" max="10"></div><div class="fld"><label>Max Players / Team</label><input type="number" id="newRoomMaxPlayers" value="20" min="10" max="30"></div><div class="fld"><label>Max Overseas / Team (4–8)</label><input type="number" id="newRoomMaxOverseas" value="8" min="4" max="8"></div></div><p style="font-size:.78rem;color:var(--dim);margin-bottom:14px;">After creating the room you'll register your own team, then share the invite link for others to join.</p><button class="btn btn-gold" onclick="window.createNewRoom()">Create Room →</button></div><div id="roomListContainer"><div class="empty">No rooms yet — create one above.</div></div></div></div></div><div id="tab-joined" style="display:none;"><div class="card"><div class="card-hdr"><span class="card-title">Join a Room</span></div><div class="card-bdy"><div class="slbl">Paste invite link or room ID</div><div class="join-row"><input type="text" id="joinRoomCode" placeholder="https://...?room=abc or -abc123" onkeydown="if(event.key==='Enter')window.initiateJoinRoom()"><button class="btn btn-gold btn-sm" style="padding:12px 20px;" onclick="window.initiateJoinRoom()">Join →</button></div><div class="slbl" style="margin-top:8px;">Previously Joined</div><div id="joinedRoomListContainer"><div class="empty">No joined rooms yet.</div></div></div></div></div><!-- ════ SUPER ADMIN TAB ════ --><div id="tab-superadmin" style="display:none;"><!-- Platform stats --><div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title" style="color:#f87171;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Super Admin Panel</span><span class="badge" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);font-size:.68rem;">admin</span></div><div class="card-bdy"><div class="srow" id="saStatsRow"><div class="spill"><div class="sval" id="sa-total-users">—</div><div class="slb">Total Users</div></div><div class="spill"><div class="sval" id="sa-total-auctions">—</div><div class="slb">Auction Rooms</div></div><div class="spill"><div class="sval" id="sa-total-drafts">—</div><div class="slb">Draft Rooms</div></div><div class="spill"><div class="sval" id="sa-total-matches">—</div><div class="slb">Global Scorecards</div></div></div></div></div><!-- Global scorecard push --><div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title">Push Scorecard to ALL Rooms</span><span style="font-size:.78rem;color:var(--dim);">Pushes to every auction &amp; draft room on the platform</span></div><div class="card-bdy"><p style="font-size:.82rem;color:var(--dim);margin-bottom:16px;">Select a previously saved global scorecard and push it to <strong style="color:#f87171;">every room on the entire platform</strong>— regardless of who created it.
- </p><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"><select id="saScorecardSelect" onchange="window.saOnScorecardSelect()" style="flex:1;min-width:200px;padding:10px 12px;font-size:.85rem;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);color:var(--txt);font-family:var(--f);"><option value="">— Select a saved scorecard —</option></select></div><div id="saMatchInfo" style="display:none;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:.83rem;"><span id="saMatchInfoText"></span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"><button class="btn btn-gold" onclick="window.saPushToAll()" style="white-space:nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Push to All Rooms</button><button class="btn btn-ghost btn-sm" onclick="window.saDeleteAndRepush()" style="color:#f87171;border-color:rgba(239,68,68,.3);white-space:nowrap;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Delete &amp; Re-push</button><button class="btn btn-danger btn-sm" onclick="window.saDeleteMatchFromAll()" style="white-space:nowrap;">Delete from All Rooms</button></div><div class="ai-status" id="saPushStatus"></div></div></div><!-- Overseas Limit Tweaker -->
-<div class="card" style="margin-bottom:16px;"><div class="card-hdr"><span class="card-title" style="color:#f87171;">Overseas Player Limit</span><span style="font-size:.78rem;color:var(--dim);">Adjust per room — affects bidding rules live</span></div><div class="card-bdy">
-<p style="font-size:.82rem;color:var(--dim);margin-bottom:14px;">Select a room and set the maximum number of overseas players each team can hold. Changes take effect immediately.</p>
-<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-  <div class="fld" style="flex:2;min-width:160px;margin-bottom:0;">
-    <label>Select Room <button class="btn btn-sm btn-ghost" onclick="window.saPopulateOsRooms()" style="width:auto;padding:3px 8px;font-size:.65rem;margin-left:6px;">Load Rooms</button></label>
-    <select id="saOsRoomSelect" style="padding:10px 12px;font-size:.85rem;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);color:var(--txt);font-family:var(--f);width:100%;"><option value="">— Click Load Rooms first —</option></select>
-  </div>
-  <div class="fld" style="flex:1;min-width:100px;margin-bottom:0;">
-    <label>Max Overseas (per team)</label>
-    <input type="number" id="saOsLimit" min="1" max="15" value="8" style="padding:10px 12px;font-size:.85rem;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);color:var(--txt);font-family:var(--f);width:100%;">
-  </div>
-  <button class="btn btn-sm" onclick="window.saSetOverseasLimit()" style="background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);flex-shrink:0;width:auto;padding:10px 18px;">Apply Limit</button>
-</div>
-<div class="ai-status" id="saOsStatus" style="margin-top:10px;"></div>
-</div></div>
-<!-- Cricbuzz Live Import (Super Admin Only) -->
-<div class="card" style="margin-bottom:16px;border-color:rgba(239,68,68,.25);">
-  <div class="card-hdr">
-    <span class="card-title" style="color:#f87171;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Live Cricbuzz Scorecard Import
-    </span>
-    <span style="font-size:.72rem;color:var(--dim);">Super Admin · Cricbuzz API</span>
-  </div>
-  <div class="card-bdy">
-    <p style="font-size:.82rem;color:var(--dim);margin-bottom:14px;">Fetch live / recent IPL match scorecards directly from Cricbuzz and auto-populate the scorecard form in any room.</p>
+/* ═══════════════════════════════════════════════════════════
+   IPL FANTASY AUCTION 2026 — REDESIGN v1.0
+   Dark-first. Broadcast quality. Dynamic. Reactive.
+   Font: Satoshi + Space Mono for numbers
+   ═══════════════════════════════════════════════════════════ */
 
-    <!-- Step 1: Pick match -->
-    <div class="cbz-section">
-      <div class="cbz-section-title">Step 1 — Select Match</div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-info" onclick="window.cbzFetchLive()" style="width:auto;">⚡ Live Matches</button>
-        <button class="btn btn-sm btn-outline" onclick="window.cbzFetchRecent()" style="width:auto;">🕐 Recent Matches</button>
-        <button class="btn btn-sm btn-outline" onclick="window.cbzFetchUpcoming()" style="width:auto;">📅 Upcoming</button>
-      </div>
-      <div class="cbz-status" id="cbzMatchStatus">Click a button to load matches.</div>
-      <div class="match-pick-grid" id="cbzMatchList"></div>
-    </div>
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
-    <!-- Step 2: Fetch scorecard -->
-    <div class="cbz-section" id="cbzStep2" style="display:none;">
-      <div class="cbz-section-title">Step 2 — Load Scorecard</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:.84rem;font-weight:600;color:var(--txt);" id="cbzSelectedMatchLabel">—</div>
-          <div style="font-size:.70rem;color:var(--dim);margin-top:2px;" id="cbzSelectedMatchMeta"></div>
-        </div>
-        <button class="btn btn-sm" onclick="window.cbzFetchScorecard()" style="background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);width:auto;flex-shrink:0;">Fetch Scorecard</button>
-      </div>
-      <div class="cbz-status" id="cbzScorecardStatus"></div>
-    </div>
+:root {
+  /* ── Core palette: midnight with electric accents ── */
+  --bg: #0B0E14;
+  --bg2: #111520;
+  --bg3: #171D2B;
+  --surface: #1A2035;
+  --surface2: #1F2741;
+  --surface3: #243050;
 
-    <!-- Step 3: Preview & select innings -->
-    <div class="cbz-section" id="cbzStep3" style="display:none;">
-      <div class="cbz-section-title">Step 3 — Preview Innings</div>
-      <div id="cbzInningsButtons" style="display:none;"></div>
-      <div id="cbzPreview" style="overflow-x:auto;"></div>
-    </div>
-    <div class="cbz-section" id="cbzStep4" style="display:none;">
-      <div class="cbz-section-title">Step 4 — Send to Scorecards Tab</div>
-      <p style="font-size:.82rem;color:var(--dim);margin-bottom:12px;">Sends <strong style="color:var(--txt)">both innings combined</strong> to the Scorecards tab. Add dot balls there, then click <em>Save &amp; Push to All My Rooms</em>.</p>
-      <button class="btn btn-gold" onclick="window.cbzPushToRoom()" style="width:auto;padding:11px 28px;">Send to Scorecards Tab →</button>
-      <div class="cbz-status" id="cbzPushStatus"></div>
-    </div>
-    
-    
+  /* Glass layers */
+  --glass: rgba(26,32,53,0.65);
+  --glass2: rgba(31,39,65,0.80);
+  --glass3: rgba(36,48,80,0.90);
 
-    
-  </div>
-</div>
-<!-- All rooms list --><div class="card"><div class="card-hdr"><span class="card-title">️ All Rooms on Platform</span><button class="btn btn-ghost btn-sm" onclick="renderSuperAdminPanel()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button></div><div id="saRoomsList" style="padding:0;"><div class="empty" style="padding:20px;">Loading…</div></div></div></div></div><!-- AUCTION VIEW --><div id="auction-view" class="view"><div class="at"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="window.backToDashboard()">← Dashboard</button><span class="at-title" id="roomTitleDisplay">Loading...</span><span class="badge" id="roomRoleBadge"></span></div><button class="btn btn-outline btn-sm" onclick="window.copyInviteLink()">Copy Invite</button></div><!-- Stats strip --><div class="srow" id="statsRow" style="display:none;"><div class="spill"><div class="sval" id="stat-total">—</div><div class="slb">Total</div></div><div class="spill"><div class="sval" id="stat-avail">—</div><div class="slb">Available</div></div><div class="spill"><div class="sval" id="stat-sold">—</div><div class="slb">Sold</div></div><div class="spill"><div class="sval" id="stat-unsold">—</div><div class="slb">Unsold</div></div><div class="spill"><div class="sval" id="stat-teams">—</div><div class="slb">Teams</div></div></div><div class="anav"><button class="anav-btn active" id="btn-setup" onclick="window.switchTab('setup')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>Setup</button><button class="anav-btn" id="btn-auction" onclick="window.switchTab('auction')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Block</button><button class="anav-btn" id="btn-teams" onclick="window.switchTab('teams')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Purses</button><button class="anav-btn" id="btn-roster" onclick="window.switchTab('roster')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Ledger</button><button class="anav-btn" id="btn-points" onclick="window.switchTab('points')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Points</button><button class="anav-btn" id="btn-myteam" onclick="window.switchTab('myteam')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="21" x2="23" y2="19"/><line x1="19" y1="21" x2="19" y2="19"/><line x1="21" y1="17" x2="21" y2="23"/></svg>My Team</button><button class="anav-btn" id="btn-leaderboard" onclick="window.switchTab('leaderboard')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Leaderboard</button><button class="anav-btn" id="btn-players-season" onclick="window.switchTab('players-season')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Players</button><button class="anav-btn" id="btn-analytics" onclick="window.switchTab('analytics')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics</button><button class="anav-btn" id="btn-matches" onclick="window.switchTab('matches')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</button><button class="anav-btn" id="btn-schedule" onclick="window.switchTab('schedule')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Schedule</button><button class="anav-btn" id="btn-trades" onclick="window.switchTab('trades')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>Trades</button></div><!-- Setup Tab --><div id="setup-tab" class="card"><div class="card-hdr"><span class="card-title">Room Setup</span><span class="badge br">Admin Only</span></div><div class="card-bdy"><!-- Room config summary --><div id="setupConfigBox" style="margin-bottom:4px;"></div><!-- Join progress --><div class="jp-wrap"><div class="jp-header"><span class="jp-label">Teams Joined</span><span class="jp-count" id="jpCount">0 / 0</span></div><div class="jp-bar"><div id="jpBarFill" class="jp-fill" style="width:0%;"></div></div><div id="jpStatus" class="jp-status waiting">Waiting for teams to join…</div></div><!-- Admin register banner (shown until admin registers their team) --><div id="adminRegBanner" style="display:none;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><div style="font-weight:600;color:#c084fc;font-size:.88rem;">Register your own team to bid in this auction</div><div style="font-size:.78rem;color:var(--dim);margin-top:2px;">As admin you can also place bids — register your team name first.</div></div><button class="btn btn-sm" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.4);flex-shrink:0;width:auto;" onclick="window.adminRegisterTeam()">Register My Team →</button></div></div><!-- Initialize button — gated on all teams joined + admin registered --><button class="btn btn-gold" id="initBtn" onclick="window.initializeAuctionData()" disabled>Initialize Auction — Waiting for all teams…
- </button><p style="font-size:.78rem;color:var(--dim);margin-top:8px;" id="initHint">The button unlocks once all <strong id="initHintMax">?</strong>teams have joined and you've registered your own team.</p><!-- Registered teams list --><div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--b1);"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="slbl" style="margin-bottom:0;">Registered Teams <span id="memberCountBadge" class="badge bb" style="margin-left:6px;"></span></div></div><div id="membersList"><div class="empty">No teams yet — share the invite link!</div></div></div></div></div><!-- Auction Block Tab --><div id="auction-tab" class="card" style="display:none;"><div class="card-bdy"><!-- Live members bar --><div id="liveMembersBar" style="margin-bottom:14px;display:none;"><div class="slbl" style="margin-bottom:8px;">Live in Room</div><div id="liveMembersList" style="display:flex;gap:8px;flex-wrap:wrap;"></div></div><!-- My team indicator for members --><div class="my-team-badge" id="myTeamBadge" style="display:none;">Bidding as: <strong id="myTeamName">—</strong></div><!-- Admin: pull player controls --><div id="adminPullControls"><div class="fld"><label>Pull Specific Player</label><div style="display:flex;gap:8px;"><select id="manualPlayerSelect" style="flex:1;"><option value="">-- Select player --</option></select><button class="btn btn-outline btn-sm" style="width:auto;white-space:nowrap;" onclick="window.pullSpecificPlayer()">Call to Block</button></div></div></div><!-- Live bidder strip --><div class="bidder-strip" id="bidderStrip"><div class="bidder-dot"></div><span class="bidder-name" id="bidderName">—</span><span class="bidder-lbl">is the current highest bidder</span></div><!-- Auction block display --><div class="ablock" id="auctionBlockDisplay"><div style="color:var(--dim);padding:20px 0;">Waiting for auctioneer to call a player...</div></div><!-- Bidding controls (everyone can bid) --><div id="biddingControls" style="display:none;"><div class="bid-disp"><div class="bid-lbl">Current Bid (Cr)</div><div class="bid-amt" id="liveBidText">₹0.00</div></div><div class="qgrid" id="quickBidGrid"></div><!-- Not Interested strip — shows who has opted out --><div class="ni-strip" id="niStrip"><span style="color:var(--dim);font-size:.78rem;font-weight:600;white-space:nowrap;">Not interested:</span><div id="niTeamsList" style="display:flex;gap:6px;flex-wrap:wrap;"></div></div><!-- Not Interested button — for non-admin members (hidden for admin) --><div id="niControls" style="display:none;"><button class="ni-btn" id="niBtn" onclick="window.pressNotInterested()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Not Interested</button></div><!-- SOLD/Pass: admin only — winner auto-assigned to last bidder --><div id="adminSoldControls" style="display:none;"><div id="soldPreview" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:10px 14px;font-size:.85rem;color:var(--ok);margin-bottom:12px;display:none;">Will sell to: <strong id="soldPreviewName">—</strong></div><div class="agrid"><button class="btn btn-success" style="font-size:1rem;padding:15px;" onclick="window.sellPlayer()">SOLD</button><button class="btn btn-danger" onclick="window.markUnsold()">Pass / Unsold</button></div></div></div><!-- Admin: random player --><div id="adminRandomBtn" style="margin-top:16px;"><button class="btn btn-ghost" onclick="window.pullRandomPlayer()">Random Player</button></div></div></div><!-- Teams Tab --><div id="teams-tab" style="display:none;"><div class="tgrid" id="teamGrid"><div class="empty">Initialize the auction first.</div></div></div><!-- Roster / Ledger Tab --><div id="roster-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Full Player Ledger</span><div style="display:flex;gap:8px;align-items:center;"><span id="rosterCount" class="badge bb"></span><button class="btn btn-info btn-sm" onclick="window.downloadCSV()">Download CSV</button></div></div><div class="search-bar"><input type="text" id="searchInp" placeholder="Search player or team..." oninput="window.filterLedger()" style="flex:2;"><select id="filterRole" onchange="window.filterLedger()" style="width:140px;"><option value="">All Roles</option><option>Batter</option><option>Bowler</option><option>All-rounder</option><option>Wicketkeeper</option></select><select id="filterIPLTeam" onchange="window.filterLedger()" style="width:110px;"><option value="">All Teams</option><option>CSK</option><option>MI</option><option>KKR</option><option>RCB</option><option>PBKS</option><option>GT</option><option>RR</option><option>SRH</option><option>LSG</option><option>DC</option></select><select id="filterOrigin" onchange="window.filterLedger()" style="width:120px;"><option value="">All Origin</option><option value="Indian">🇮🇳 Indian</option><option value="Overseas">🌍 Overseas</option></select><select id="filterStatus" onchange="window.filterLedger()" style="width:130px;"><option value="">All Status</option><option value="available">Available</option><option value="sold">Sold</option><option value="unsold">Unsold</option></select></div><div class="twrap"><table><thead><tr><th>#</th><th>Player</th><th>IPL Team</th><th>Role</th><th>Type</th><th>Base (Cr)</th><th>Status</th><th>Sold (Cr)</th><th>Buyer</th></tr></thead><tbody id="rosterTbody"></tbody></table></div></div><!-- ════ POINTS TAB ════ --><div id="points-tab" style="display:none;"><!-- Admin: add match scorecard --><div class="pts-card" id="addMatchCard" style="display:none;"><div class="pts-hdr"><span class="pts-title">📥 Enter Match Scorecard</span><span class="badge bb">Admin Only</span></div><!-- ── GEMINI SCORECARD PARSER ── --><div class="ai-parse-box" style="margin:16px 20px 0;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;"><div class="ai-parse-title">Gemini Scorecard Parser</div><span class="badge bb" style="font-size:.68rem;">Firebase AI Logic</span></div><div class="ai-parse-sub">Upload 1–4 scorecard screenshots (MI innings, CSK innings, summary page etc). Gemini reads all of them together and fills the form automatically.</div><!-- Multi-file drop zone --><div id="scDropZone" onclick="document.getElementById('scFiles').click()"
- style="border:2px dashed rgba(99,102,241,.35);border-radius:var(--rl);padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:rgba(99,102,241,.04);"
- ondragover="event.preventDefault();this.style.borderColor='rgba(99,102,241,.7)'"
- ondragleave="this.style.borderColor='rgba(99,102,241,.35)'"
- ondrop="event.preventDefault();this.style.borderColor='rgba(99,102,241,.35)';window.handleScFiles(event.dataTransfer.files)"><div style="font-size:2rem;margin-bottom:6px;"></div><div style="font-weight:600;color:#a5b4fc;font-size:.9rem;">Click or drag &amp; drop screenshots here</div><div style="font-size:.75rem;color:var(--dim);margin-top:4px;">PNG · JPG · WEBP · up to 4 files · all innings in one go</div></div><input type="file" id="scFiles" accept="image/*" multiple style="display:none" onchange="window.handleScFiles(this.files)"><!-- Preview thumbnails --><div id="scThumbRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div><!-- Match label + parse button --><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" id="matchLabel" placeholder="Match label e.g. CSK vs MI – Mar 23 (auto-filled)" style="flex:1;min-width:180px;padding:9px 12px;font-size:.85rem;"><button id="geminiParseBtn" onclick="window.parseWithGemini()" style="background:linear-gradient(135deg,#4f7fff,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:var(--r);font-family:var(--f);font-size:15px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .2s;">Parse with Gemini</button></div><div class="ai-status" id="aiStatus" style="margin-top:8px;"></div><!-- Fallback JSON paste --><details style="margin-top:14px;"><summary style="font-size:.78rem;color:var(--dim);cursor:pointer;user-select:none;">Or paste JSON manually (fallback)</summary><textarea id="scJsonInput" class="sc-textarea" style="min-height:100px;font-family:monospace;font-size:.76rem;margin-top:8px;" placeholder='{"matchLabel":"...","winner":"CSK","motm":"Noor Ahmad","result":"normal","batting":[...],"bowling":[...],"fielding":[]}'></textarea><button onclick="window.importFromJson()" style="margin-top:6px;background:var(--surface);border:1px solid var(--b1);color:var(--txt);border-radius:var(--r);padding:7px 14px;font-size:.8rem;cursor:pointer;font-family:var(--f);">📥 Import JSON</button></details></div><!-- Manual form (auto-populated by AI, also editable manually) --><div style="padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;"><span style="font-size:.8rem;color:var(--dim);">Review and edit the data below before saving.</span><button class="btn btn-ghost btn-sm" onclick="window.toggleMatchForm()">▼ Expand / Collapse form</button></div><div id="matchFormBody" style="display:none;"><!-- Match meta --><div class="match-form"><div class="fld"><label>Winning IPL Team</label><input type="text" id="mfWinner" placeholder="e.g. MI"></div><div class="fld"><label>Man of the Match</label><input type="text" id="mfMotm" placeholder="Player name"></div><div class="fld"><label>Result</label><select id="mfResult"><option value="normal">Normal Result</option><option value="noresult">No Result (abandoned)</option><option value="superover">Super Over</option></select></div></div><div class="section-hdr">BATTING PERFORMANCES</div><div id="battingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addBattingRow()">+ Add Batter</button></div><div class="section-hdr">BOWLING PERFORMANCES</div><div id="bowlingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addBowlingRow()">+ Add Bowler</button></div><div class="section-hdr">FIELDING — CATCHES / STUMPINGS / RUN-OUTS</div><div id="fieldingRows"></div><div style="padding:10px 20px;border-bottom:1px solid var(--b1);"><button class="btn btn-ghost btn-sm" onclick="window.addFieldingRow()">+ Add Fielder</button></div><div style="padding:16px 20px;display:flex;gap:10px;"><button class="btn btn-gold" onclick="window.submitMatch()" style="max-width:220px;">Calculate &amp; Save Points</button><button class="btn btn-ghost btn-sm" onclick="window.previewPoints()">Preview First</button></div></div></div>
-<!-- Points preview modal result --><div id="previewBox" style="display:none;background:var(--bg2);border:1px solid var(--b0);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;"><div style="font-family:var(--f);font-size:18px;color:var(--accent);margin-bottom:10px;">Points Preview</div><div id="previewContent"></div><button class="btn btn-gold" onclick="window.submitMatch(true)" style="max-width:180px;margin-top:12px;">Confirm &amp; Save</button></div><!-- Match history selector --><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Player Points</span><div style="display:flex;gap:8px;align-items:center;"><select id="matchFilter" onchange="window.renderPointsTab()" style="padding:8px 12px;font-size:.83rem;width:180px;"><option value="all">All Matches (Total)</option></select><button class="btn btn-info btn-sm" onclick="window.downloadPointsCSV()">CSV</button></div></div><div class="twrap"><table><thead><tr><th>#</th><th>Player</th><th>IPL Team</th><th>Owned By</th><th>Role</th><th>Matches</th><th>Points</th><th>History</th></tr></thead><tbody id="pointsTbody"></tbody></table></div></div></div>
-<!-- ════ MY TEAM TAB ════ -->
-<!-- MY TEAM TAB -->
-<!-- MY TEAM TAB -->
-<div id="myteam-tab" style="display:none;">
-  <div class="pts-card">
-    <div class="pts-hdr">
-      <span class="pts-title">My Team</span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button id="mt_undo_A" onclick="window.mt_undo_A()" style="display:none;padding:5px 12px;font-size:.80rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);">↩ Undo</button>
-        <button onclick="window.mt_save_A()" style="padding:6px 16px;font-size:.82rem;border-radius:var(--r);border:none;background:var(--accent);color:#fff;cursor:pointer;font-family:var(--f);font-weight:600;">Save Squad</button>
-        <button id="mt_lock_btn_A" onclick="window.toggleSquadLock_A()" style="display:none;padding:6px 16px;font-size:.82rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);font-weight:600;">Lock Changes</button>
-      </div>
-    </div>
-    <div style="padding:10px 16px;border-bottom:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <span id="mt_xi_A"    style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(108,84,200,.12);color:var(--accent);border:1px solid var(--accent-glow2);">XI: 0/11</span>
-      <span id="mt_bench_A" style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.2);">Bench: 0/5</span>
-      <span id="mt_res_A"   style="font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:20px;background:var(--b1);color:var(--txt2);border:1px solid var(--b2);">Reserves: 0</span>
-      <span style="font-size:.72rem;color:var(--dim);margin-left:auto;">XI + Bench score · Reserves earn 0</span>
-    </div>
-    <div id="mt_val_A" style="display:none;padding:6px 16px;font-size:.79rem;color:var(--err);font-weight:500;"></div>
-    <div id="mt_body_A" style="padding:12px;"><div style="padding:20px;text-align:center;color:var(--dim);">Loading…</div></div>
-  </div>
-</div>
-<!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div><div id="leaderboardBody"></div></div></div>
-<div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
-<!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div>
-<!-- SCHEDULE TAB -->
-<div id="schedule-tab" style="display:none;">
-<div class="pts-card">
-<div class="pts-hdr"><span class="pts-title">IPL 2026 Schedule</span><span style="font-size:.78rem;color:var(--dim);">20 Matches</span></div>
-<div id="scheduleBody" style="padding:8px;"></div>
-</div></div>
-<!-- ════ TRADES TAB ════ -->
-<div id="trades-tab" style="display:none;">
-<div class="pts-card">
-<div class="pts-hdr"><span class="pts-title">Trade Center</span><span style="font-size:.78rem;color:var(--dim);">Propose and manage multi-player trades</span></div>
+  /* Borders */
+  --b0: rgba(255,255,255,0.03);
+  --b1: rgba(255,255,255,0.06);
+  --b2: rgba(255,255,255,0.10);
+  --b3: rgba(255,255,255,0.16);
 
-<!-- Propose Trade Form -->
-<div style="padding:16px;">
-<div style="font-weight:600;font-size:.88rem;color:var(--txt);margin-bottom:12px;">Propose a Trade</div>
-<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start;">
+  /* Shadows */
+  --sh0: 0 1px 3px rgba(0,0,0,0.4);
+  --sh1: 0 4px 12px rgba(0,0,0,0.5);
+  --sh2: 0 8px 32px rgba(0,0,0,0.6);
+  --sh3: 0 16px 64px rgba(0,0,0,0.7);
 
-<!-- Your side -->
-<div style="background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);padding:12px;">
-<div style="font-size:.78rem;font-weight:600;color:var(--accent);margin-bottom:8px;">You Send</div>
-<div id="tradeSendList" style="min-height:40px;margin-bottom:8px;"></div>
-<select id="tradeSendSelect" style="width:100%;padding:8px;font-size:.82rem;border:1px solid var(--b1);border-radius:var(--r);background:var(--surface2);color:var(--txt);font-family:var(--f);">
-<option value="">-- Select player to send --</option>
-</select>
-<button onclick="window.addTradePlayer('send')" style="margin-top:6px;padding:5px 12px;font-size:.76rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);">+ Add</button>
-</div>
+  /* Accents: electric indigo + warm orange */
+  --accent: #6366F1;
+  --accent-light: #818CF8;
+  --accent-glow: rgba(99,102,241,0.15);
+  --accent-glow2: rgba(99,102,241,0.25);
+  --accent-border: rgba(99,102,241,0.30);
+  --hot: #F59E0B;
+  --hot-glow: rgba(245,158,11,0.12);
 
-<div style="display:flex;align-items:center;font-size:1.5rem;color:var(--dim);padding-top:30px;">&#8596;</div>
+  /* Semantic */
+  --ok: #34D399;
+  --ok-bg: rgba(52,211,153,0.08);
+  --ok-border: rgba(52,211,153,0.20);
+  --err: #F87171;
+  --err-bg: rgba(248,113,113,0.08);
+  --err-border: rgba(248,113,113,0.20);
+  --warn: #FBBF24;
+  --warn-bg: rgba(251,191,36,0.08);
+  --warn-border: rgba(251,191,36,0.20);
 
-<!-- Their side -->
-<div style="background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);padding:12px;">
-<div style="font-size:.78rem;font-weight:600;color:var(--accent);margin-bottom:8px;">You Receive</div>
-<div style="margin-bottom:8px;">
-<select id="tradePartnerSelect" onchange="window.loadPartnerPlayers()" style="width:100%;padding:8px;font-size:.82rem;border:1px solid var(--b1);border-radius:var(--r);background:var(--surface2);color:var(--txt);font-family:var(--f);margin-bottom:6px;">
-<option value="">-- Select trade partner --</option>
-</select>
-</div>
-<div id="tradeReceiveList" style="min-height:40px;margin-bottom:8px;"></div>
-<select id="tradeReceiveSelect" style="width:100%;padding:8px;font-size:.82rem;border:1px solid var(--b1);border-radius:var(--r);background:var(--surface2);color:var(--txt);font-family:var(--f);">
-<option value="">-- Select player to receive --</option>
-</select>
-<button onclick="window.addTradePlayer('receive')" style="margin-top:6px;padding:5px 12px;font-size:.76rem;border-radius:var(--r);border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);">+ Add</button>
-</div>
-</div>
+  /* Text */
+  --txt: #F1F5F9;
+  --txt2: #CBD5E1;
+  --dim: #64748B;
+  --dim2: #475569;
 
-<div style="margin-top:14px;display:flex;gap:10px;">
-<button class="btn btn-gold" onclick="window.proposeTrade()" style="max-width:220px;">Propose Trade</button>
-<button class="btn btn-ghost btn-sm" onclick="window.clearTradeForm()" style="width:auto;">Clear</button>
-</div>
-</div>
+  /* Typography */
+  --f: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'Space Mono', 'SF Mono', monospace;
 
-<!-- Pending Trades -->
-<div style="border-top:1px solid var(--b1);padding:16px;">
-<div style="font-weight:600;font-size:.88rem;color:var(--txt);margin-bottom:12px;">Pending Trades</div>
-<div id="pendingTradesList"><div class="empty">No pending trades.</div></div>
-</div>
+  /* Radii */
+  --r: 10px;
+  --rl: 14px;
+  --rxl: 20px;
+  --round: 9999px;
 
-<!-- Trade History -->
-<div style="border-top:1px solid var(--b1);padding:16px;">
-<div style="font-weight:600;font-size:.88rem;color:var(--txt);margin-bottom:12px;">Trade History</div>
-<div id="tradeHistoryList"><div class="empty">No completed trades yet.</div></div>
-</div>
-</div>
-</div>
+  /* Timing */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
-</div><!-- /auction-view --></div><!-- /content -->
-</div><!-- /app-shell -->
-<script type="module" src="app.js"></script>
-</body>
-</html>
+/* ── Light mode override ── */
+body.light {
+  --bg: #F8FAFC; --bg2: #F1F5F9; --bg3: #E2E8F0;
+  --surface: #FFFFFF; --surface2: #F8FAFC; --surface3: #F1F5F9;
+  --glass: rgba(255,255,255,0.75); --glass2: rgba(255,255,255,0.88); --glass3: rgba(255,255,255,0.95);
+  --b0: rgba(0,0,0,0.03); --b1: rgba(0,0,0,0.06); --b2: rgba(0,0,0,0.10); --b3: rgba(0,0,0,0.15);
+  --sh0: 0 1px 3px rgba(0,0,0,0.06); --sh1: 0 4px 12px rgba(0,0,0,0.08);
+  --sh2: 0 8px 32px rgba(0,0,0,0.10); --sh3: 0 16px 64px rgba(0,0,0,0.12);
+  --txt: #0F172A; --txt2: #334155; --dim: #94A3B8; --dim2: #64748B;
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { overflow-x: hidden; }
+
+body {
+  font-family: var(--f);
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  max-width: 100vw;
+}
+
+/* Ambient background mesh */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 10%, rgba(99,102,241,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 45% at 85% 80%, rgba(245,158,11,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(99,102,241,0.03) 0%, transparent 50%);
+}
+
+::selection { background: rgba(99,102,241,0.25); }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: var(--dim2); border-radius: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ═══════════════════════════════════════
+   TOAST / ALERTS
+   ═══════════════════════════════════════ */
+#toast {
+  position: fixed; top: 20px; left: 50%;
+  transform: translateX(-50%) translateY(-120px);
+  background: var(--surface2);
+  border: 1px solid var(--b2);
+  border-radius: var(--round);
+  padding: 10px 20px;
+  font-size: .82rem; font-weight: 500; color: var(--txt);
+  display: flex; align-items: center; gap: 10px;
+  z-index: 9999;
+  transition: transform .4s var(--bounce);
+  max-width: 90vw;
+  box-shadow: var(--sh2);
+  backdrop-filter: blur(20px);
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+.tdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+#toast.ok .tdot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+#toast.err .tdot { background: var(--err); box-shadow: 0 0 8px var(--err); }
+#toast.info .tdot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* ═══════════════════════════════════════
+   VIEW SYSTEM
+   ═══════════════════════════════════════ */
+.view { display: none; overflow: hidden; max-width: 100%; }
+.view.active { display: block; animation: viewIn .35s var(--ease) both; overflow-x: hidden; }
+
+/* Auction room tabs — hidden tabs must be fully contained */
+[id$="-tab"] { overflow: hidden; max-width: 100%; }
+[id$="-tab"][style*="display:none"], [id$="-tab"][style*="display: none"] {
+  overflow: hidden !important;
+  max-height: 0 !important;
+  visibility: hidden !important;
+}
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════
+   AUTH VIEW — CINEMATIC SIGN-IN
+   ═══════════════════════════════════════ */
+#auth-view {
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  z-index: 200;
+  background: var(--bg);
+  overflow: hidden;
+}
+#auth-view.active { display: flex; }
+
+/* Animated background orbs */
+#auth-view::before {
+  content: '';
+  position: absolute; inset: -50%;
+  background:
+    radial-gradient(circle 400px at 20% 30%, rgba(99,102,241,0.15) 0%, transparent 70%),
+    radial-gradient(circle 350px at 80% 70%, rgba(245,158,11,0.10) 0%, transparent 70%),
+    radial-gradient(circle 300px at 50% 50%, rgba(99,102,241,0.05) 0%, transparent 60%);
+  animation: authOrbs 20s ease-in-out infinite alternate;
+}
+@keyframes authOrbs {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-3%, 5%) scale(1.05); }
+  100% { transform: translate(3%, -3%) scale(0.97); }
+}
+
+.auth-card {
+  position: relative;
+  width: 100%; max-width: 420px;
+  background: var(--glass2);
+  backdrop-filter: blur(40px) saturate(1.5);
+  -webkit-backdrop-filter: blur(40px) saturate(1.5);
+  border: 1px solid var(--b2);
+  border-radius: var(--rxl);
+  overflow: hidden;
+  box-shadow: var(--sh3);
+  animation: authCardIn .6s var(--ease) both;
+  margin: 20px;
+  max-height: 95vh;
+  overflow-y: auto;
+}
+@keyframes authCardIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-hdr {
+  padding: 40px 32px 28px;
+  text-align: center;
+  border-bottom: 1px solid var(--b1);
+  background: linear-gradient(180deg, rgba(99,102,241,0.06) 0%, transparent 100%);
+}
+
+.auth-logo {
+  width: 56px; height: 56px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px;
+  color: var(--accent-light);
+  font-size: 24px;
+}
+
+.auth-brand {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--txt);
+  letter-spacing: -0.03em;
+}
+.auth-brand span { color: var(--accent-light); }
+
+.auth-tag {
+  font-size: .75rem;
+  color: var(--dim);
+  margin-top: 6px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.auth-bdy { padding: 28px 32px; }
+.auth-lbl { font-size: .88rem; font-weight: 500; color: var(--txt2); margin-bottom: 20px; }
+.pw-hint { font-size: .72rem; color: var(--dim); margin-top: 4px; }
+
+/* ═══════════════════════════════════════
+   FORM FIELDS
+   ═══════════════════════════════════════ */
+.fld { margin-bottom: 14px; }
+.fld label {
+  display: block;
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--dim);
+  margin-bottom: 5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+input[type=text], input[type=email], input[type=password],
+input[type=number], select, textarea {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--b2);
+  border-radius: var(--r);
+  color: var(--txt);
+  font-family: var(--f);
+  font-size: .88rem;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: var(--surface2);
+}
+input::placeholder, textarea::placeholder { color: var(--dim2); }
+select option { background: var(--surface); color: var(--txt); }
+
+/* ═══════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 11px 18px;
+  border: none; border-radius: var(--r);
+  font-family: var(--f); font-size: .85rem; font-weight: 600;
+  cursor: pointer;
+  transition: all .2s var(--ease);
+  letter-spacing: -0.01em;
+  position: relative;
+  overflow: hidden;
+}
+.btn:active { transform: scale(0.97); }
+.btn svg { flex-shrink: 0; }
+
+.btn-gold {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 16px rgba(99,102,241,0.35);
+}
+.btn-gold:hover {
+  background: var(--accent-light);
+  box-shadow: 0 4px 24px rgba(99,102,241,0.45);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--b2);
+  color: var(--txt2);
+}
+.btn-outline:hover { background: var(--surface); border-color: var(--b3); color: var(--txt); }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--b1);
+  color: var(--dim);
+}
+.btn-ghost:hover { background: var(--surface); color: var(--txt); }
+
+.btn-danger { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-border); }
+.btn-danger:hover { background: rgba(248,113,113,0.15); }
+.btn-success { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-border); }
+.btn-info { background: var(--accent-glow); color: var(--accent-light); border: 1px solid var(--accent-border); }
+.btn-sm { padding: 7px 14px; font-size: .78rem; width: auto; }
+.btn-white { background: #fff; color: #0F172A; border: 1px solid rgba(255,255,255,0.2); }
+
+.divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0; color: var(--dim); font-size: .72rem;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: var(--b1);
+}
+
+.tbtn {
+  background: none; border: none;
+  color: var(--accent-light); font-size: .82rem;
+  cursor: pointer; font-family: var(--f); padding: 0; font-weight: 600;
+}
+.tbtn:hover { color: var(--accent); text-decoration: underline; }
+
+/* ═══════════════════════════════════════
+   APP SHELL — TOPBAR + SIDEBAR LAYOUT
+   ═══════════════════════════════════════ */
+#app-shell { display: none; flex-direction: column; min-height: 100vh; overflow-x: hidden; max-width: 100vw; }
+#app-shell.active { display: flex; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(11,14,20,0.85);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-bottom: 1px solid var(--b1);
+  position: sticky; top: 0; z-index: 100;
+}
+body.light .topbar { background: rgba(248,250,252,0.85); }
+
+.tb-left { display: flex; align-items: center; gap: 12px; }
+.tb-logo {
+  width: 32px; height: 32px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent-light);
+  font-size: 14px;
+  font-weight: 900;
+  font-family: var(--mono);
+}
+.tb-title {
+  font-size: 15px; font-weight: 700; color: var(--txt);
+  letter-spacing: -0.02em;
+}
+.tb-user {
+  font-size: .68rem; color: var(--dim);
+  margin-top: 1px;
+}
+.tb-right { display: flex; align-items: center; gap: 8px; }
+
+/* Theme toggle */
+.theme-toggle {
+  width: 36px; height: 36px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+  color: var(--dim);
+}
+.theme-toggle:hover { background: var(--surface2); color: var(--txt); border-color: var(--b2); }
+
+.content {
+  flex: 1; padding: 20px;
+  max-width: 1080px;
+  margin: 0 auto; width: 100%;
+  position: relative; z-index: 1;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* ═══════════════════════════════════════
+   DASHBOARD TABS — SEGMENTED CONTROL
+   ═══════════════════════════════════════ */
+.dtabs {
+  display: inline-flex; gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl); padding: 4px;
+  margin-bottom: 24px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.dtabs::-webkit-scrollbar { display: none; }
+
+.dtab {
+  padding: 9px 16px;
+  border: none; border-radius: var(--r);
+  background: transparent;
+  color: var(--dim);
+  font-family: var(--f); font-size: .78rem; font-weight: 600;
+  cursor: pointer;
+  transition: all .2s var(--ease);
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.dtab:hover { color: var(--txt2); background: var(--b0); }
+.dtab.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+}
+.dtab svg { width: 14px; height: 14px; }
+
+/* ═══════════════════════════════════════
+   CARDS — CLEAN PANELS
+   ═══════════════════════════════════════ */
+.card, .pts-card, .tcard {
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  overflow: hidden;
+  margin-bottom: 16px;
+  transition: all .25s var(--ease);
+  max-width: 100%;
+}
+.card:hover { border-color: var(--b2); }
+
+.card-hdr, .pts-hdr {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--b1);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+  background: var(--b0);
+}
+.card-title, .pts-title {
+  font-size: .88rem; font-weight: 700;
+  color: var(--txt); letter-spacing: -0.02em;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-bdy { padding: 20px; }
+
+/* ═══════════════════════════════════════
+   ROOM CARDS — INTERACTIVE LIST ITEMS
+   ═══════════════════════════════════════ */
+.rc {
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer;
+  transition: all .2s var(--ease);
+}
+.rc:hover {
+  background: var(--surface2);
+  border-color: var(--accent-border);
+  transform: translateX(4px);
+  box-shadow: var(--sh1);
+}
+.rc-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px; flex-shrink: 0;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent-light);
+  font-size: 16px;
+}
+.rc-info { flex: 1; min-width: 0; }
+.rc-name {
+  font-weight: 700; font-size: .88rem; color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rc-meta { font-size: .70rem; color: var(--dim); margin-top: 3px; }
+.rc-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════
+   BADGES
+   ═══════════════════════════════════════ */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: var(--round);
+  font-size: .67rem; font-weight: 600;
+}
+.bg { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.bb { background: var(--accent-glow); color: var(--accent-light); border: 1px solid var(--accent-border); }
+.bs { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-border); }
+.br { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-border); }
+.bpu { background: rgba(139,92,246,0.10); color: #A78BFA; border: 1px solid rgba(139,92,246,0.25); }
+
+/* ═══════════════════════════════════════
+   AUCTION ROOM — HEADER + STATS
+   ═══════════════════════════════════════ */
+.at {
+  padding: 12px 0 20px;
+  border-bottom: 1px solid var(--b1);
+  margin-bottom: 0;
+}
+
+.at-title {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--txt);
+  letter-spacing: -0.03em;
+}
+
+/* Stats strip */
+.srow {
+  display: flex; gap: 10px;
+  margin: 16px 0 20px;
+  flex-wrap: wrap;
+}
+.spill {
+  flex: 1; min-width: 100px;
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  padding: 16px 14px;
+  text-align: center;
+  transition: all .2s var(--ease);
+}
+.spill:hover { border-color: var(--b2); transform: translateY(-2px); }
+
+.sval {
+  font-family: var(--mono);
+  font-size: 24px; font-weight: 700;
+  color: var(--txt);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.slb {
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: var(--dim);
+  margin-top: 5px;
+}
+.slbl { font-size:.70rem;font-weight:600;color:var(--dim2);margin-bottom:8px; }
+
+/* ═══════════════════════════════════════
+   NAVIGATION — AUCTION ROOM TABS
+   Horizontal scrollable pill bar
+   ═══════════════════════════════════════ */
+.anav {
+  display: flex;
+  gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  padding: 4px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.anav::-webkit-scrollbar { display: none; }
+
+.anav-btn {
+  font-family: var(--f);
+  font-size: .76rem;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: var(--r);
+  color: var(--dim);
+  transition: all .2s var(--ease);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+}
+.anav-btn svg { width: 14px; height: 14px; opacity: 0.6; }
+.anav-btn:hover { color: var(--txt2); background: var(--b0); }
+
+.anav-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+}
+.anav-btn.active svg { opacity: 1; }
+
+/* ═══════════════════════════════════════
+   AUCTION BLOCK — THE STAGE
+   ═══════════════════════════════════════ */
+.ablock {
+  text-align: center;
+  padding: 40px 20px;
+  min-height: 200px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative;
+}
+.ablock.live {
+  background: linear-gradient(180deg, rgba(99,102,241,0.05) 0%, transparent 60%);
+}
+
+.pname {
+  font-family: var(--f);
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--txt);
+  letter-spacing: -0.03em;
+  animation: playerIn .4s var(--ease) both;
+}
+@keyframes playerIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ptags {
+  display: flex; gap: 8px; margin-top: 12px;
+  justify-content: center; flex-wrap: wrap;
+}
+.ptag {
+  padding: 4px 12px;
+  border-radius: var(--round);
+  font-size: .72rem;
+  font-weight: 600;
+  background: var(--surface2);
+  border: 1px solid var(--b2);
+  color: var(--txt2);
+}
+.ptag.ov { background: var(--hot-glow); color: var(--hot); border-color: rgba(245,158,11,0.25); }
+.ptag.in { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-border); }
+
+.base-lbl {
+  margin-top: 16px;
+  font-size: .82rem;
+  color: var(--dim);
+  font-weight: 500;
+}
+
+/* Bid display */
+.bid-disp {
+  text-align: center;
+  margin: 20px 0 16px;
+}
+.bid-lbl {
+  font-size: .68rem; font-weight: 600;
+  color: var(--dim); text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.bid-amt {
+  font-family: var(--mono);
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+/* Quick bid grid */
+.qgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-width: 400px;
+  margin: 0 auto 20px;
+}
+.qbtn {
+  padding: 12px 8px;
+  border: 1.5px solid var(--accent-border);
+  border-radius: var(--r);
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  font-family: var(--mono);
+  font-size: .88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s var(--ease);
+}
+.qbtn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+  transform: scale(1.03);
+  box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+}
+.qbtn:active:not(:disabled) { transform: scale(0.97); }
+.qbtn-blocked, .qbtn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  border-color: var(--b1);
+  background: var(--b0);
+  color: var(--dim2);
+}
+
+/* Bidder strip */
+.bidder-strip {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 16px;
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: var(--round);
+  font-size: .82rem;
+  margin-bottom: 16px;
+  opacity: 0; transform: translateY(-8px);
+  transition: all .3s var(--ease);
+}
+.bidder-strip.show { opacity: 1; transform: translateY(0); }
+.bidder-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.bidder-name { font-weight: 700; color: var(--ok); }
+.bidder-lbl { color: var(--dim); }
+
+/* Not Interested */
+.ni-strip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: var(--err-bg);
+  border: 1px solid var(--err-border);
+  border-radius: var(--r);
+  margin: 10px 0;
+  opacity: 0; transform: translateY(-6px);
+  transition: all .3s var(--ease);
+  flex-wrap: wrap;
+}
+.ni-strip.show { opacity: 1; transform: translateY(0); }
+.ni-team-badge {
+  font-size: .72rem; font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--round);
+  background: rgba(248,113,113,0.12);
+  color: var(--err);
+  border: 1px solid rgba(248,113,113,0.2);
+}
+.ni-btn {
+  padding: 8px 16px;
+  border: 1.5px solid var(--err-border);
+  border-radius: var(--r);
+  background: var(--err-bg);
+  color: var(--err);
+  font-family: var(--f); font-size: .82rem; font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.ni-btn:hover { background: rgba(248,113,113,0.15); }
+.ni-btn.pressed { opacity: 0.5; cursor: default; }
+
+/* Admin grid */
+.agrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Sold/UNSOLD animations */
+.sold-text {
+  font-family: var(--f);
+  font-size: 2.8rem;
+  font-weight: 900;
+  animation: slamIn .4s var(--bounce) both;
+}
+@keyframes slamIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* My team badge */
+.my-team-badge {
+  display: none; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--round);
+  font-size: .82rem; font-weight: 500;
+  color: var(--accent-light);
+  margin-bottom: 16px;
+}
+
+/* ═══════════════════════════════════════
+   TEAM PURSE CARDS
+   ═══════════════════════════════════════ */
+.tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+
+.tcard {
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  overflow: hidden;
+}
+.tcard-hdr {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--b1);
+  background: var(--b0);
+}
+.tcard-hdr-top {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.tname {
+  font-size: 15px; font-weight: 800;
+  color: var(--txt); letter-spacing: -0.02em;
+}
+
+.tcard-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.tpill {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  min-width: 76px; flex: 1;
+}
+.tpill-val {
+  font-family: var(--mono);
+  font-size: 17px; font-weight: 700;
+  letter-spacing: -0.03em; line-height: 1;
+}
+.tpill-lbl {
+  font-size: .58rem; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 4px; opacity: 0.75;
+}
+.tpill.purse-left { background: var(--accent-glow); border: 1px solid var(--accent-border); }
+.tpill.purse-left .tpill-val { color: var(--accent-light); }
+.tpill.purse-left .tpill-lbl { color: var(--accent-light); }
+.tpill.purse-spent { background: var(--ok-bg); border: 1px solid var(--ok-border); }
+.tpill.purse-spent .tpill-val { color: var(--ok); }
+.tpill.purse-spent .tpill-lbl { color: var(--ok); }
+.tpill.purse-players { background: var(--b0); border: 1px solid var(--b1); }
+.tpill.purse-players .tpill-val { color: var(--txt); }
+.tpill.purse-players .tpill-lbl { color: var(--dim); }
+.tpill.purse-remaining { background: var(--warn-bg); border: 1px solid var(--warn-border); }
+.tpill.purse-remaining .tpill-val { color: var(--warn); }
+.tpill.purse-remaining .tpill-lbl { color: var(--warn); }
+
+.troster { list-style: none; padding: 0; margin: 0; }
+.troster li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--b0);
+  font-size: .84rem;
+  transition: background .15s;
+}
+.troster li:last-child { border-bottom: none; }
+.troster li:hover { background: var(--b0); }
+.rrole { font-size: .72rem; color: var(--dim); margin-top: 2px; }
+
+.rel-btn {
+  background: var(--err-bg);
+  border: 1px solid var(--err-border);
+  color: var(--err);
+  padding: 4px 10px;
+  border-radius: var(--round);
+  font-size: .70rem; font-weight: 600;
+  cursor: pointer;
+  font-family: var(--f);
+  transition: all .15s;
+  display: flex; align-items: center; gap: 4px;
+  white-space: nowrap;
+}
+.rel-btn:hover { background: rgba(248,113,113,0.15); }
+
+.iplteam-pill {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: .62rem; font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-left: 6px;
+  vertical-align: middle;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-light);
+}
+
+/* ═══════════════════════════════════════
+   TABLES
+   ═══════════════════════════════════════ */
+.twrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+table { width: 100%; border-collapse: collapse; table-layout: auto; }
+thead th {
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--dim);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--b2);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky; top: 0;
+  background: var(--surface);
+}
+tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--b0);
+  font-size: .82rem;
+  color: var(--txt2);
+}
+tbody tr { transition: background .15s; }
+tbody tr:hover { background: var(--accent-glow); }
+
+/* Search bar */
+.search-bar {
+  display: flex; gap: 8px; padding: 12px 16px;
+  border-bottom: 1px solid var(--b1);
+  flex-wrap: wrap; align-items: center;
+  background: var(--b0);
+}
+.search-bar input, .search-bar select {
+  padding: 8px 12px; font-size: .82rem;
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--r);
+  color: var(--txt); font-family: var(--f);
+}
+
+/* ═══════════════════════════════════════
+   LEADERBOARD
+   ═══════════════════════════════════════ */
+.lb-row {
+  display: flex; align-items: center; gap: 14px;
+  border-radius: var(--r);
+  padding: 14px 18px;
+  margin-bottom: 6px;
+  background: var(--surface);
+  border: 1px solid var(--b0);
+  transition: all .2s var(--ease);
+}
+.lb-row:hover {
+  background: var(--surface2);
+  border-color: var(--accent-border);
+  transform: translateX(4px);
+}
+.lb-team { font-weight: 800; font-size: .92rem; color: var(--txt); }
+.lb-meta { font-size: .72rem; color: var(--dim); margin-top: 3px; }
+.lb-pts {
+  font-family: var(--mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  min-width: 64px;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════
+   SETUP TAB
+   ═══════════════════════════════════════ */
+.setup-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px; margin-bottom: 20px;
+}
+.setup-stat {
+  background: var(--surface2);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  padding: 16px 14px;
+  text-align: center;
+}
+.setup-stat-val {
+  font-family: var(--mono);
+  font-size: 20px; font-weight: 700;
+  color: var(--txt);
+  letter-spacing: -0.03em; line-height: 1;
+}
+.setup-stat-lbl {
+  font-size: .58rem; font-weight: 700;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 5px;
+}
+
+/* Join progress */
+.jp-wrap { margin-bottom: 20px; }
+.jp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.jp-label {
+  font-size: .70rem; font-weight: 700;
+  color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.jp-count {
+  font-family: var(--mono);
+  font-size: 18px; font-weight: 700;
+  color: var(--accent-light); letter-spacing: -0.02em;
+}
+.jp-bar {
+  height: 6px; background: var(--b1); border-radius: 3px;
+  overflow: hidden; margin-bottom: 8px;
+}
+.jp-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transition: width .5s var(--ease);
+}
+.jp-status { font-size: .78rem; font-weight: 500; }
+.jp-status.ready { color: var(--ok); }
+.jp-status.waiting { color: var(--dim); }
+
+/* Members */
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px; margin-top: 4px;
+}
+.member-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--b1);
+  border-radius: var(--r);
+  transition: all .15s;
+}
+.member-card:hover { background: var(--surface3); border-color: var(--b2); }
+.member-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: .75rem; font-weight: 900;
+  color: var(--accent-light);
+}
+.member-card.you .member-avatar {
+  background: var(--ok-bg);
+  border-color: var(--ok-border);
+  color: var(--ok);
+}
+.member-info { min-width: 0; flex: 1; }
+.member-team-name {
+  font-size: .84rem; font-weight: 700; color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.member-email-sm {
+  font-size: .65rem; color: var(--dim);
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.member-you-badge {
+  font-size: .56rem; font-weight: 700;
+  color: var(--ok);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: var(--round);
+  padding: 1px 6px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* ═══════════════════════════════════════
+   MY TEAM TAB
+   ═══════════════════════════════════════ */
+.mt-section { margin-bottom: 18px; }
+.mt-section-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: var(--r) var(--r) 0 0;
+}
+.mt-section-hdr.xi { background: linear-gradient(90deg, #4338CA, #6366F1); }
+.mt-section-hdr.bench { background: linear-gradient(90deg, #047857, #10B981); }
+.mt-section-hdr.reserves { background: linear-gradient(90deg, #374151, #6B7280); }
+.mt-section-title { font-size: .88rem; font-weight: 800; color: #fff; letter-spacing: 0.03em; }
+.mt-section-count { font-size: .78rem; color: rgba(255,255,255,0.7); font-weight: 600; }
+.mt-section-body {
+  background: var(--surface2);
+  border: 1px solid var(--b1); border-top: none;
+  border-radius: 0 0 var(--r) var(--r);
+  padding: 8px;
+}
+.mt-player-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--b0);
+  border-radius: var(--r);
+  margin-bottom: 6px;
+  cursor: grab;
+  transition: all .18s var(--ease);
+  user-select: none;
+}
+.mt-player-row:hover {
+  background: var(--surface3);
+  border-color: var(--b2);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99,102,241,0.10);
+}
+.mt-player-row.dragging { opacity: 0.4; transform: scale(0.97); }
+.mt-drop-zone {
+  min-height: 48px;
+  border: 2px dashed var(--b2);
+  border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--dim); font-size: .78rem;
+  padding: 8px; transition: all .2s;
+}
+.mt-drop-zone.drag-active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent-light);
+}
+.mt-role-pill {
+  font-size: .62rem; font-weight: 700;
+  padding: 2px 8px; border-radius: var(--round);
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  border: 1px solid var(--accent-border);
+}
+.mt-ipl-pill {
+  font-size: .62rem;
+  padding: 2px 7px;
+  border-radius: var(--round);
+  background: var(--b1);
+  color: var(--txt2);
+}
+.mt-move-btn {
+  font-size: .70rem;
+  padding: 5px 10px;
+  border-radius: var(--round);
+  border: 1px solid var(--b2);
+  background: var(--surface);
+  color: var(--txt2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+  font-family: var(--f);
+}
+.mt-move-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+.mt-empty { padding: 24px; text-align: center; color: var(--dim); font-size: .82rem; }
+
+/* ═══════════════════════════════════════
+   PLAYERS SEASON TAB
+   ═══════════════════════════════════════ */
+.pst-team-section { margin-bottom: 24px; }
+.pst-team-hdr {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl) var(--rl) 0 0;
+  border-bottom: none;
+}
+.pst-team-name { font-size: 15px; font-weight: 800; color: var(--txt); letter-spacing: -0.02em; }
+.pst-owner { font-size: .72rem; color: var(--dim); margin-left: 4px; }
+.pst-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--b1);
+  border-radius: 0 0 var(--rl) var(--rl);
+}
+.pst-table { width: 100%; border-collapse: collapse; font-size: .78rem; white-space: nowrap; }
+.pst-table th {
+  padding: 8px 14px; text-align: center;
+  font-size: .60rem; font-weight: 700;
+  color: var(--dim); letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: var(--surface);
+  border-bottom: 1px solid var(--b1);
+}
+.pst-table th:first-child, .pst-table th:nth-child(2) { text-align: left; }
+.pst-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--b0);
+  color: var(--txt2); text-align: center;
+}
+.pst-table td:first-child { text-align: left; font-weight: 700; color: var(--txt); }
+.pst-table td:nth-child(2) { text-align: left; }
+.pst-table tr:hover td { background: var(--accent-glow); }
+.pst-pts-cell { font-weight: 700; color: var(--accent-light); }
+.pst-pts-zero { color: var(--dim2); font-weight: 400; }
+.pst-total-cell { font-weight: 800; color: var(--ok); font-size: .86rem; }
+.pst-total-row td {
+  background: var(--surface2);
+  font-weight: 800;
+  border-top: 1px solid var(--b1);
+}
+.pst-iplteam {
+  display: inline-block; padding: 1px 6px;
+  border-radius: 4px; font-size: .60rem; font-weight: 700;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-light);
+  margin-left: 4px; vertical-align: middle;
+}
+.pst-os {
+  display: inline-block; padding: 1px 5px;
+  border-radius: 3px; font-size: .58rem; font-weight: 700;
+  background: var(--hot-glow);
+  border: 1px solid rgba(245,158,11,0.25);
+  color: var(--hot);
+  margin-left: 3px; vertical-align: middle;
+}
+.pst-no-data { padding: 32px; text-align: center; color: var(--dim); font-size: .82rem; }
+
+/* ═══════════════════════════════════════
+   CRICBUZZ IMPORT
+   ═══════════════════════════════════════ */
+.cbz-section { margin-bottom: 18px; }
+.cbz-section-title {
+  font-size: .68rem; font-weight: 800;
+  color: var(--dim); text-transform: uppercase;
+  letter-spacing: 0.1em; margin-bottom: 10px;
+}
+.match-pick-grid { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; }
+.match-pill {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--b1);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all .2s var(--ease);
+}
+.match-pill:hover { background: var(--surface2); border-color: var(--b2); }
+.match-pill.selected { background: var(--accent-glow); border-color: var(--accent-border); }
+.match-pill-teams { font-size: .88rem; font-weight: 700; color: var(--txt); flex: 1; }
+.match-pill-meta { font-size: .70rem; color: var(--dim); white-space: nowrap; }
+.match-pill-live {
+  font-size: .62rem; font-weight: 800;
+  color: var(--ok); background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: var(--round);
+  padding: 2px 8px; flex-shrink: 0;
+}
+.cbz-status { font-size: .78rem; font-weight: 500; min-height: 20px; margin: 8px 0; transition: color .2s; }
+.cbz-status.loading { color: var(--accent-light); animation: blink .9s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.cbz-status.done { color: var(--ok); }
+.cbz-status.fail { color: var(--err); }
+
+/* ═══════════════════════════════════════
+   AI PARSER
+   ═══════════════════════════════════════ */
+.ai-parse-box {
+  background: var(--surface2);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  padding: 20px;
+}
+.ai-parse-title {
+  font-size: .92rem; font-weight: 800;
+  color: var(--accent-light);
+  display: flex; align-items: center; gap: 6px;
+}
+.ai-parse-sub { font-size: .78rem; color: var(--dim); margin: 6px 0 14px; }
+.ai-status { font-size: .78rem; font-weight: 500; min-height: 18px; }
+.ai-status.parsing { color: var(--accent-light); animation: blink .9s ease-in-out infinite; }
+.ai-status.done { color: var(--ok); }
+.ai-status.fail { color: var(--err); }
+
+/* Section headers */
+.section-hdr {
+  font-size: .66rem; font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  padding: 12px 20px 6px;
+  border-bottom: 1px solid var(--b1);
+}
+
+/* Match form */
+.match-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 14px 20px;
+}
+
+/* ═══════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════ */
+.modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.50);
+  backdrop-filter: blur(8px);
+  z-index: 500;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: var(--surface2);
+  border: 1px solid var(--b2);
+  border-radius: var(--rxl);
+  padding: 28px;
+  width: 100%; max-width: 420px;
+  animation: modalIn .3s var(--bounce) both;
+  box-shadow: var(--sh3);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal h3 {
+  font-size: 17px; font-weight: 800;
+  color: var(--txt); margin-bottom: 18px;
+}
+
+/* ═══════════════════════════════════════
+   EMPTY STATES
+   ═══════════════════════════════════════ */
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--dim);
+  font-size: .82rem;
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════
+   JOIN ROW
+   ═══════════════════════════════════════ */
+.join-row {
+  display: flex; gap: 10px;
+}
+.join-row input { flex: 1; }
+
+/* g2 grid for form */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+
+/* ═══════════════════════════════════════
+   MATCH HISTORY BUTTON
+   ═══════════════════════════════════════ */
+.match-hist-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--b2);
+  border-radius: var(--round);
+  background: var(--surface);
+  color: var(--dim);
+  font-size: .72rem; font-weight: 600;
+  cursor: help;
+  font-family: var(--f);
+}
+
+/* Clock card */
+.clock-card {
+  border-radius: var(--rl);
+  box-shadow: var(--sh1);
+}
+.clock-card.your-turn {
+  border: 2px solid var(--accent);
+  box-shadow: var(--sh2), 0 0 0 4px var(--accent-glow);
+}
+
+/* Order pills */
+.opill {
+  border-radius: 8px;
+  font-size: .72rem;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .content { padding: 14px; }
+  .sval { font-size: 20px; }
+  .anav-btn { font-size: .72rem; padding: 7px 10px; }
+  .at-title { font-size: 1.1rem; }
+  .pname { font-size: 1.5rem; }
+  .bid-amt { font-size: 2rem; }
+  .tgrid { grid-template-columns: 1fr; }
+  .g2 { grid-template-columns: 1fr; }
+  .qgrid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .auth-card { max-width: 100%; }
+  .setup-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  /* Fix trades grid on mobile */
+  [style*="grid-template-columns: 1fr auto 1fr"] { 
+    display: flex !important; 
+    flex-direction: column !important; 
+  }
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .srow { flex-wrap: wrap; }
+  .spill { min-width: 80px; }
+  .at { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 10px 14px; }
+  .tb-title { font-size: 13px; }
+  .dtabs { flex-wrap: nowrap; }
+  .dtab { padding: 7px 12px; font-size: .72rem; }
+  .anav-btn svg { display: none; }
+  .srow { gap: 6px; }
+  .spill { padding: 12px 8px; min-width: 80px; }
+}
