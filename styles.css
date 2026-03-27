@@ -156,6 +156,14 @@ select { cursor: pointer; }
 .view { display: none; overflow: hidden; max-width: 100%; }
 .view.active { display: block; animation: viewIn .35s var(--ease) both; overflow-x: hidden; }
 
+/* Auth view must be completely hidden when not active */
+#auth-view { display: none !important; }
+#auth-view.active { display: flex !important; }
+
+/* App shell must be completely hidden when not active */
+#app-shell { display: none !important; }
+#app-shell.active { display: block !important; }
+
 /* Auction room tabs — hidden tabs must be fully contained */
 [id$="-tab"] { overflow: hidden; max-width: 100%; }
 [id$="-tab"][style*="display:none"], [id$="-tab"][style*="display: none"] {
@@ -172,7 +180,6 @@ select { cursor: pointer; }
    AUTH SCREEN
    ═══════════════════════════════════════ */
 #auth-view.active {
-  display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
