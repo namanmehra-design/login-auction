@@ -1502,6 +1502,20 @@ function renderLeaderboard(data){
  });
  }
 
+ // Build roster-based owner lookup as fallback (for matches pushed without ownedBy)
+ const rosterOwnerMap={};
+ if(data.teams){
+ Object.values(data.teams).forEach(team=>{
+  const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+  roster.forEach(p=>{
+   var fn=(p.name||p.n||'').toLowerCase().trim();
+   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   rosterOwnerMap[fn]=team.name;
+   rosterOwnerMap[cn]=team.name;
+  });
+ });
+ }
+
  // Aggregate match points per player PER TEAM — only count if inActiveSquad
  // This ensures reserves earn 0 for matches where they weren't in XI/Bench
  const teamPlayerPts={}; // teamName -> {playerKey -> totalPts}
@@ -1512,7 +1526,7 @@ function renderLeaderboard(data){
  const key=(p.name||'').toLowerCase();
  playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
  // For leaderboard: only count if player was in active squad for this match
- const owner=p.ownedBy||'';
+ const owner=p.ownedBy||rosterOwnerMap[key]||'';
  if(owner){
   if(!teamPlayerPts[owner]) teamPlayerPts[owner]={};
   // inActiveSquad flag: true = XI/Bench, false = reserves, undefined = old match (count all for backwards compat)
@@ -2446,8 +2460,19 @@ window.saveGlobalScorecard=async function(){
  timestamp:Date.now(),
  players:{}
  };
+ // Build owner lookup from rawData (handles name mismatches with * (XX) suffix)
+ var _gscOwnerLookup={};
+ (rawData||[]).forEach(function(p){
+  var fullName=(p.name||p.n||'').trim().toLowerCase();
+  var cleanName=fullName.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+  var team=(p.iplTeam||p.t||'').trim();
+  _gscOwnerLookup[fullName]=team;
+  _gscOwnerLookup[cleanName]=team;
+ });
  Object.entries(data.playerPts).forEach(([key,val])=>{
- matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | ')};
+ // key is lowercase clean name from form
+ var iplTeam=_gscOwnerLookup[key]||'';
+ matchRecord.players[key]={name:val.name,pts:val.pts,breakdown:val.breakdown.join(' | '),ownedBy:'',iplTeam:iplTeam};
  });
 
  try{
@@ -2484,15 +2509,28 @@ window.saveGlobalScorecard=async function(){
    const ownerMap={},squadMap={};
    Object.values(teams).forEach(t=>{
     const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-    roster.forEach(p=>{ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+    roster.forEach(p=>{
+     var fn=(p.name||p.n||'').toLowerCase().trim();
+     var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+     ownerMap[fn]=t.name;
+     ownerMap[cn]=t.name;
+    });
     const sq=t.activeSquad||null;
-    if(sq&&Array.isArray(sq)) squadMap[t.name]=new Set(sq.map(n=>n.toLowerCase().trim()));
-    else squadMap[t.name]=new Set(roster.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+    if(sq&&Array.isArray(sq)){
+     var sSet=new Set();
+     sq.forEach(n=>{sSet.add(n.toLowerCase().trim());sSet.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+     squadMap[t.name]=sSet;
+    } else {
+     var sSet2=new Set();
+     roster.forEach(p=>{var fn2=(p.name||p.n||'').toLowerCase().trim();sSet2.add(fn2);sSet2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+     squadMap[t.name]=sSet2;
+    }
    });
    const upd={};
    Object.entries(matchRecord.players).forEach(([k,p])=>{
-    const owner=ownerMap[(p.name||'').toLowerCase().trim()]||'';
-    const inSquad=owner&&squadMap[owner]?squadMap[owner].has((p.name||'').toLowerCase().trim()):false;
+    const pn=(p.name||'').toLowerCase().trim();
+    const owner=ownerMap[pn]||ownerMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
+    const inSquad=owner&&squadMap[owner]?squadMap[owner].has(pn):false;
     upd[`auctions/${rid}/matches/${matchId}/players/${k}/ownedBy`]=owner;
     upd[`auctions/${rid}/matches/${matchId}/players/${k}/inActiveSquad`]=inSquad;
    });
@@ -2505,15 +2543,28 @@ window.saveGlobalScorecard=async function(){
    const ownerMap={},squadMap={};
    Object.values(teams).forEach(t=>{
     const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-    roster.forEach(p=>{ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+    roster.forEach(p=>{
+     var fn=(p.name||p.n||'').toLowerCase().trim();
+     var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+     ownerMap[fn]=t.name;
+     ownerMap[cn]=t.name;
+    });
     const sq=t.activeSquad||null;
-    if(sq&&Array.isArray(sq)) squadMap[t.name]=new Set(sq.map(n=>n.toLowerCase().trim()));
-    else squadMap[t.name]=new Set(roster.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+    if(sq&&Array.isArray(sq)){
+     var sSet=new Set();
+     sq.forEach(n=>{sSet.add(n.toLowerCase().trim());sSet.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+     squadMap[t.name]=sSet;
+    } else {
+     var sSet2=new Set();
+     roster.forEach(p=>{var fn2=(p.name||p.n||'').toLowerCase().trim();sSet2.add(fn2);sSet2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+     squadMap[t.name]=sSet2;
+    }
    });
    const upd={};
    Object.entries(matchRecord.players).forEach(([k,p])=>{
-    const owner=ownerMap[(p.name||'').toLowerCase().trim()]||'';
-    const inSquad=owner&&squadMap[owner]?squadMap[owner].has((p.name||'').toLowerCase().trim()):false;
+    const pn=(p.name||'').toLowerCase().trim();
+    const owner=ownerMap[pn]||ownerMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
+    const inSquad=owner&&squadMap[owner]?squadMap[owner].has(pn):false;
     upd[`drafts/${rid}/matches/${matchId}/players/${k}/ownedBy`]=owner;
     upd[`drafts/${rid}/matches/${matchId}/players/${k}/inActiveSquad`]=inSquad;
    });
@@ -2744,16 +2795,17 @@ window.saPushToAll=async function(){
     const teams=tSnap.val()||{}; const oMap={},sMap={};
     Object.values(teams).forEach(t=>{
      const r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-     r2.forEach(p=>{oMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+     r2.forEach(p=>{var fn=(p.name||p.n||'').toLowerCase().trim();var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();oMap[fn]=t.name;oMap[cn]=t.name;});
      const sq2=t.activeSquad||null;
-     if(sq2&&Array.isArray(sq2)) sMap[t.name]=new Set(sq2.map(n=>n.toLowerCase().trim()));
-     else sMap[t.name]=new Set(r2.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+     if(sq2&&Array.isArray(sq2)){var ss=new Set();sq2.forEach(n=>{ss.add(n.toLowerCase().trim());ss.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss;}
+     else{var ss2=new Set();r2.forEach(p=>{var fn2=(p.name||p.n||'').toLowerCase().trim();ss2.add(fn2);ss2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss2;}
     });
     const u2={};
     Object.entries(matchRecord.players||{}).forEach(([k,p])=>{
-     const ow=oMap[(p.name||'').toLowerCase().trim()]||'';
+     const pn=(p.name||'').toLowerCase().trim();
+     const ow=oMap[pn]||oMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
      u2[`auctions/${rid}/matches/${mid}/players/${k}/ownedBy`]=ow;
-     u2[`auctions/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has((p.name||'').toLowerCase().trim()):false;
+     u2[`auctions/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has(pn):false;
     });
     if(Object.keys(u2).length) return update(ref(db),u2);
    }).catch(()=>{}));
@@ -2763,16 +2815,17 @@ window.saPushToAll=async function(){
     const teams=tSnap.val()||{}; const oMap={},sMap={};
     Object.values(teams).forEach(t=>{
      const r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-     r2.forEach(p=>{oMap[(p.name||p.n||'').toLowerCase().trim()]=t.name;});
+     r2.forEach(p=>{var fn=(p.name||p.n||'').toLowerCase().trim();var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();oMap[fn]=t.name;oMap[cn]=t.name;});
      const sq2=t.activeSquad||null;
-     if(sq2&&Array.isArray(sq2)) sMap[t.name]=new Set(sq2.map(n=>n.toLowerCase().trim()));
-     else sMap[t.name]=new Set(r2.map(p=>(p.name||p.n||'').toLowerCase().trim()));
+     if(sq2&&Array.isArray(sq2)){var ss=new Set();sq2.forEach(n=>{ss.add(n.toLowerCase().trim());ss.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss;}
+     else{var ss2=new Set();r2.forEach(p=>{var fn2=(p.name||p.n||'').toLowerCase().trim();ss2.add(fn2);ss2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss2;}
     });
     const u2={};
     Object.entries(matchRecord.players||{}).forEach(([k,p])=>{
-     const ow=oMap[(p.name||'').toLowerCase().trim()]||'';
+     const pn=(p.name||'').toLowerCase().trim();
+     const ow=oMap[pn]||oMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
      u2[`drafts/${rid}/matches/${mid}/players/${k}/ownedBy`]=ow;
-     u2[`drafts/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has((p.name||'').toLowerCase().trim()):false;
+     u2[`drafts/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has(pn):false;
     });
     if(Object.keys(u2).length) return update(ref(db),u2);
    }).catch(()=>{}));
