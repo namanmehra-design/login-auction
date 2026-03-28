@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260328e">
+<link rel="stylesheet" href="styles.css">
 <script>
 (function(){
   if(!localStorage.getItem('ipl-theme')) localStorage.setItem('ipl-theme','dark');
@@ -134,7 +134,7 @@
     <div id="mt_body_A" style="padding:12px;"><div style="padding:20px;text-align:center;color:var(--dim);">Loading…</div></div>
   </div>
 </div>
-<!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div><div id="leaderboardBody"></div></div></div>
+<!-- ════ LEADERBOARD TAB ════ --><div id="leaderboard-tab" style="display:none;"><div class="srow" id="lbStatsRow"><div class="spill"><div class="sval" id="lb-matches">—</div><div class="slb">Matches Played</div></div><div class="spill"><div class="sval" id="lb-players-scored">—</div><div class="slb">Players Scored</div></div><div class="spill"><div class="sval" id="lb-top-pts">—</div><div class="slb">Top Score</div></div></div><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Fantasy Leaderboard</span></div><div id="leaderboardBody"></div></div><div id="allSquadsSection" style="display:none;margin-top:16px;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">All Team Squads</span><button class="btn btn-ghost btn-sm" onclick="window.renderAllSquads()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button></div><div id="allSquadsBody"></div></div></div></div>
 <div id="players-season-tab" class="card" style="display:none;"><div class="card-hdr"><span class="card-title">Player Season Points</span><span style="font-size:.75rem;color:var(--dim);">Points per match, per player, grouped by team</span></div><div class="card-bdy" style="padding:0 0 8px;"><div id="playerSeasonGrid" style="padding:14px;"><div class="pst-no-data">Loading…</div></div></div></div>
 <!-- ════ ANALYTICS TAB ════ --><div id="analytics-tab" style="display:none;"><div class="pts-card"><div class="pts-hdr"><span class="pts-title">Performance Analytics</span></div><div id="analyticsGrid" style="padding:4px 0;"></div></div></div><!-- ════ MATCH DATA TAB ════ --><div id="matches-tab" style="display:none;"><div class="pts-card" style="margin-bottom:14px;"><div class="pts-hdr"><span class="pts-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Match Data</span><span style="font-size:.78rem;color:var(--dim);" id="matchDataAdminNote"></span></div><div style="padding:0;" id="matchDataList"><div class="empty">No matches recorded yet.</div></div></div></div>
 <!-- SCHEDULE TAB -->
@@ -203,6 +203,6 @@
 
 </div><!-- /auction-view --></div><!-- /content -->
 </div><!-- /app-shell -->
-<script type="module" src="app.js?v=20260328e"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
