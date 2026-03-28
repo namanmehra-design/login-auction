@@ -1303,13 +1303,13 @@ function collectMatchData(){
  // Player names in roomState include nationality e.g. "Jacob Duffy* (NZ)"
  // But scorecard form names are plain e.g. "Jacob Duffy"
  // Strip the * (XX) suffix for matching
- if(winner&&roomState?.players){
- Object.values(roomState.players).forEach(p=>{
+ if(winner){
+ var _plist = roomState?.players ? Object.values(roomState.players) : (rawData || []);
+ _plist.forEach(p=>{
  const pnameFull=(p.name||p.n||'').trim().toLowerCase();
  const pnameClean=pnameFull.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
  const pteam=(p.iplTeam||p.t||'').toUpperCase();
  if(pteam===winner){
-  // Try exact match first, then cleaned match
   var matched=playerPts[pnameFull]||playerPts[pnameClean];
   if(matched){
    matched.pts+=5;
@@ -2390,8 +2390,8 @@ function collectGscData(){
  });
  // Winning team bonus — match scorecard player names against player database
  if(winner){
-  // Try roomState.players first, fall back to cachedAllPlayers
-  var _pdb = roomState?.players ? Object.values(roomState.players) : (cachedAllPlayers || []);
+  // rawData is always available (hardcoded). roomState may not exist on dashboard.
+  var _pdb = rawData || [];
   _pdb.forEach(function(p){
    var pnameFull = (p.name || p.n || '').trim().toLowerCase();
    var pnameClean = pnameFull.replace(/\*?\s*\([^)]*\)\s*$/, '').trim();
