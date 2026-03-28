@@ -737,7 +737,7 @@ body.light .topbar { background: rgba(248,250,252,0.88); }
   justify-content: center;
   padding: 20px;
 }
-.modal-bg.active, .modal-bg[style*="display:flex"] { display: flex; }
+.modal-bg.active, .modal-bg.open, .modal-bg[style*="display:flex"] { display: flex; }
 .modal {
   background: var(--bg3);
   border: 1px solid var(--b2);
