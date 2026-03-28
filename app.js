@@ -1329,7 +1329,13 @@ window.previewPoints=function(){
  if(!entries.length){window.showAlert('No player data entered.','err');return;}
  const box=document.getElementById('previewBox');
  const content=document.getElementById('previewContent');
- content.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;"><thead><tr style="background:rgba(0,0,0,.3);"><th style="padding:8px 12px;text-align:left;color:var(--accent);">Player</th><th style="padding:8px 12px;text-align:right;color:var(--accent);">Points</th><th style="padding:8px 12px;text-align:left;color:var(--accent);">Breakdown</th></tr></thead><tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--b1);"><td style="padding:8px 12px;font-weight:600;">${e.name}</td><td style="padding:8px 12px;text-align:right;font-family:var(--f);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td><td style="padding:8px 12px;font-size:.78rem;color:var(--dim2);">${e.breakdown.join(' . ')}</td></tr>`).join('')}</tbody></table></div>`;
+ var warningHtml='';
+ if(!data.winner){
+  warningHtml='<div style="padding:10px 14px;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:var(--r);margin-bottom:10px;font-size:.84rem;color:var(--warn);font-weight:600;">⚠ No winning team entered — +5 win bonus NOT included. Fill in the "Winning IPL Team" field above.</div>';
+ } else {
+  warningHtml='<div style="padding:8px 14px;background:var(--ok-bg);border:1px solid var(--ok-border);border-radius:var(--r);margin-bottom:10px;font-size:.82rem;color:var(--ok);">Winner: <strong>'+data.winner+'</strong> — +5 bonus applied to all '+data.winner+' players in the scorecard.</div>';
+ }
+ content.innerHTML=warningHtml+`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;"><thead><tr style="background:rgba(0,0,0,.3);"><th style="padding:8px 12px;text-align:left;color:var(--accent);">Player</th><th style="padding:8px 12px;text-align:right;color:var(--accent);">Points</th><th style="padding:8px 12px;text-align:left;color:var(--accent);">Breakdown</th></tr></thead><tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--b1);"><td style="padding:8px 12px;font-weight:600;">${e.name}</td><td style="padding:8px 12px;text-align:right;font-family:var(--f);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td><td style="padding:8px 12px;font-size:.78rem;color:var(--dim2);">${e.breakdown.join(' . ')}</td></tr>`).join('')}</tbody></table></div>`;
  box.style.display='block';
 };
 
@@ -2382,11 +2388,22 @@ function collectGscData(){
  const pts=calcFieldingPoints(catches,stumpings,runouts,false,isMot);
  addP(name,pts,`Field(${catches}c ${stumpings}st ${runouts}ro)`);
  });
- // Winning team bonus
+ // Winning team bonus — match scorecard player names against player database
  if(winner){
- // Apply +5 to players in the scorecard whose IPL team matches winner
- // We don't have team info in the global form so just mark winner for later
- // Each room's scoring engine handles the +5 from the winner field
+  // Try roomState.players first, fall back to cachedAllPlayers
+  var _pdb = roomState?.players ? Object.values(roomState.players) : (cachedAllPlayers || []);
+  _pdb.forEach(function(p){
+   var pnameFull = (p.name || p.n || '').trim().toLowerCase();
+   var pnameClean = pnameFull.replace(/\*?\s*\([^)]*\)\s*$/, '').trim();
+   var pteam = (p.iplTeam || p.t || '').toUpperCase();
+   if(pteam === winner){
+    var matched = playerPts[pnameFull] || playerPts[pnameClean];
+    if(matched){
+     matched.pts += 5;
+     matched.breakdown.push('Winning team: +5');
+    }
+   }
+  });
  }
  return {label,result,winner,motm,playerPts};
 }
@@ -2399,7 +2416,13 @@ window.previewGlobalPoints=function(){
  if(!entries.length){window.showAlert('No player data entered.','err');return;}
  const box=document.getElementById('gscPreviewBox');
  const content=document.getElementById('gscPreviewContent');
- content.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;"><thead><tr style="background:rgba(0,0,0,.3);"><th style="padding:8px 12px;text-align:left;color:var(--accent);">Player</th><th style="padding:8px 12px;text-align:right;color:var(--accent);">Points</th><th style="padding:8px 12px;text-align:left;color:var(--accent);">Breakdown</th></tr></thead><tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--b1);"><td style="padding:8px 12px;font-weight:600;">${e.name}</td><td style="padding:8px 12px;text-align:right;font-family:var(--f);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td><td style="padding:8px 12px;font-size:.78rem;color:var(--dim2);">${e.breakdown.join(' . ')}</td></tr>`).join('')}</tbody></table></div>`;
+ var warningHtml='';
+ if(!data.winner){
+  warningHtml='<div style="padding:10px 14px;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:var(--r);margin-bottom:10px;font-size:.84rem;color:var(--warn);font-weight:600;">⚠ No winning team entered — +5 win bonus NOT included. Fill in the Winning IPL Team field.</div>';
+ } else {
+  warningHtml='<div style="padding:8px 14px;background:var(--ok-bg);border:1px solid var(--ok-border);border-radius:var(--r);margin-bottom:10px;font-size:.82rem;color:var(--ok);">Winner: <strong>'+data.winner+'</strong> — +5 bonus applied to '+data.winner+' players.</div>';
+ }
+ content.innerHTML=warningHtml+`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.85rem;"><thead><tr style="background:rgba(0,0,0,.3);"><th style="padding:8px 12px;text-align:left;color:var(--accent);">Player</th><th style="padding:8px 12px;text-align:right;color:var(--accent);">Points</th><th style="padding:8px 12px;text-align:left;color:var(--accent);">Breakdown</th></tr></thead><tbody>${entries.map(e=>`<tr style="border-bottom:1px solid var(--b1);"><td style="padding:8px 12px;font-weight:600;">${e.name}</td><td style="padding:8px 12px;text-align:right;font-family:var(--f);font-size:1.1rem;color:${e.pts>=0?'var(--ok)':'var(--err)'};">${e.pts>=0?'+':''}${e.pts}</td><td style="padding:8px 12px;font-size:.78rem;color:var(--dim2);">${e.breakdown.join(' . ')}</td></tr>`).join('')}</tbody></table></div>`;
  box.style.display='block';
 };
 
