@@ -673,22 +673,20 @@ function loadRoom(rid){
  // Auction block
 
  if(data.players&&roomId){ var _ap=Array.isArray(data.players)?data.players:Object.values(data.players||{}); if(!_ap.some(function(p){return(p.name||p.n||'').indexOf('Dasun Shanaka')>=0;})){ _ap.push({name:"Dasun Shanaka* (SL)",n:"Dasun Shanaka* (SL)",iplTeam:"RR",t:"RR",role:"All-rounder",r:"All-rounder",isOverseas:true,o:true,status:"unsold",basePrice:2}); data.players=_ap; set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(){}); } }
- try{renderBlock(data);}catch(e){console.error("renderBlock:",e);}
+ renderBlock(data);
 
  // Points tabs -- always re-render when data changes
- try{renderPointsTab();}catch(e){console.error("renderPointsTab:",e);}
- try{renderLeaderboard(data);}catch(e){console.error("renderLeaderboard:",e);}
- try{renderAnalytics(data);}catch(e){console.error("renderAnalytics:",e);}
- try{
+ renderPointsTab();
+ renderLeaderboard(data);
+ renderAnalytics(data);
  if(document.getElementById('myteam-tab')?.style.display==='block') _mtRenderA();
  else if(myTeamName && data.teams && data.teams[myTeamName]) {
    var _newRLen=0; var _r=data.teams[myTeamName].roster;
    if(_r) _newRLen=Array.isArray(_r)?_r.length:Object.keys(_r).length;
    if(!_sqSavedA||!_sqSavedA._rLen||_sqSavedA._rLen!==_newRLen){ _sqSavedA=null; }
   }
- }catch(e){console.error('myteam:',e);}
- try{renderMatchData(data);}catch(e){console.error("renderMatchData:",e);}
- try{window.renderTrades(data);}catch(e){console.error("renderTrades:",e);}
+ renderMatchData(data);
+ window.renderTrades(data);
  var _lBtn=document.getElementById('mt_lock_btn_A'); if(_lBtn){ if(isAdmin) _lBtn.style.display='inline-block'; _lBtn.textContent=data.squadLocked?'Unlock Changes':'Lock Changes'; _lBtn.style.background=data.squadLocked?'var(--err-bg)':'var(--surface)'; _lBtn.style.color=data.squadLocked?'var(--err)':'var(--txt2)'; }
  if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
  });
@@ -1302,15 +1300,21 @@ function collectMatchData(){
  });
 
  // Apply winning team bonus +5 to players who played
- // We don't know which team each player is on from the form
- // Admin specifies winning IPL team -- we check against roomState players
+ // Player names in roomState include nationality e.g. "Jacob Duffy* (NZ)"
+ // But scorecard form names are plain e.g. "Jacob Duffy"
+ // Strip the * (XX) suffix for matching
  if(winner&&roomState?.players){
  Object.values(roomState.players).forEach(p=>{
- const pname=(p.name||p.n||'').trim().toLowerCase();
+ const pnameFull=(p.name||p.n||'').trim().toLowerCase();
+ const pnameClean=pnameFull.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
  const pteam=(p.iplTeam||p.t||'').toUpperCase();
- if(pteam===winner&&playerPts[pname]){
- playerPts[pname].pts+=5;
- playerPts[pname].breakdown.push('Winning team: +5');
+ if(pteam===winner){
+  // Try exact match first, then cleaned match
+  var matched=playerPts[pnameFull]||playerPts[pnameClean];
+  if(matched){
+   matched.pts+=5;
+   matched.breakdown.push('Winning team: +5');
+  }
  }
  });
  }
@@ -1494,7 +1498,6 @@ function renderLeaderboard(data){
 
  // Aggregate match points per player PER TEAM — only count if inActiveSquad
  // This ensures reserves earn 0 for matches where they weren't in XI/Bench
- const playerTotal={};
  const teamPlayerPts={}; // teamName -> {playerKey -> totalPts}
  matchIds.forEach(mid=>{
  const m=matches[mid];
@@ -3620,59 +3623,9 @@ var IPL_SCHEDULE=[
 {sr:17,date:"11 Apr",t1:"PBKS",t2:"SRH",city:"Chandigarh",time:"15:30"},
 {sr:18,date:"11 Apr",t1:"CSK",t2:"DC",city:"Chennai",time:"19:30"},
 {sr:19,date:"12 Apr",t1:"LSG",t2:"GT",city:"Lucknow",time:"15:30"},
-{sr:20,date:"12 Apr",t1:"MI",t2:"RCB",city:"Mumbai",time:"19:30"},
-{sr:21,date:"13 Apr",t1:"SRH",t2:"RR",city:"Hyderabad",time:"19:30"},
-{sr:22,date:"14 Apr",t1:"CSK",t2:"KKR",city:"Chennai",time:"19:30"},
-{sr:23,date:"15 Apr",t1:"RCB",t2:"LSG",city:"Bengaluru",time:"19:30"},
-{sr:24,date:"16 Apr",t1:"MI",t2:"PBKS",city:"Mumbai",time:"19:30"},
-{sr:25,date:"17 Apr",t1:"GT",t2:"KKR",city:"Ahmedabad",time:"19:30"},
-{sr:26,date:"18 Apr",t1:"RCB",t2:"DC",city:"Bengaluru",time:"15:30"},
-{sr:27,date:"18 Apr",t1:"SRH",t2:"CSK",city:"Hyderabad",time:"19:30"},
-{sr:28,date:"19 Apr",t1:"KKR",t2:"RR",city:"Kolkata",time:"15:30"},
-{sr:29,date:"19 Apr",t1:"PBKS",t2:"LSG",city:"New Chandigarh",time:"19:30"},
-{sr:30,date:"20 Apr",t1:"GT",t2:"MI",city:"Ahmedabad",time:"19:30"},
-{sr:31,date:"21 Apr",t1:"SRH",t2:"DC",city:"Hyderabad",time:"19:30"},
-{sr:32,date:"22 Apr",t1:"LSG",t2:"RR",city:"Lucknow",time:"19:30"},
-{sr:33,date:"23 Apr",t1:"MI",t2:"CSK",city:"Mumbai",time:"19:30"},
-{sr:34,date:"24 Apr",t1:"RCB",t2:"GT",city:"Bengaluru",time:"19:30"},
-{sr:35,date:"25 Apr",t1:"DC",t2:"PBKS",city:"Delhi",time:"15:30"},
-{sr:36,date:"25 Apr",t1:"RR",t2:"SRH",city:"Jaipur",time:"19:30"},
-{sr:37,date:"26 Apr",t1:"GT",t2:"CSK",city:"Ahmedabad",time:"15:30"},
-{sr:38,date:"26 Apr",t1:"LSG",t2:"KKR",city:"Lucknow",time:"19:30"},
-{sr:39,date:"27 Apr",t1:"DC",t2:"RCB",city:"Delhi",time:"19:30"},
-{sr:40,date:"28 Apr",t1:"PBKS",t2:"RR",city:"New Chandigarh",time:"19:30"},
-{sr:41,date:"29 Apr",t1:"MI",t2:"SRH",city:"Mumbai",time:"19:30"},
-{sr:42,date:"30 Apr",t1:"GT",t2:"RCB",city:"Ahmedabad",time:"19:30"},
-{sr:43,date:"01 May",t1:"RR",t2:"DC",city:"Jaipur",time:"19:30"},
-{sr:44,date:"02 May",t1:"CSK",t2:"MI",city:"Chennai",time:"15:30"},
-{sr:45,date:"03 May",t1:"SRH",t2:"KKR",city:"Hyderabad",time:"15:30"},
-{sr:46,date:"03 May",t1:"GT",t2:"PBKS",city:"Ahmedabad",time:"19:30"},
-{sr:47,date:"04 May",t1:"MI",t2:"LSG",city:"Mumbai",time:"19:30"},
-{sr:48,date:"05 May",t1:"DC",t2:"CSK",city:"Delhi",time:"19:30"},
-{sr:49,date:"06 May",t1:"SRH",t2:"PBKS",city:"Hyderabad",time:"19:30"},
-{sr:50,date:"07 May",t1:"LSG",t2:"RCB",city:"Lucknow",time:"19:30"},
-{sr:51,date:"08 May",t1:"DC",t2:"KKR",city:"Delhi",time:"19:30"},
-{sr:52,date:"09 May",t1:"RR",t2:"GT",city:"Jaipur",time:"19:30"},
-{sr:53,date:"10 May",t1:"CSK",t2:"LSG",city:"Chennai",time:"15:30"},
-{sr:54,date:"10 May",t1:"RCB",t2:"MI",city:"Raipur",time:"19:30"},
-{sr:55,date:"11 May",t1:"PBKS",t2:"DC",city:"Dharamshala",time:"19:30"},
-{sr:56,date:"12 May",t1:"GT",t2:"SRH",city:"Ahmedabad",time:"19:30"},
-{sr:57,date:"13 May",t1:"RCB",t2:"KKR",city:"Raipur",time:"19:30"},
-{sr:58,date:"14 May",t1:"PBKS",t2:"MI",city:"Dharamshala",time:"19:30"},
-{sr:59,date:"15 May",t1:"LSG",t2:"CSK",city:"Lucknow",time:"19:30"},
-{sr:60,date:"16 May",t1:"KKR",t2:"GT",city:"Kolkata",time:"19:30"},
-{sr:61,date:"17 May",t1:"PBKS",t2:"RCB",city:"Dharamshala",time:"15:30"},
-{sr:62,date:"17 May",t1:"DC",t2:"RR",city:"Delhi",time:"19:30"},
-{sr:63,date:"18 May",t1:"CSK",t2:"SRH",city:"Chennai",time:"19:30"},
-{sr:64,date:"19 May",t1:"RR",t2:"LSG",city:"Jaipur",time:"19:30"},
-{sr:65,date:"20 May",t1:"KKR",t2:"MI",city:"Kolkata",time:"19:30"},
-{sr:66,date:"21 May",t1:"CSK",t2:"GT",city:"Chennai",time:"19:30"},
-{sr:67,date:"22 May",t1:"SRH",t2:"RCB",city:"Hyderabad",time:"19:30"},
-{sr:68,date:"23 May",t1:"LSG",t2:"PBKS",city:"Lucknow",time:"19:30"},
-{sr:69,date:"24 May",t1:"MI",t2:"RR",city:"Mumbai",time:"15:30"},
-{sr:70,date:"24 May",t1:"KKR",t2:"DC",city:"Kolkata",time:"19:30"}
+{sr:20,date:"12 Apr",t1:"MI",t2:"RCB",city:"Mumbai",time:"19:30"}
 ];
-var TRADE_WINDOWS=[10,20,30,40,50,60];
+var TRADE_WINDOWS=[5, 13];
 var TEAM_CLR={CSK:'#F9CD05',MI:'#004BA0',RCB:'#EC1C24',KKR:'#3A225D',DC:'#004C93',PBKS:'#ED1B24',RR:'#EA1A85',SRH:'#FF822A',GT:'#1C1C2B',LSG:'#A72056'};
 var TEAM_TXT={CSK:'#000',MI:'#fff',RCB:'#fff',KKR:'#fff',DC:'#fff',PBKS:'#fff',RR:'#fff',SRH:'#fff',GT:'#fff',LSG:'#fff'};
 
