@@ -1365,20 +1365,28 @@ window.submitMatch=function(confirmed=false){
  if(roomState&&roomState.teams){
   Object.values(roomState.teams).forEach(function(t){
    var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-   roster.forEach(function(p){ _ownerMap[(p.name||p.n||'').toLowerCase().trim()]=t.name; });
-   // activeSquad is saved when user clicks "Save Squad" — contains XI+Bench names
+   roster.forEach(function(p){
+    var fn=(p.name||p.n||'').toLowerCase().trim();
+    var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    _ownerMap[fn]=t.name;
+    _ownerMap[cn]=t.name;
+   });
    var squad=t.activeSquad||null;
    if(squad&&Array.isArray(squad)){
-    _activeSquadMap[t.name]=new Set(squad.map(function(n){return n.toLowerCase().trim();}));
-   } else {
-    // No saved squad — fall back to counting ALL roster players (backwards compatible)
-    _activeSquadMap[t.name]=new Set(roster.map(function(p){return(p.name||p.n||'').toLowerCase().trim();}));
+    var sSet=new Set();
+    squad.forEach(function(n){
+     var fn2=n.toLowerCase().trim();
+     sSet.add(fn2);
+     sSet.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());
+    });
+    _activeSquadMap[t.name]=sSet;
    }
+   // If no activeSquad saved, leave _activeSquadMap[t.name] undefined
   });
  }
  Object.entries(data.playerPts).forEach(([key,val])=>{
  var ownerTeam=_ownerMap[(val.name||'').toLowerCase().trim()]||'';
- var inSquad=false;
+ var inSquad;
  if(ownerTeam&&_activeSquadMap[ownerTeam]){
   inSquad=_activeSquadMap[ownerTeam].has((val.name||'').toLowerCase().trim());
  }
@@ -1504,58 +1512,63 @@ function renderLeaderboard(data){
  });
  }
 
- // Build roster-based owner lookup as fallback (for matches pushed without ownedBy)
- const rosterOwnerMap={};
+ // Build per-team playing set: XI (first 11) + Bench (next 5) from current roster or activeSquad
+ const teamPlayingSet={}; // teamName -> Set of lowercase player names who are XI+Bench
  if(data.teams){
  Object.values(data.teams).forEach(team=>{
   const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-  roster.forEach(p=>{
-   var fn=(p.name||p.n||'').toLowerCase().trim();
-   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-   rosterOwnerMap[fn]=team.name;
-   rosterOwnerMap[cn]=team.name;
-  });
+  var s=new Set();
+  if(team.activeSquad&&Array.isArray(team.activeSquad)&&team.activeSquad.length>0){
+   // User has saved their squad — use it
+   team.activeSquad.forEach(function(n){
+    var fn=n.toLowerCase().trim();
+    s.add(fn);
+    s.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());
+   });
+  } else {
+   // No saved squad — auto-derive: first 11 = XI, next 5 = Bench
+   var allNames=roster.map(function(p){return p.name||p.n||'';});
+   var xiEnd=Math.min(11,allNames.length);
+   var benchEnd=Math.min(xiEnd+5,allNames.length);
+   var playing=allNames.slice(0,benchEnd); // XI + Bench
+   playing.forEach(function(n){
+    var fn=n.toLowerCase().trim();
+    s.add(fn);
+    s.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());
+   });
+  }
+  teamPlayingSet[team.name]=s;
  });
  }
 
- // Aggregate match points per player PER TEAM — only count if inActiveSquad
- // This ensures reserves earn 0 for matches where they weren't in XI/Bench
+ // Aggregate ALL match points per player
  const playerTotal={};
- const teamPlayerPts={}; // teamName -> {playerKey -> totalPts}
  matchIds.forEach(mid=>{
  const m=matches[mid];
  if(!m?.players) return;
  Object.values(m.players).forEach(p=>{
- const key=(p.name||'').toLowerCase();
- playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
- // For leaderboard: only count if player was in active squad for this match
- const owner=p.ownedBy||rosterOwnerMap[key]||'';
- if(owner){
-  if(!teamPlayerPts[owner]) teamPlayerPts[owner]={};
-  // inActiveSquad flag: true = XI/Bench, false = reserves, undefined = old match (count all for backwards compat)
-  var shouldCount = (p.inActiveSquad===true)||(p.inActiveSquad===undefined);
-  if(shouldCount){
-   teamPlayerPts[owner][key]=(teamPlayerPts[owner][key]||0)+(p.pts||0);
-  }
- }
+  const key=(p.name||'').toLowerCase();
+  playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
  });
  });
 
- // Assign to teams using squad-aware totals
+ // Assign to teams — only count players in the playing set (XI + Bench)
  if(data.teams){
  Object.values(data.teams).forEach(team=>{
- const myPts=teamPlayerPts[team.name]||{};
- Object.entries(myPts).forEach(([key,pts])=>{
- teamPts[team.name].pts+=pts;
- teamPts[team.name].playerCount++;
- if(pts>teamPts[team.name].topPts){
- teamPts[team.name].topPts=pts;
- // Find display name from roster
- const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
- const found=roster.find(p=>(p.name||p.n||'').toLowerCase()===key);
- teamPts[team.name].topPlayer=found?(found.name||found.n||'--'):key;
- }
- });
+  const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+  const playingSet=teamPlayingSet[team.name]||new Set();
+  roster.forEach(p=>{
+   const key=(p.name||p.n||'').toLowerCase().trim();
+   const cleanKey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   if(!playingSet.has(key)&&!playingSet.has(cleanKey)) return; // skip reserves
+   const pts=playerTotal[key]||playerTotal[cleanKey]||0;
+   teamPts[team.name].pts+=pts;
+   if(pts!==0) teamPts[team.name].playerCount++;
+   if(pts>teamPts[team.name].topPts){
+    teamPts[team.name].topPts=pts;
+    teamPts[team.name].topPlayer=p.name||p.n||'--';
+   }
+  });
  });
  }
 
@@ -1587,7 +1600,98 @@ body.innerHTML=sorted.map(([name,info],i)=>{
  const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
  const dq=!info.squadValid;return `<div class="lb-row"${dq?' style="opacity:.45"':''}>${medal}<div style="flex:1;"><div class="lb-team">${name}${dq?` <span style="font-size:.62rem;padding:1px 5px;border-radius:8px;background:var(--err-bg);color:var(--err);border:1px solid var(--err-border);font-weight:700;margin-left:5px;">DQ</span>`:``}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) . ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--accent),var(--accent-light));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
  }).join('');
+
+ // Show All Squads section for admin
+ var _asS=document.getElementById('allSquadsSection');
+ if(_asS) _asS.style.display=isAdmin?'block':'none';
+ if(isAdmin) window.renderAllSquads();
 }
+
+// -- Show All Squads section for super admin --
+window.renderAllSquads=function(){
+ var section=document.getElementById('allSquadsSection');
+ var body=document.getElementById('allSquadsBody');
+ if(!body||!roomState||!roomState.teams) return;
+
+ // Aggregate all match points per player
+ var matches=roomState.matches||{};
+ var pts={};
+ Object.values(matches).forEach(function(m){
+  if(!m.players) return;
+  Object.values(m.players).forEach(function(p){
+   var k=(p.name||'').toLowerCase();
+   pts[k]=(pts[k]||0)+(p.pts||0);
+  });
+ });
+
+ var html='';
+ Object.values(roomState.teams).forEach(function(team){
+  var roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+  if(!roster.length) return;
+  var allNames=roster.map(function(p){return p.name||p.n||'';});
+
+  // Derive XI / Bench / Reserves
+  var xi,bench,reserves;
+  if(team.activeSquad&&Array.isArray(team.activeSquad)&&team.activeSquad.length>0){
+   var sqSet=new Set(team.activeSquad.map(function(n){return n.toLowerCase().trim();}));
+   xi=allNames.filter(function(n,i){return i<11&&sqSet.has(n.toLowerCase().trim());});
+   bench=team.activeSquad.filter(function(n){return xi.indexOf(n)<0;});
+   // If activeSquad doesn't split into XI/bench neatly, just take first 11 = XI, rest = bench
+   if(xi.length===0){
+    xi=team.activeSquad.slice(0,11);
+    bench=team.activeSquad.slice(11);
+   }
+   reserves=allNames.filter(function(n){return!sqSet.has(n.toLowerCase().trim());});
+  } else {
+   var xiEnd=Math.min(11,allNames.length);
+   var benchEnd=Math.min(xiEnd+5,allNames.length);
+   xi=allNames.slice(0,xiEnd);
+   bench=allNames.slice(xiEnd,benchEnd);
+   reserves=allNames.slice(benchEnd);
+  }
+
+  function pRow(name,section){
+   var p=roster.find(function(x){return(x.name||x.n||'')===name;})||{};
+   var iplTeam=(p.iplTeam||p.t||'').toUpperCase();
+   var role=(p.role||p.r||'');
+   var isOs=!!(p.isOverseas||p.o||name.indexOf('*')>=0);
+   var k=name.toLowerCase().trim();
+   var kc=k.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var playerPts=pts[k]||pts[kc]||0;
+   var ptsColor=playerPts>0?'var(--ok)':playerPts<0?'var(--err)':'var(--dim)';
+   return '<tr><td style="padding:5px 8px;font-size:.82rem;">'+(isOs?'<span style="color:var(--warn);margin-right:2px;">●</span>':'')+name+'</td><td style="padding:5px 8px;font-size:.72rem;color:var(--dim);">'+iplTeam+'</td><td style="padding:5px 8px;font-size:.72rem;">'+role+'</td><td style="padding:5px 8px;font-family:var(--f);color:'+ptsColor+';text-align:right;font-weight:600;">'+(playerPts>=0?'+':'')+playerPts+'</td></tr>';
+  }
+
+  var teamTotal=0;
+  xi.concat(bench).forEach(function(n){
+   var k=n.toLowerCase().trim();
+   var kc=k.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   teamTotal+=(pts[k]||pts[kc]||0);
+  });
+
+  html+='<div style="margin-bottom:20px;border:1px solid var(--b1);border-radius:var(--r);overflow:hidden;">';
+  html+='<div style="padding:10px 14px;background:var(--surface);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--b1);"><strong style="font-size:.92rem;">'+team.name+'</strong><span style="font-family:var(--f);font-size:1rem;color:var(--accent);font-weight:700;">'+(teamTotal>=0?'+':'')+teamTotal+'</span></div>';
+  html+='<table style="width:100%;border-collapse:collapse;">';
+
+  // XI
+  html+='<tr><td colspan="4" style="padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.08em;background:rgba(45,212,191,.06);border-bottom:1px solid var(--b1);">Playing XI ('+xi.length+')</td></tr>';
+  xi.forEach(function(n){html+=pRow(n,'xi');});
+
+  // Bench
+  html+='<tr><td colspan="4" style="padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.08em;background:rgba(251,191,36,.06);border-bottom:1px solid var(--b1);border-top:1px solid var(--b1);">Bench ('+bench.length+')</td></tr>';
+  bench.forEach(function(n){html+=pRow(n,'bench');});
+
+  // Reserves
+  if(reserves.length){
+   html+='<tr><td colspan="4" style="padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.02);border-bottom:1px solid var(--b1);border-top:1px solid var(--b1);">Reserves ('+reserves.length+')</td></tr>';
+   reserves.forEach(function(n){html+=pRow(n,'reserves');});
+  }
+
+  html+='</table></div>';
+ });
+
+ body.innerHTML=html||'<div class="empty" style="padding:20px;">No teams found.</div>';
+};
 
 // -- Render Analytics --
 function renderAnalytics(data){
