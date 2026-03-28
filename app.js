@@ -676,17 +676,19 @@ function loadRoom(rid){
  renderBlock(data);
 
  // Points tabs -- always re-render when data changes
- renderPointsTab();
- renderLeaderboard(data);
- renderAnalytics(data);
+ try{renderPointsTab();}catch(e){console.error('renderPointsTab:',e);}
+ try{renderLeaderboard(data);}catch(e){console.error('renderLeaderboard:',e);}
+ try{renderAnalytics(data);}catch(e){console.error('renderAnalytics:',e);}
+ try{
  if(document.getElementById('myteam-tab')?.style.display==='block') _mtRenderA();
  else if(myTeamName && data.teams && data.teams[myTeamName]) {
    var _newRLen=0; var _r=data.teams[myTeamName].roster;
    if(_r) _newRLen=Array.isArray(_r)?_r.length:Object.keys(_r).length;
    if(!_sqSavedA||!_sqSavedA._rLen||_sqSavedA._rLen!==_newRLen){ _sqSavedA=null; }
   }
- renderMatchData(data);
- window.renderTrades(data);
+ }catch(e){console.error('myteam:',e);}
+ try{renderMatchData(data);}catch(e){console.error('renderMatchData:',e);}
+ try{window.renderTrades(data);}catch(e){console.error('renderTrades:',e);}
  var _lBtn=document.getElementById('mt_lock_btn_A'); if(_lBtn){ if(isAdmin) _lBtn.style.display='inline-block'; _lBtn.textContent=data.squadLocked?'Unlock Changes':'Lock Changes'; _lBtn.style.background=data.squadLocked?'var(--err-bg)':'var(--surface)'; _lBtn.style.color=data.squadLocked?'var(--err)':'var(--txt2)'; }
  if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
  });
@@ -2479,31 +2481,39 @@ window.saveGlobalScorecard=async function(){
  // 1. Save to user's global scorecard store (source of truth)
  await set(ref(db,`users/${user.uid}/scorecards/${matchId}`),matchRecord);
 
- // 2. Fan-out: get all owned auction rooms
- const [aSnap,dSnap]=await Promise.all([
+ // 2. Fan-out: get all owned AND joined auction rooms
+ const [aSnap,dSnap,jSnap,jdSnap]=await Promise.all([
  get(ref(db,`users/${user.uid}/auctions`)),
- get(ref(db,`users/${user.uid}/drafts`))
+ get(ref(db,`users/${user.uid}/drafts`)),
+ get(ref(db,`users/${user.uid}/joined`)),
+ get(ref(db,`users/${user.uid}/joinedDrafts`))
  ]);
 
  const fanOutWrites={};
  const aRooms=aSnap.val()||{};
  const dRooms=dSnap.val()||{};
+ const jRooms=jSnap.val()||{};
+ const jdRooms=jdSnap.val()||{};
 
- Object.keys(aRooms).forEach(rid=>{
+ // Merge: owned auctions + joined auctions (deduplicate by rid)
+ const allAuctionRids=new Set([...Object.keys(aRooms),...Object.keys(jRooms)]);
+ const allDraftRids=new Set([...Object.keys(dRooms),...Object.keys(jdRooms)]);
+
+ allAuctionRids.forEach(rid=>{
  fanOutWrites[`auctions/${rid}/matches/${matchId}`]=matchRecord;
  });
- Object.keys(dRooms).forEach(rid=>{
+ allDraftRids.forEach(rid=>{
  fanOutWrites[`drafts/${rid}/matches/${matchId}`]=matchRecord;
  });
 
- const totalRooms=Object.keys(aRooms).length+Object.keys(dRooms).length;
+ const totalRooms=allAuctionRids.size+allDraftRids.size;
 
  if(totalRooms>0){
  await update(ref(db),fanOutWrites);
  // Post-push: enrich each room's match with inActiveSquad flags
  // Read each room's team data and tag players who are in activeSquad
  const enrichPromises=[];
- Object.keys(aRooms).forEach(rid=>{
+ allAuctionRids.forEach(rid=>{
   enrichPromises.push(get(ref(db,`auctions/${rid}/teams`)).then(tSnap=>{
    const teams=tSnap.val()||{};
    const ownerMap={},squadMap={};
@@ -2537,7 +2547,7 @@ window.saveGlobalScorecard=async function(){
    if(Object.keys(upd).length) return update(ref(db),upd);
   }).catch(()=>{}));
  });
- Object.keys(dRooms).forEach(rid=>{
+ allDraftRids.forEach(rid=>{
   enrichPromises.push(get(ref(db,`drafts/${rid}/teams`)).then(tSnap=>{
    const teams=tSnap.val()||{};
    const ownerMap={},squadMap={};
@@ -2575,7 +2585,7 @@ window.saveGlobalScorecard=async function(){
  }
 
  statusEl.className='ai-status done';
- statusEl.textContent=`"${data.label}" saved and pushed to ${totalRooms} room${totalRooms===1?'':'s'} (${Object.keys(aRooms).length} auction . ${Object.keys(dRooms).length} draft).`;
+ statusEl.textContent=`"${data.label}" saved and pushed to ${totalRooms} room${totalRooms===1?'':'s'} (${allAuctionRids.size} auction · ${allDraftRids.size} draft).`;
 
  // Reset form
  document.getElementById('gscBattingRows').innerHTML='';
