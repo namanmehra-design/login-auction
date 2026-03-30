@@ -1416,6 +1416,10 @@ window.submitMatch=function(confirmed=false){
  set(ref(db,`auctions/${roomId}/matches/${matchId}`),matchRecord)
  .then(()=>{
  window.showAlert(`Match "${data.label}" saved! Points updated for all teams.`,'ok');
+ // Increment stored leaderboard totals
+ var xiMult=parseFloat(roomState?.xiMultiplier)||1;
+ var contrib=computeMatchContribution(matchRecord, matchRecord.squadSnapshots, roomState?.teams, xiMult);
+ _incrementLeaderboardTotalsA(contrib);
  document.getElementById('previewBox').style.display='none';
  document.getElementById('matchFormBody').style.display='none';
  document.getElementById('matchLabel').value='';
@@ -1541,13 +1545,122 @@ function buildSquadSnapshots(teamsData){
  return snapshots;
 }
 
+// -- Compute a single match's contribution to each team --
+function computeMatchContribution(matchData, matchSnaps, teamsData, xiMultiplier){
+ var contrib={};
+ if(!matchData?.players) return contrib;
+ var rosterOwnerMap={};
+ if(teamsData){
+  Object.values(teamsData).forEach(function(t){
+   var roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+   roster.forEach(function(p){
+    var fn=(p.name||p.n||'').toLowerCase().trim();
+    var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    rosterOwnerMap[fn]=t.name;
+    rosterOwnerMap[cn]=t.name;
+   });
+  });
+ }
+ var mXI={}, mBench={};
+ Object.entries(matchSnaps||{}).forEach(function(e){
+  var tn=e[0], snap=e[1];
+  var xiS=new Set(), bnS=new Set();
+  (snap.xi||[]).forEach(function(n){var fn=n.toLowerCase().trim();xiS.add(fn);xiS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+  (snap.bench||[]).forEach(function(n){var fn=n.toLowerCase().trim();bnS.add(fn);bnS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+  mXI[tn]=xiS; mBench[tn]=bnS;
+ });
+ Object.values(matchData.players).forEach(function(p){
+  var key=(p.name||'').toLowerCase();
+  var cleanKey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+  var owner=p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey]||'';
+  if(!owner) return;
+  var mult=0;
+  if(mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(cleanKey))) mult=xiMultiplier;
+  else if(mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(cleanKey))) mult=1;
+  if(mult>0){
+   var mPts=Math.round((p.pts||0)*mult*100)/100;
+   if(!contrib[owner]) contrib[owner]={pts:0,players:{}};
+   contrib[owner].pts+=mPts;
+   contrib[owner].players[cleanKey]=(contrib[owner].players[cleanKey]||0)+mPts;
+  }
+ });
+ return contrib;
+}
+
+// -- Increment stored leaderboard totals for a single match's contribution (auction) --
+async function _incrementLeaderboardTotalsA(contrib){
+ if(!roomId||!contrib||!Object.keys(contrib).length) return;
+ try{
+  var snap=await get(ref(db,'auctions/'+roomId+'/leaderboardTotals'));
+  var stored=snap.val()||{};
+  Object.entries(contrib).forEach(function(ce){
+   var tn=ce[0], c=ce[1];
+   if(!stored[tn]) stored[tn]={pts:0,topPlayer:'--',topPts:0,playerCount:0};
+   stored[tn].pts=Math.round((stored[tn].pts+c.pts)*100)/100;
+   var bestN='--',bestP=0,pC=0;
+   Object.entries(c.players).forEach(function(pe){if(pe[1]!==0)pC++;if(pe[1]>bestP){bestP=pe[1];bestN=pe[0];}});
+   stored[tn].playerCount=(stored[tn].playerCount||0)+pC;
+   if(bestP>stored[tn].topPts){stored[tn].topPts=bestP;stored[tn].topPlayer=bestN;}
+  });
+  await set(ref(db,'auctions/'+roomId+'/leaderboardTotals'),stored);
+ }catch(e){console.error('_incrementLeaderboardTotalsA:',e);}
+}
+
+// -- Recalculate leaderboard totals from all matches (admin tool, auction) --
+window.recalcLeaderboard=async function(){
+ if(!roomId||!roomState) return;
+ if(!confirm('Recalculate leaderboard totals from all match data? This will overwrite current stored totals.')) return;
+ window.showAlert('Recalculating...','info');
+ var matches=roomState.matches||{};
+ var teams=roomState.teams||{};
+ var xiMult=parseFloat(roomState.xiMultiplier)||1;
+ var currentSnaps=buildSquadSnapshots(teams);
+ var totals={};
+ Object.values(teams).forEach(function(t){
+  totals[t.name]={pts:0,topPlayer:'--',topPts:0,playerCount:0,_players:{}};
+ });
+ Object.entries(matches).forEach(function(me){
+  var mid=me[0], m=me[1];
+  var matchSnaps=m.squadSnapshots||currentSnaps;
+  var contrib=computeMatchContribution(m, matchSnaps, teams, xiMult);
+  Object.entries(contrib).forEach(function(ce){
+   var tn=ce[0], c=ce[1];
+   if(!totals[tn]) totals[tn]={pts:0,topPlayer:'--',topPts:0,playerCount:0,_players:{}};
+   totals[tn].pts+=c.pts;
+   Object.entries(c.players).forEach(function(pe){
+    totals[tn]._players[pe[0]]=(totals[tn]._players[pe[0]]||0)+pe[1];
+   });
+  });
+ });
+ var toStore={};
+ Object.entries(totals).forEach(function(te){
+  var tn=te[0], t=te[1];
+  var topP='--', topPts=0, pCount=0;
+  Object.entries(t._players).forEach(function(pe){
+   if(pe[1]!==0) pCount++;
+   if(pe[1]>topPts){topPts=pe[1];topP=pe[0];}
+  });
+  if(teams[tn]){
+   var roster=Array.isArray(teams[tn].roster)?teams[tn].roster:(teams[tn].roster?Object.values(teams[tn].roster):[]);
+   var found=roster.find(function(x){return(x.name||x.n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===topP;});
+   if(found) topP=found.name||found.n||topP;
+  }
+  toStore[tn]={pts:Math.round(t.pts*100)/100,topPlayer:topP,topPts:Math.round(topPts*100)/100,playerCount:pCount};
+ });
+ try{
+  await set(ref(db,'auctions/'+roomId+'/leaderboardTotals'),toStore);
+  window.showAlert('Leaderboard totals recalculated and saved.','ok');
+ }catch(e){
+  window.showAlert('Failed: '+e.message);
+ }
+};
+
 // -- Render Leaderboard --
 function renderLeaderboard(data){
  if(!data) return;
  const matches=data.matches||{};
  const matchIds=Object.keys(matches);
 
- // Build total points per team
  const teamPts={};
  if(data.teams){
  Object.values(data.teams).forEach(team=>{
@@ -1555,66 +1668,82 @@ function renderLeaderboard(data){
  });
  }
 
- const xiMultiplier=parseFloat(data.xiMultiplier)||1;
+ // Read stored leaderboard totals (permanent, cumulative)
+ const storedTotals=data?.leaderboardTotals||{};
+ var hasStoredTotals=Object.keys(storedTotals).length>0;
 
- // Build roster owner map (fallback when ownedBy missing)
- const rosterOwnerMap={};
- if(data.teams){
- Object.values(data.teams).forEach(team=>{
-  const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-  roster.forEach(p=>{
-   var fn=(p.name||p.n||'').toLowerCase().trim();
-   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-   rosterOwnerMap[fn]=team.name;
-   rosterOwnerMap[cn]=team.name;
-  });
- });
- }
-
- // Current team XI/Bench (fallback for matches without snapshots)
- const currentSnapshots=buildSquadSnapshots(data.teams);
-
- // Aggregate per-match points using PER-MATCH squad snapshots
  const playerTotal={};
- matchIds.forEach(mid=>{
- const m=matches[mid];
- if(!m?.players) return;
-
- // Use this match's snapshot if available, otherwise fall back to current teams
- var matchSnaps=m.squadSnapshots||currentSnapshots;
-
- // Build XI/Bench sets from this match's snapshot
- var mXI={}, mBench={}; // teamName -> Set
- Object.entries(matchSnaps).forEach(function(e){
-  var tn=e[0], snap=e[1];
-  var xiS=new Set(), bnS=new Set();
-  (snap.xi||[]).forEach(function(n){var fn=n.toLowerCase().trim();xiS.add(fn);xiS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
-  (snap.bench||[]).forEach(function(n){var fn=n.toLowerCase().trim();bnS.add(fn);bnS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
-  mXI[tn]=xiS; mBench[tn]=bnS;
- });
-
- Object.values(m.players).forEach(p=>{
-  const key=(p.name||'').toLowerCase();
-  const cleanKey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-  playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
-  const owner=p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey]||'';
-  if(!owner||!teamPts[owner]) return;
-  var mult=0;
-  if(mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(cleanKey))) mult=xiMultiplier;
-  else if(mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(cleanKey))) mult=1;
-  if(mult>0){
-   var mPts=Math.round((p.pts||0)*mult*100)/100;
-   teamPts[owner].pts+=mPts;
-   if(mPts!==0) teamPts[owner].playerCount++;
-   if(mPts>teamPts[owner].topPts){
-    teamPts[owner].topPts=mPts;
-    var roster2=data.teams[owner]?(Array.isArray(data.teams[owner].roster)?data.teams[owner].roster:Object.values(data.teams[owner].roster||{})):[];
-    var found=roster2.find(function(x){return(x.name||x.n||'').toLowerCase().trim()===key||(x.name||x.n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===cleanKey;});
-    teamPts[owner].topPlayer=found?(found.name||found.n||'--'):key;
+ if(hasStoredTotals){
+  // Use stored totals
+  Object.entries(storedTotals).forEach(function(e){
+   var tn=e[0], st=e[1];
+   if(teamPts[tn]){
+    teamPts[tn].pts=st.pts||0;
+    teamPts[tn].topPlayer=st.topPlayer||'--';
+    teamPts[tn].topPts=st.topPts||0;
+    teamPts[tn].playerCount=st.playerCount||0;
    }
+  });
+  // Still build playerTotal for stats strip
+  matchIds.forEach(mid=>{
+   const m=matches[mid];
+   if(!m?.players) return;
+   Object.values(m.players).forEach(p=>{
+    const key=(p.name||'').toLowerCase();
+    playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
+   });
+  });
+ } else {
+  // Fallback: recalculate from match data
+  const xiMultiplier=parseFloat(data.xiMultiplier)||1;
+  const rosterOwnerMap={};
+  if(data.teams){
+  Object.values(data.teams).forEach(team=>{
+   const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+   roster.forEach(p=>{
+    var fn=(p.name||p.n||'').toLowerCase().trim();
+    var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    rosterOwnerMap[fn]=team.name;
+    rosterOwnerMap[cn]=team.name;
+   });
+  });
   }
- });
- });
+  const currentSnapshots=buildSquadSnapshots(data.teams);
+  matchIds.forEach(mid=>{
+  const m=matches[mid];
+  if(!m?.players) return;
+  var matchSnaps=m.squadSnapshots||currentSnapshots;
+  var mXI={}, mBench={};
+  Object.entries(matchSnaps).forEach(function(e){
+   var tn=e[0], snap=e[1];
+   var xiS=new Set(), bnS=new Set();
+   (snap.xi||[]).forEach(function(n){var fn=n.toLowerCase().trim();xiS.add(fn);xiS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+   (snap.bench||[]).forEach(function(n){var fn=n.toLowerCase().trim();bnS.add(fn);bnS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+   mXI[tn]=xiS; mBench[tn]=bnS;
+  });
+  Object.values(m.players).forEach(p=>{
+   const key=(p.name||'').toLowerCase();
+   const cleanKey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
+   const owner=p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey]||'';
+   if(!owner||!teamPts[owner]) return;
+   var mult=0;
+   if(mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(cleanKey))) mult=xiMultiplier;
+   else if(mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(cleanKey))) mult=1;
+   if(mult>0){
+    var mPts=Math.round((p.pts||0)*mult*100)/100;
+    teamPts[owner].pts+=mPts;
+    if(mPts!==0) teamPts[owner].playerCount++;
+    if(mPts>teamPts[owner].topPts){
+     teamPts[owner].topPts=mPts;
+     var roster2=data.teams[owner]?(Array.isArray(data.teams[owner].roster)?data.teams[owner].roster:Object.values(data.teams[owner].roster||{})):[];
+     var found=roster2.find(function(x){return(x.name||x.n||'').toLowerCase().trim()===key||(x.name||x.n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===cleanKey;});
+     teamPts[owner].topPlayer=found?(found.name||found.n||'--'):key;
+    }
+   }
+  });
+  });
+ }
 
  const sorted=Object.entries(teamPts).sort((a,b)=>b[1].pts-a[1].pts);
 
@@ -2237,7 +2366,8 @@ function renderMatchData(data){
    </table>`);
 
   const deleteBtn=isAdmin?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();window.deleteMatch('${mid}','${(m.label||mid).replace(/'/g,"\\'")}')">Delete</button>`:'';
-  const snapshotBtn=isAdmin?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();window.resnapshotMatch('${mid}')" title="Update squad snapshot to current teams" style="font-size:.72rem;">Re-snapshot</button>`:'';
+  const _canManage=isAdmin||isSuperAdminEmail(user?.email);
+  const snapshotBtn=_canManage?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();window.resnapshotMatch('${mid}')" title="Update squad snapshot to current teams" style="font-size:.72rem;">Re-snapshot</button>`:'';
   const metaEditor=isAdmin?`<div style="padding:10px 16px;border-bottom:1px solid var(--b0);display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(108,84,200,0.03);">
    <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:.62rem;color:var(--dim2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Label</span><input class="edit-input" style="min-width:150px;" value="${m.label||''}" onblur="window.saveMatchMeta('${mid}','label',this.value)"></div>
    <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:.62rem;color:var(--dim2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Winner</span><input class="edit-input" style="min-width:50px;" value="${m.winner||''}" onblur="window.saveMatchMeta('${mid}','winner',this.value.toUpperCase())"></div>
@@ -2332,7 +2462,7 @@ window.deleteMatch=function(mid,label){
 
 // -- Re-snapshot: overwrite a past match's squad snapshot with current team arrangements --
 window.resnapshotMatch=function(mid){
- if(!isAdmin||!roomId||!roomState?.teams) return;
+ if(!(isAdmin||isSuperAdminEmail(user?.email))||!roomId||!roomState?.teams) return;
  if(!confirm('Update this match\'s squad snapshot to the current team arrangements? This changes how points are counted for this match on the leaderboard.')) return;
  var snaps=buildSquadSnapshots(roomState.teams);
  set(ref(db,`auctions/${roomId}/matches/${mid}/squadSnapshots`),snaps)
@@ -2662,12 +2792,12 @@ window.saveGlobalScorecard=async function(){
 
  if(totalRooms>0){
  await update(ref(db),fanOutWrites);
- // Post-push: enrich each room's match with inActiveSquad flags
- // Read each room's team data and tag players who are in activeSquad
+ // Post-push: enrich each room's match with inActiveSquad flags + snapshots + leaderboard totals
  const enrichPromises=[];
  allAuctionRids.forEach(rid=>{
-  enrichPromises.push(get(ref(db,`auctions/${rid}/teams`)).then(tSnap=>{
-   const teams=tSnap.val()||{};
+  enrichPromises.push(get(ref(db,`auctions/${rid}`)).then(roomSnap=>{
+   const roomData=roomSnap.val()||{};
+   const teams=roomData.teams||{};
    const ownerMap={},squadMap={};
    Object.values(teams).forEach(t=>{
     const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
@@ -2696,17 +2826,32 @@ window.saveGlobalScorecard=async function(){
     upd[`auctions/${rid}/matches/${matchId}/players/${k}/ownedBy`]=owner;
     upd[`auctions/${rid}/matches/${matchId}/players/${k}/inActiveSquad`]=inSquad;
    });
-   // Save squad snapshots for this match
+   // Save squad snapshots
    var snaps=buildSquadSnapshots(teams);
    Object.entries(snaps).forEach(([tn,snap])=>{
     upd[`auctions/${rid}/matches/${matchId}/squadSnapshots/${tn}`]=snap;
    });
+   // Increment leaderboard totals
+   var xiMult=parseFloat(roomData.xiMultiplier)||1;
+   var contrib=computeMatchContribution(matchRecord, snaps, teams, xiMult);
+   var stored=roomData.leaderboardTotals||{};
+   Object.entries(contrib).forEach(function(ce){
+    var tn=ce[0], c=ce[1];
+    if(!stored[tn]) stored[tn]={pts:0,topPlayer:'--',topPts:0,playerCount:0};
+    stored[tn].pts=Math.round((stored[tn].pts+c.pts)*100)/100;
+    var bestN='--',bestP=0,pC=0;
+    Object.entries(c.players).forEach(function(pe){if(pe[1]!==0)pC++;if(pe[1]>bestP){bestP=pe[1];bestN=pe[0];}});
+    stored[tn].playerCount=(stored[tn].playerCount||0)+pC;
+    if(bestP>stored[tn].topPts){stored[tn].topPts=bestP;stored[tn].topPlayer=bestN;}
+   });
+   upd[`auctions/${rid}/leaderboardTotals`]=stored;
    if(Object.keys(upd).length) return update(ref(db),upd);
   }).catch(()=>{}));
  });
  allDraftRids.forEach(rid=>{
-  enrichPromises.push(get(ref(db,`drafts/${rid}/teams`)).then(tSnap=>{
-   const teams=tSnap.val()||{};
+  enrichPromises.push(get(ref(db,`drafts/${rid}`)).then(roomSnap=>{
+   const roomData=roomSnap.val()||{};
+   const teams=roomData.teams||{};
    const ownerMap={},squadMap={};
    Object.values(teams).forEach(t=>{
     const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
@@ -2735,11 +2880,25 @@ window.saveGlobalScorecard=async function(){
     upd[`drafts/${rid}/matches/${matchId}/players/${k}/ownedBy`]=owner;
     upd[`drafts/${rid}/matches/${matchId}/players/${k}/inActiveSquad`]=inSquad;
    });
-   // Save squad snapshots for this match
+   // Save squad snapshots
    var snaps=buildSquadSnapshots(teams);
    Object.entries(snaps).forEach(([tn,snap])=>{
     upd[`drafts/${rid}/matches/${matchId}/squadSnapshots/${tn}`]=snap;
    });
+   // Increment leaderboard totals
+   var xiMult=parseFloat(roomData.xiMultiplier)||1;
+   var contrib=computeMatchContribution(matchRecord, snaps, teams, xiMult);
+   var stored=roomData.leaderboardTotals||{};
+   Object.entries(contrib).forEach(function(ce){
+    var tn=ce[0], c=ce[1];
+    if(!stored[tn]) stored[tn]={pts:0,topPlayer:'--',topPts:0,playerCount:0};
+    stored[tn].pts=Math.round((stored[tn].pts+c.pts)*100)/100;
+    var bestN='--',bestP=0,pC=0;
+    Object.entries(c.players).forEach(function(pe){if(pe[1]!==0)pC++;if(pe[1]>bestP){bestP=pe[1];bestN=pe[0];}});
+    stored[tn].playerCount=(stored[tn].playerCount||0)+pC;
+    if(bestP>stored[tn].topPts){stored[tn].topPts=bestP;stored[tn].topPlayer=bestN;}
+   });
+   upd[`drafts/${rid}/leaderboardTotals`]=stored;
    if(Object.keys(upd).length) return update(ref(db),upd);
   }).catch(()=>{}));
  });
@@ -2934,79 +3093,113 @@ window.saPushToAll=async function(){
  statusEl.textContent=' Scanning all rooms and pushing...';
 
  try{
- // Fetch the scorecard record
  const scSnap=await get(ref(db,`users/${user.uid}/scorecards/${mid}`));
  if(!scSnap.exists()){statusEl.className='ai-status fail';statusEl.textContent='\u274c Scorecard not found.';return;}
  const matchRecord=scSnap.val();
 
- // Scan all users to find all room IDs
  const usersSnap=await get(ref(db,'users'));
  const usersData=usersSnap.val()||{};
 
- const fanOut={};
- let aCount=0, dCount=0;
-
+ const auctionRids=new Set(), draftRids=new Set();
  Object.values(usersData).forEach(udata=>{
- if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>{ fanOut[`auctions/${rid}/matches/${mid}`]=matchRecord; aCount++; });
- if(udata.drafts) Object.keys(udata.drafts).forEach(rid=>{ fanOut[`drafts/${rid}/matches/${mid}`]=matchRecord; dCount++; });
+  if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>auctionRids.add(rid));
+  if(udata.drafts) Object.keys(udata.drafts).forEach(rid=>draftRids.add(rid));
+  if(udata.joined) Object.keys(udata.joined).forEach(rid=>auctionRids.add(rid));
+  if(udata.joinedDrafts) Object.keys(udata.joinedDrafts).forEach(rid=>draftRids.add(rid));
  });
 
- if(!Object.keys(fanOut).length){
+ if(!auctionRids.size&&!draftRids.size){
  statusEl.className='ai-status fail';
  statusEl.textContent='No rooms found on the platform.';
  return;
  }
 
+ const fanOut={};
+ auctionRids.forEach(rid=>{fanOut[`auctions/${rid}/matches/${mid}`]=matchRecord;});
+ draftRids.forEach(rid=>{fanOut[`drafts/${rid}/matches/${mid}`]=matchRecord;});
  await update(ref(db),fanOut);
 
- // Enrich each room's match with inActiveSquad flags (super admin push)
- const saEnrichPromises=[];
- Object.values(usersData).forEach(udata=>{
-  if(udata.auctions) Object.keys(udata.auctions).forEach(rid=>{
-   saEnrichPromises.push(get(ref(db,`auctions/${rid}/teams`)).then(tSnap=>{
-    const teams=tSnap.val()||{}; const oMap={},sMap={};
-    Object.values(teams).forEach(t=>{
-     const r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-     r2.forEach(p=>{var fn=(p.name||p.n||'').toLowerCase().trim();var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();oMap[fn]=t.name;oMap[cn]=t.name;});
-     const sq2=t.activeSquad||null;
-     if(sq2&&Array.isArray(sq2)){var ss=new Set();sq2.forEach(n=>{ss.add(n.toLowerCase().trim());ss.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss;}
-     else{var ss2=new Set();r2.forEach(p=>{var fn2=(p.name||p.n||'').toLowerCase().trim();ss2.add(fn2);ss2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss2;}
-    });
-    const u2={};
-    Object.entries(matchRecord.players||{}).forEach(([k,p])=>{
-     const pn=(p.name||'').toLowerCase().trim();
-     const ow=oMap[pn]||oMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
-     u2[`auctions/${rid}/matches/${mid}/players/${k}/ownedBy`]=ow;
-     u2[`auctions/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has(pn):false;
-    });
-    if(Object.keys(u2).length) return update(ref(db),u2);
-   }).catch(()=>{}));
-  });
-  if(udata.drafts) Object.keys(udata.drafts).forEach(rid=>{
-   saEnrichPromises.push(get(ref(db,`drafts/${rid}/teams`)).then(tSnap=>{
-    const teams=tSnap.val()||{}; const oMap={},sMap={};
-    Object.values(teams).forEach(t=>{
-     const r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
-     r2.forEach(p=>{var fn=(p.name||p.n||'').toLowerCase().trim();var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();oMap[fn]=t.name;oMap[cn]=t.name;});
-     const sq2=t.activeSquad||null;
-     if(sq2&&Array.isArray(sq2)){var ss=new Set();sq2.forEach(n=>{ss.add(n.toLowerCase().trim());ss.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss;}
-     else{var ss2=new Set();r2.forEach(p=>{var fn2=(p.name||p.n||'').toLowerCase().trim();ss2.add(fn2);ss2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss2;}
-    });
-    const u2={};
-    Object.entries(matchRecord.players||{}).forEach(([k,p])=>{
-     const pn=(p.name||'').toLowerCase().trim();
-     const ow=oMap[pn]||oMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
-     u2[`drafts/${rid}/matches/${mid}/players/${k}/ownedBy`]=ow;
-     u2[`drafts/${rid}/matches/${mid}/players/${k}/inActiveSquad`]=ow&&sMap[ow]?sMap[ow].has(pn):false;
-    });
-    if(Object.keys(u2).length) return update(ref(db),u2);
-   }).catch(()=>{}));
-  });
+ statusEl.textContent=' Saving snapshots and updating leaderboard totals...';
+ var postPromises=[];
+ auctionRids.forEach(function(rid){
+  postPromises.push(get(ref(db,'auctions/'+rid)).then(function(roomSnap){
+   var roomData=roomSnap.val()||{};
+   var teams=roomData.teams||{};
+   var snaps=buildSquadSnapshots(teams);
+   var upd={};
+   Object.entries(snaps).forEach(function(se){upd['auctions/'+rid+'/matches/'+mid+'/squadSnapshots/'+se[0]]=se[1];});
+   // Enrich ownedBy
+   var oMap={},sMap={};
+   Object.values(teams).forEach(function(t){
+    var r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+    r2.forEach(function(p){var fn=(p.name||p.n||'').toLowerCase().trim();var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();oMap[fn]=t.name;oMap[cn]=t.name;});
+    var sq2=t.activeSquad||null;
+    if(sq2&&Array.isArray(sq2)){var ss=new Set();sq2.forEach(function(n){ss.add(n.toLowerCase().trim());ss.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss;}
+    else{var ss2=new Set();r2.forEach(function(p){var fn2=(p.name||p.n||'').toLowerCase().trim();ss2.add(fn2);ss2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss2;}
+   });
+   Object.entries(matchRecord.players||{}).forEach(function(pe){
+    var k=pe[0],p=pe[1];var pn=(p.name||'').toLowerCase().trim();
+    var ow=oMap[pn]||oMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
+    upd['auctions/'+rid+'/matches/'+mid+'/players/'+k+'/ownedBy']=ow;
+    upd['auctions/'+rid+'/matches/'+mid+'/players/'+k+'/inActiveSquad']=ow&&sMap[ow]?sMap[ow].has(pn):false;
+   });
+   var xiMult=parseFloat(roomData.xiMultiplier)||1;
+   var contrib=computeMatchContribution(matchRecord, snaps, teams, xiMult);
+   var stored=roomData.leaderboardTotals||{};
+   Object.entries(contrib).forEach(function(ce){
+    var tn=ce[0],c=ce[1];
+    if(!stored[tn]) stored[tn]={pts:0,topPlayer:'--',topPts:0,playerCount:0};
+    stored[tn].pts=Math.round((stored[tn].pts+c.pts)*100)/100;
+    var bestN='--',bestP=0,pC=0;
+    Object.entries(c.players).forEach(function(pe2){if(pe2[1]!==0)pC++;if(pe2[1]>bestP){bestP=pe2[1];bestN=pe2[0];}});
+    stored[tn].playerCount=(stored[tn].playerCount||0)+pC;
+    if(bestP>stored[tn].topPts){stored[tn].topPts=bestP;stored[tn].topPlayer=bestN;}
+   });
+   upd['auctions/'+rid+'/leaderboardTotals']=stored;
+   return update(ref(db),upd);
+  }).catch(function(){}));
  });
- await Promise.all(saEnrichPromises);
+ draftRids.forEach(function(rid){
+  postPromises.push(get(ref(db,'drafts/'+rid)).then(function(roomSnap){
+   var roomData=roomSnap.val()||{};
+   var teams=roomData.teams||{};
+   var snaps=buildSquadSnapshots(teams);
+   var upd={};
+   Object.entries(snaps).forEach(function(se){upd['drafts/'+rid+'/matches/'+mid+'/squadSnapshots/'+se[0]]=se[1];});
+   var oMap={},sMap={};
+   Object.values(teams).forEach(function(t){
+    var r2=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+    r2.forEach(function(p){var fn=(p.name||p.n||'').toLowerCase().trim();var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();oMap[fn]=t.name;oMap[cn]=t.name;});
+    var sq2=t.activeSquad||null;
+    if(sq2&&Array.isArray(sq2)){var ss=new Set();sq2.forEach(function(n){ss.add(n.toLowerCase().trim());ss.add(n.toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss;}
+    else{var ss2=new Set();r2.forEach(function(p){var fn2=(p.name||p.n||'').toLowerCase().trim();ss2.add(fn2);ss2.add(fn2.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});sMap[t.name]=ss2;}
+   });
+   Object.entries(matchRecord.players||{}).forEach(function(pe){
+    var k=pe[0],p=pe[1];var pn=(p.name||'').toLowerCase().trim();
+    var ow=oMap[pn]||oMap[pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()]||'';
+    upd['drafts/'+rid+'/matches/'+mid+'/players/'+k+'/ownedBy']=ow;
+    upd['drafts/'+rid+'/matches/'+mid+'/players/'+k+'/inActiveSquad']=ow&&sMap[ow]?sMap[ow].has(pn):false;
+   });
+   var xiMult=parseFloat(roomData.xiMultiplier)||1;
+   var contrib=computeMatchContribution(matchRecord, snaps, teams, xiMult);
+   var stored=roomData.leaderboardTotals||{};
+   Object.entries(contrib).forEach(function(ce){
+    var tn=ce[0],c=ce[1];
+    if(!stored[tn]) stored[tn]={pts:0,topPlayer:'--',topPts:0,playerCount:0};
+    stored[tn].pts=Math.round((stored[tn].pts+c.pts)*100)/100;
+    var bestN='--',bestP=0,pC=0;
+    Object.entries(c.players).forEach(function(pe2){if(pe2[1]!==0)pC++;if(pe2[1]>bestP){bestP=pe2[1];bestN=pe2[0];}});
+    stored[tn].playerCount=(stored[tn].playerCount||0)+pC;
+    if(bestP>stored[tn].topPts){stored[tn].topPts=bestP;stored[tn].topPlayer=bestN;}
+   });
+   upd['drafts/'+rid+'/leaderboardTotals']=stored;
+   return update(ref(db),upd);
+  }).catch(function(){}));
+ });
+ await Promise.all(postPromises);
 
  statusEl.className='ai-status done';
- statusEl.textContent=`"${matchRecord.label}" pushed to ${aCount} auction + ${dCount} draft rooms across the entire platform.`;
+ statusEl.textContent=`"${matchRecord.label}" pushed to ${auctionRids.size} auction + ${draftRids.size} draft rooms. Leaderboard totals updated.`;
 
  }catch(e){
  statusEl.className='ai-status fail';
