@@ -56,10 +56,96 @@ const ERRS={
 const N=p=>p.name||p.n||'Unknown';
 const T=p=>p.iplTeam||p.t||'';
 const R=p=>p.role||p.r||'';
-const O=p=>!!(p.isOverseas||p.o);
+const O=p=>!!(p.isOverseas||p.o||((p.name||p.n||'').indexOf('* (')>=0));
 
+// -- One-time migration: fix overseas flags in roster data --
+let _overseasMigrationDone={};
+function migrateOverseasFlags(rid,data){
+ if(_overseasMigrationDone[rid]) return;
+ _overseasMigrationDone[rid]=true;
+ if(!data?.teams) return;
+ const upd={};
+ let needsWrite=false;
+ Object.entries(data.teams).forEach(([tname,team])=>{
+  const roster=Array.isArray(team.roster)?team.roster:(team.roster?Object.values(team.roster):[]);
+  roster.forEach((p,i)=>{
+   const name=p.name||p.n||'';
+   const shouldBeOverseas=name.indexOf('* (')>=0;
+   if(shouldBeOverseas&&!p.isOverseas&&!p.o){
+    upd[`auctions/${rid}/teams/${tname}/roster/${i}/isOverseas`]=true;
+    needsWrite=true;
+   }
+  });
+ });
+ // Also fix players list
+ if(data.players){
+  const pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+  pArr.forEach((p,i)=>{
+   const name=p.name||p.n||'';
+   if(name.indexOf('* (')>=0&&!p.isOverseas){
+    upd[`auctions/${rid}/players/${i}/isOverseas`]=true;
+    needsWrite=true;
+   }
+  });
+ }
+ if(needsWrite) update(ref(db),upd).catch(e=>console.warn('Overseas migration:',e));
+}
 
+// -- One-time migration: backfill missing squad snapshots for historical matches --
+let _snapshotMigrationDone={};
+function migrateSquadSnapshots(rid,data){
+ if(_snapshotMigrationDone[rid]) return;
+ _snapshotMigrationDone[rid]=true;
+ if(!data?.matches||!data?.teams) return;
+ const mp=data.maxPlayers||data.setup?.maxPlayers||20;
+ const snaps=buildSquadSnapshots(data.teams,mp);
+ if(!Object.keys(snaps).length) return;
+ const upd={};
+ let needsWrite=false;
+ Object.entries(data.matches).forEach(([mid,m])=>{
+  if(!m.squadSnapshots||!Object.keys(m.squadSnapshots).length){
+   upd[`auctions/${rid}/matches/${mid}/squadSnapshots`]=snaps;
+   needsWrite=true;
+  }
+ });
+ if(needsWrite) update(ref(db),upd).then(()=>console.log('Backfilled squad snapshots for',rid)).catch(e=>console.warn('Snapshot migration:',e));
+}
 
+// -- One-time migration: fix duck points retroactively --
+let _duckMigrationDone={};
+function migrateDuckPoints(rid,data){
+ if(_duckMigrationDone[rid]) return;
+ _duckMigrationDone[rid]=true;
+ if(!data?.matches) return;
+ const upd={};
+ let needsWrite=false;
+ Object.entries(data.matches).forEach(([mid,m])=>{
+  if(!m.players) return;
+  Object.entries(m.players).forEach(([pkey,p])=>{
+   const bd=p.breakdown||'';
+   // Find players with 0 runs who didn't get duck penalty
+   if(bd.indexOf('Bat(0r')>=0&&bd.indexOf('DUCK')<0){
+    // Lookup role
+    const pName=(p.name||'').toLowerCase().trim();
+    const pClean=pName.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    let role='';
+    if(data.players){
+     const pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+     const found=pArr.find(x=>{const xn=(x.name||x.n||'').toLowerCase().trim();return xn===pName||xn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===pClean;});
+     if(found) role=(found.role||found.r||'').toLowerCase();
+    }
+    if(!role){const rd=rawData.find(x=>{const xn=(x.n||'').toLowerCase().trim();return xn===pName||xn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===pClean;});if(rd)role=(rd.r||'').toLowerCase();}
+    // Only penalize non-bowlers
+    if(role&&role!=='bowler'){
+     upd[`auctions/${rid}/matches/${mid}/players/${pkey}/pts`]=(p.pts||0)-5;
+     upd[`auctions/${rid}/matches/${mid}/players/${pkey}/breakdown`]=bd+' | Duck: -5';
+     needsWrite=true;
+    }
+   }
+  });
+ });
+ if(needsWrite) update(ref(db),upd).then(()=>{console.log('Duck points corrected for',rid);window.showAlert('Duck penalties retroactively applied.','ok');}).catch(e=>console.warn('Duck migration:',e));
+}
 
 window.showAlert=function(msg,type='err'){
  const t=document.getElementById('toast');
@@ -513,6 +599,9 @@ function loadRoom(rid){
  const data=snap.val();
  if(!data)return;
  roomState=data;
+ migrateOverseasFlags(rid,data);
+ migrateSquadSnapshots(rid,data);
+ migrateDuckPoints(rid,data);
  document.getElementById('roomTitleDisplay').textContent=data.roomName||`Room ${rid.substring(0,5).toUpperCase()}`;
 
  // Auto-switch from setup tab once initialized
@@ -680,7 +769,6 @@ function loadRoom(rid){
  try{renderLeaderboard(data);}catch(e){console.error('renderLeaderboard:',e);}
  // All Squads — runs independently
  try{
-  var _isSA=isAdmin||isSuperAdminEmail(user?.email);
   var _asEl=document.getElementById('allSquadsSection');
   if(!_asEl){
    var _lbTab=document.getElementById('leaderboard-tab');
@@ -692,8 +780,8 @@ function loadRoom(rid){
     _lbTab.appendChild(_asEl);
    }
   }
-  if(_asEl) _asEl.style.display=_isSA?'block':'none';
-  if(_isSA) window.renderAllSquads();
+  if(_asEl) _asEl.style.display='block';
+  window.renderAllSquads();
  }catch(e){console.error('allSquads:',e);}
  try{renderAnalytics(data);}catch(e){console.error('renderAnalytics:',e);}
  try{
@@ -879,6 +967,8 @@ function renderBlock(data){
  const pts=la.split('_');
  blk.innerHTML=`
  <div style="font-family:var(--f);font-size:2.8rem;color:var(--ok)">SOLD</div><div style="margin-top:8px;color:var(--dim2)">To <strong style="color:var(--txt)">${pts[2]}</strong></div><div style="font-family:var(--f);font-size:2rem;color:var(--accent);margin-top:4px">\u20b9${parseFloat(pts[3]).toFixed(2)} Cr</div>`;
+ } else if(data.auctionComplete){
+ blk.innerHTML=`<div style="text-align:center;padding:30px 0;"><div style="font-family:var(--f);font-size:2.2rem;color:var(--ok);margin-bottom:8px;">AUCTION COMPLETE</div><div style="color:var(--dim);margin-bottom:16px;">All teams have reached their player quota.</div>${isAdmin?`<button class="btn btn-gold" onclick="window.reinitiateAuction()" style="max-width:280px;">Reinitiate Auction (Unsold Players)</button>`:''}</div>`;
  } else {
  blk.innerHTML=`<div style="color:var(--dim);padding:20px 0">Ready -- pull a player to begin.</div>`;
  }
@@ -902,7 +992,7 @@ function renderLedger(all){
  rows.sort((a,b)=>N(a).localeCompare(N(b)));
  document.getElementById('rosterTbody').innerHTML=rows.map((p,i)=>{
  const sc=p.status==='available'?'<span class="badge bb">Available</span>':p.status==='unsold'?'<span class="badge br">Unsold</span>':'<span class="badge bs">Sold</span>';
- return`<tr><td style="color:var(--dim)">${i+1}</td><td style="font-weight:600">${N(p)}</td><td><span class="badge bg">${T(p)}</span></td><td>${R(p)}</td><td style="font-size:.78rem;color:var(--dim2)">${O(p)?' \ufe0f Overseas':' Indian'}</td><td>\u20b9${(p.basePrice||0).toFixed(2)}</td><td>${sc}</td><td style="color:var(--accent-light);font-weight:700">${p.soldPrice?'\u20b9'+p.soldPrice.toFixed(2):'--'}</td><td style="color:var(--dim2)">${p.soldTo||'--'}</td></tr>`;
+ return`<tr><td style="color:var(--dim)">${i+1}</td><td style="font-weight:600;cursor:pointer;color:var(--accent-light);" onclick="window.showPlayerModal('${N(p).replace(/'/g,"\\'")}')">${N(p)}</td><td><span class="badge bg">${T(p)}</span></td><td>${R(p)}</td><td style="font-size:.78rem;color:var(--dim2)">${O(p)?' \ufe0f Overseas':' Indian'}</td><td>\u20b9${(p.basePrice||0).toFixed(2)}</td><td>${sc}</td><td style="color:var(--accent-light);font-weight:700">${p.soldPrice?'\u20b9'+p.soldPrice.toFixed(2):'--'}</td><td style="color:var(--dim2)">${p.soldTo||'--'}</td></tr>`;
  }).join('');
 }
 
@@ -1104,7 +1194,50 @@ window.sellPlayer=function(autoSell=false){
  upd[`/players/${pid}/soldTo`]=tn;
  upd[`/players/${pid}/soldPrice`]=bid;
  upd['/currentBlock']={active:false,lastAction:`sold_${pid}_${tn}_${bid}`,lastBidderName:null,lastBidderTeam:null,notInterested:null};
- update(ref(db,`auctions/${roomId}`),upd).catch(e=>window.showAlert(e.message));
+ update(ref(db,`auctions/${roomId}`),upd).then(()=>{
+  // Check if auction is complete (all teams at max players)
+  checkAuctionComplete();
+ }).catch(e=>window.showAlert(e.message));
+};
+
+// -- Check if all teams have reached their player quota --
+function checkAuctionComplete(){
+ if(!roomState?.teams||!roomState?.setup) return;
+ const maxP=roomState.setup.maxPlayers||roomState.maxPlayers||20;
+ const teams=Object.values(roomState.teams);
+ if(!teams.length) return;
+ const allFull=teams.every(t=>{
+  const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+  return roster.length>=maxP;
+ });
+ if(allFull&&!roomState.auctionComplete){
+  // Mark all remaining available/unsold players as unsold
+  const upd={};
+  if(roomState.players){
+   Object.entries(roomState.players).forEach(([pid,p])=>{
+    if(p.status==='available') upd[`/players/${pid}/status`]='unsold';
+   });
+  }
+  upd['/auctionComplete']=true;
+  upd['/currentBlock']={active:false,lastAction:'auction_complete',lastBidderName:null,lastBidderTeam:null,notInterested:null};
+  update(ref(db,`auctions/${roomId}`),upd).then(()=>{
+   window.showAlert('All teams have reached their quota! Auction is complete.','ok');
+  });
+ }
+}
+
+// -- Reinitiate auction for unsold players (only teams below quota can bid) --
+window.reinitiateAuction=function(){
+ if(!isAdmin||!roomId||!roomState) return;
+ const unsold=roomState.players?Object.values(roomState.players).filter(p=>p.status==='unsold'):[];
+ if(!unsold.length) return window.showAlert('No unsold players to re-auction.');
+ if(!confirm(`Re-open auction with ${unsold.length} unsold player${unsold.length===1?'':'s'}? Teams at max capacity will be locked out.`)) return;
+ const upd={};
+ unsold.forEach(p=>{ upd[`/players/${p.id}/status`]='available'; });
+ upd['/auctionComplete']=false;
+ update(ref(db,`auctions/${roomId}`),upd).then(()=>{
+  window.showAlert(`${unsold.length} unsold player${unsold.length===1?'':'s'} re-entered the auction!`,'ok');
+ }).catch(e=>window.showAlert(e.message));
 };
 
 window.markUnsold=function(){
@@ -1123,17 +1256,19 @@ window.markUnsold=function(){
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 // -- Scoring rules (from your table) --
-function calcBattingPoints(runs, balls, fours, sixes, dismissal, isWinningTeam, isMotm){
+function calcBattingPoints(runs, balls, fours, sixes, dismissal, isWinningTeam, isMotm, playerRole){
  if(dismissal==='noresult') return 0;
  let pts = 0;
  pts += runs * 1; // 1pt per run
  pts += Math.floor(runs / 25) * 10; // 10pts every 25 runs
  pts += fours * 1; // 1pt per four (boundary bonus)
  pts += sixes * 2; // 2pts per six
- if(dismissal==='duck') pts -= 5; // -5 duck
+ // Duck: -5 if runs===0 and out (auto-detect). Only penalize Batter, All-rounder, Wicketkeeper — NOT pure Bowler.
+ const isDuck = dismissal==='duck' || (runs===0 && dismissal==='out');
+ const roleLower = (playerRole||'').toLowerCase();
+ const isBowlerOnly = roleLower==='bowler';
+ if(isDuck && !isBowlerOnly) pts -= 5;
  // Strike rate -- eligible if balls faced >= 10 OR runs scored >= 10
- // e.g. 9 off 12 -> eligible (12 balls). 9 off 8 -> not eligible (< 10 balls AND < 10 runs).
- // 12 off 3 -> eligible (12 runs). Virat 9(12) counts. Virat 9(8) doesn't.
  if(balls >= 10 || runs >= 10){
  const sr = (runs / balls) * 100;
  if(sr < 75) pts -= 15;
@@ -1270,6 +1405,24 @@ function collectMatchData(){
  playerPts[key].breakdown.push(`${src}: ${pts>=0?'+':''}${pts}`);
  }
 
+ // Lookup player role from roomState or rawData for duck penalty filtering
+ function _lookupPlayerRole(name){
+ const nLow=name.trim().toLowerCase();
+ const nClean=nLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+ if(roomState?.players){
+  const p=Object.values(roomState.players).find(p=>{
+   const pn=(p.name||p.n||'').toLowerCase().trim();
+   return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;
+  });
+  if(p) return p.role||p.r||'';
+ }
+ const rd=rawData.find(p=>{
+  const pn=(p.n||'').toLowerCase().trim();
+  return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;
+ });
+ return rd?(rd.r||''):'';
+ }
+
  // Batting rows
  document.querySelectorAll('[id^="br"][id$="name"]').forEach(inp=>{
  const id=inp.id.replace('name','');
@@ -1281,9 +1434,11 @@ function collectMatchData(){
  const sixes=parseInt(document.getElementById(`${id}sixes`)?.value)||0;
  const dis=document.getElementById(`${id}dis`)?.value||'out';
  const isMot=name.toLowerCase()===motm;
- // For winning team: we'll handle after collecting all names
- const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot);
- addPts(name,pts,`Batting(${runs}r ${balls}b${dis==='duck'?' DUCK':''})`);
+ // Lookup player role for duck penalty filtering
+ const _pRole=_lookupPlayerRole(name);
+ const isDuck=(runs===0&&dis==='out')||dis==='duck';
+ const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot,_pRole);
+ addPts(name,pts,`Batting(${runs}r ${balls}b${isDuck&&_pRole.toLowerCase()!=='bowler'?' DUCK':''})`);
  winningPlayers.add(name.toLowerCase());
  });
 
@@ -1517,30 +1672,39 @@ function renderPointsTab(){
  const iplTeam=iplTeamMap[key]||'--';
  const ptsColor=p.pts>=0?'var(--ok)':'var(--err)';
  const histTitle=p.matches.map(m=>`${m.label}: ${m.pts>=0?'+':''}${m.pts} (${m.breakdown})`).join('\n');
- return `<tr><td style="color:var(--dim)">${i+1}</td><td style="font-weight:600">${p.name}</td><td><span class="badge bg">${iplTeam}</span></td><td style="color:var(--accent-light)">${typeof owner==='string'?owner:owner}</td><td style="color:var(--dim2)">${role}</td><td style="text-align:center">${p.matchCount}</td><td style="font-family:var(--f);font-size:1.1rem;color:${ptsColor};text-align:right">${p.pts>=0?'+':''}${p.pts}</td><td><button class="match-hist-btn" title="${histTitle.replace(/"/g,"'")}">${p.matchCount}</button></td></tr>`;
+ return `<tr><td style="color:var(--dim)">${i+1}</td><td style="font-weight:600;cursor:pointer;color:var(--accent-light);" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td><td><span class="badge bg">${iplTeam}</span></td><td style="color:var(--accent-light)">${typeof owner==='string'?owner:owner}</td><td style="color:var(--dim2)">${role}</td><td style="text-align:center">${p.matchCount}</td><td style="font-family:var(--f);font-size:1.1rem;color:${ptsColor};text-align:right">${p.pts>=0?'+':''}${p.pts}</td><td><button class="match-hist-btn" title="${histTitle.replace(/"/g,"'")}">${p.matchCount}</button></td></tr>`;
  }).join('');
 }
 window.renderPointsTab=renderPointsTab;
 
 // -- Build squad snapshots for all teams (used at scorecard push time) --
-function buildSquadSnapshots(teamsData){
+function buildSquadSnapshots(teamsData,maxPlayers){
  var snapshots={};
  if(!teamsData) return snapshots;
+ var mp=maxPlayers||roomState?.maxPlayers||roomState?.setup?.maxPlayers||20;
  Object.values(teamsData).forEach(function(team){
   var roster=Array.isArray(team.roster)?team.roster:(team.roster?Object.values(team.roster):[]);
   if(!roster.length) return;
   var allNames=roster.map(function(p){return p.name||p.n||'';});
-  var xi,bench;
+  var xi,bench,reserves;
   if(team.activeSquad&&Array.isArray(team.activeSquad)&&team.activeSquad.length>0){
    xi=team.activeSquad.slice(0,11);
    bench=team.activeSquad.slice(11);
+   var sqSet=new Set(team.activeSquad.map(function(n){return n.toLowerCase().trim();}));
+   reserves=allNames.filter(function(n){return!sqSet.has(n.toLowerCase().trim());});
+  } else if(allNames.length<=mp&&allNames.length<=11){
+   // All players fit in XI (e.g. maxPlayers=11, roster=11) — treat all as Playing XI
+   xi=allNames.slice();
+   bench=[];
+   reserves=[];
   } else {
    var xiEnd=Math.min(11,allNames.length);
    var benchEnd=Math.min(xiEnd+5,allNames.length);
    xi=allNames.slice(0,xiEnd);
    bench=allNames.slice(xiEnd,benchEnd);
+   reserves=allNames.slice(benchEnd);
   }
-  snapshots[team.name]={xi:xi,bench:bench};
+  snapshots[team.name]={xi:xi,bench:bench,reserves:reserves||[]};
  });
  return snapshots;
 }
@@ -1659,93 +1823,96 @@ window.recalcLeaderboard=async function(){
 function renderLeaderboard(data){
  if(!data) return;
  const matches=data.matches||{};
- const matchIds=Object.keys(matches);
+ const matchIds=Object.keys(matches).sort((a,b)=>(matches[a].timestamp||0)-(matches[b].timestamp||0));
+ const xiMultiplier=parseFloat(data.xiMultiplier)||1;
+ const mp=data.maxPlayers||data.setup?.maxPlayers||20;
 
+ // Build per-match contributions for ALL matches
  const teamPts={};
+ const perMatchData={}; // {mid: {teamName: {pts, players:{name:pts}}}}
  if(data.teams){
- Object.values(data.teams).forEach(team=>{
- teamPts[team.name]={squadValid:team.squadValid!==false,pts:0,topPlayer:'--',topPts:0,playerCount:0};
- });
+  Object.values(data.teams).forEach(team=>{
+   const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+   const spent=roster.reduce((s,p)=>s+(p.soldPrice||0),0);
+   teamPts[team.name]={squadValid:team.squadValid!==false,pts:0,topPlayer:'--',topPts:0,playerCount:0,spent:Math.round(spent*100)/100,perMatch:{}};
+  });
  }
 
- // Read stored leaderboard totals (permanent, cumulative)
- const storedTotals=data?.leaderboardTotals||{};
- var hasStoredTotals=Object.keys(storedTotals).length>0;
-
  const playerTotal={};
- if(hasStoredTotals){
-  // Use stored totals
-  Object.entries(storedTotals).forEach(function(e){
-   var tn=e[0], st=e[1];
-   if(teamPts[tn]){
-    teamPts[tn].pts=st.pts||0;
-    teamPts[tn].topPlayer=st.topPlayer||'--';
-    teamPts[tn].topPts=st.topPts||0;
-    teamPts[tn].playerCount=st.playerCount||0;
-   }
+ const currentSnaps=buildSquadSnapshots(data.teams,mp);
+
+ matchIds.forEach(mid=>{
+  const m=matches[mid];
+  if(!m?.players) return;
+  const matchSnaps=m.squadSnapshots||currentSnaps;
+  const contrib=computeMatchContribution(m,matchSnaps,data.teams,xiMultiplier);
+  perMatchData[mid]=contrib;
+
+  // Accumulate
+  Object.entries(contrib).forEach(([tn,c])=>{
+   if(!teamPts[tn]) return;
+   teamPts[tn].pts+=c.pts;
+   teamPts[tn].perMatch[mid]=c.pts;
+   Object.entries(c.players).forEach(([pn,pp])=>{
+    if(pp!==0) teamPts[tn].playerCount++;
+    if(pp>teamPts[tn].topPts){
+     teamPts[tn].topPts=pp;
+     // Get proper case name
+     const roster2=data.teams[tn]?(Array.isArray(data.teams[tn].roster)?data.teams[tn].roster:Object.values(data.teams[tn].roster||{})):[];
+     const found=roster2.find(x=>(x.name||x.n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===pn);
+     teamPts[tn].topPlayer=found?(found.name||found.n||'--'):pn;
+    }
+   });
   });
-  // Still build playerTotal for stats strip
+
+  // Player totals for stats
+  Object.values(m.players).forEach(p=>{
+   const key=(p.name||'').toLowerCase();
+   playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
+  });
+ });
+
+ // Round pts
+ Object.values(teamPts).forEach(t=>{t.pts=Math.round(t.pts*100)/100;});
+
+ // -- Leaderboard match filter --
+ const lbFilter=document.getElementById('lbMatchFilter');
+ if(lbFilter){
+  const prev=lbFilter.value;
+  lbFilter.innerHTML='<option value="all">Season Total</option>';
   matchIds.forEach(mid=>{
-   const m=matches[mid];
-   if(!m?.players) return;
-   Object.values(m.players).forEach(p=>{
-    const key=(p.name||'').toLowerCase();
-    playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
+   const opt=document.createElement('option');
+   opt.value=mid;opt.textContent=matches[mid].label||mid;
+   lbFilter.appendChild(opt);
+  });
+  if(prev) lbFilter.value=prev;
+ }
+
+ const filterVal=lbFilter?.value||'all';
+
+ // If filtering a single match, override teamPts with that match's data
+ let displayPts;
+ if(filterVal!=='all'&&perMatchData[filterVal]){
+  displayPts={};
+  if(data.teams) Object.values(data.teams).forEach(t=>{
+   const roster=Array.isArray(t.roster)?t.roster:Object.values(t.roster||{});
+   const spent=roster.reduce((s,p)=>s+(p.soldPrice||0),0);
+   const mContrib=perMatchData[filterVal][t.name];
+   displayPts[t.name]={
+    squadValid:t.squadValid!==false, pts:mContrib?Math.round(mContrib.pts*100)/100:0,
+    topPlayer:'--',topPts:0,playerCount:0,spent:Math.round(spent*100)/100,
+    players:mContrib?.players||{}
+   };
+   if(mContrib) Object.entries(mContrib.players).forEach(([pn,pp])=>{
+    if(pp!==0) displayPts[t.name].playerCount++;
+    if(pp>displayPts[t.name].topPts){displayPts[t.name].topPts=pp;displayPts[t.name].topPlayer=pn;}
    });
   });
  } else {
-  // Fallback: recalculate from match data
-  const xiMultiplier=parseFloat(data.xiMultiplier)||1;
-  const rosterOwnerMap={};
-  if(data.teams){
-  Object.values(data.teams).forEach(team=>{
-   const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
-   roster.forEach(p=>{
-    var fn=(p.name||p.n||'').toLowerCase().trim();
-    var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-    rosterOwnerMap[fn]=team.name;
-    rosterOwnerMap[cn]=team.name;
-   });
-  });
-  }
-  const currentSnapshots=buildSquadSnapshots(data.teams);
-  matchIds.forEach(mid=>{
-  const m=matches[mid];
-  if(!m?.players) return;
-  var matchSnaps=m.squadSnapshots||currentSnapshots;
-  var mXI={}, mBench={};
-  Object.entries(matchSnaps).forEach(function(e){
-   var tn=e[0], snap=e[1];
-   var xiS=new Set(), bnS=new Set();
-   (snap.xi||[]).forEach(function(n){var fn=n.toLowerCase().trim();xiS.add(fn);xiS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
-   (snap.bench||[]).forEach(function(n){var fn=n.toLowerCase().trim();bnS.add(fn);bnS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
-   mXI[tn]=xiS; mBench[tn]=bnS;
-  });
-  Object.values(m.players).forEach(p=>{
-   const key=(p.name||'').toLowerCase();
-   const cleanKey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-   playerTotal[key]=(playerTotal[key]||0)+(p.pts||0);
-   const owner=p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey]||'';
-   if(!owner||!teamPts[owner]) return;
-   var mult=0;
-   if(mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(cleanKey))) mult=xiMultiplier;
-   else if(mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(cleanKey))) mult=1;
-   if(mult>0){
-    var mPts=Math.round((p.pts||0)*mult*100)/100;
-    teamPts[owner].pts+=mPts;
-    if(mPts!==0) teamPts[owner].playerCount++;
-    if(mPts>teamPts[owner].topPts){
-     teamPts[owner].topPts=mPts;
-     var roster2=data.teams[owner]?(Array.isArray(data.teams[owner].roster)?data.teams[owner].roster:Object.values(data.teams[owner].roster||{})):[];
-     var found=roster2.find(function(x){return(x.name||x.n||'').toLowerCase().trim()===key||(x.name||x.n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===cleanKey;});
-     teamPts[owner].topPlayer=found?(found.name||found.n||'--'):key;
-    }
-   }
-  });
-  });
+  displayPts=teamPts;
  }
 
- const sorted=Object.entries(teamPts).sort((a,b)=>b[1].pts-a[1].pts);
+ const sorted=Object.entries(displayPts).sort((a,b)=>b[1].pts-a[1].pts);
 
  // Stats strip
  document.getElementById('lb-matches').textContent=matchIds.length;
@@ -1756,22 +1923,34 @@ function renderLeaderboard(data){
  const body=document.getElementById('leaderboardBody');
  if(!body) return;
  if(!sorted.length){
- body.innerHTML='<div class="empty">No match data yet.</div>';
- return;
+  body.innerHTML='<div class="empty">No match data yet.</div>';
+  return;
  }
 
  const medalStyles=[
   'background:linear-gradient(135deg,#FFD700,#FFA500);color:#7A4500;border:1px solid rgba(255,180,0,0.4);',
   'background:linear-gradient(135deg,#C0C0C0,#A0A0A0);color:#404040;border:1px solid rgba(180,180,180,0.4);',
   'background:linear-gradient(135deg,#CD7F32,#A0522D);color:#fff;border:1px solid rgba(180,100,40,0.4);',
-];
-body.innerHTML=sorted.map(([name,info],i)=>{
- const rankEl=i<3
-  ?`<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0;${medalStyles[i]}">${i+1}</div>`
-  :`<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;color:var(--dim);flex-shrink:0;">${i+1}</div>`;
- const medal=rankEl;
- const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
- const dq=!info.squadValid;return `<div class="lb-row"${dq?' style="opacity:.45"':''}>${medal}<div style="flex:1;"><div class="lb-team">${name}${dq?` <span style="font-size:.62rem;padding:1px 5px;border-radius:8px;background:var(--err-bg);color:var(--err);border:1px solid var(--err-border);font-weight:700;margin-left:5px;">DQ</span>`:``}</div><div class="lb-meta">Top player: ${info.topPlayer} (${info.topPts>=0?'+':''}${info.topPts} pts) . ${info.playerCount} players</div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--accent),var(--accent-light));border-radius:2px;transition:width .6s;"></div></div></div><div class="lb-pts">${info.pts>=0?'+':''}${info.pts}</div></div>`;
+ ];
+ body.innerHTML=sorted.map(([name,info],i)=>{
+  const rankEl=i<3
+   ?`<div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:800;flex-shrink:0;${medalStyles[i]}">${i+1}</div>`
+   :`<div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:var(--dim);background:var(--surface);border:1px solid var(--b1);flex-shrink:0;">${i+1}</div>`;
+  const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
+  const ppc=info.spent>0?(info.pts/info.spent).toFixed(1):'--';
+  const dq=!info.squadValid;
+  // Per-match sparkline (small dots showing match-by-match performance)
+  let sparkline='';
+  if(filterVal==='all'&&teamPts[name]?.perMatch){
+   sparkline='<div style="display:flex;gap:2px;margin-top:4px;align-items:flex-end;height:16px;">'+matchIds.map(mid=>{
+    const mPts=teamPts[name].perMatch[mid]||0;
+    const maxMPts=Math.max(...Object.values(teamPts).map(t=>Math.abs(t.perMatch[mid]||0)),1);
+    const h=Math.max(2,Math.round(Math.abs(mPts)/maxMPts*14));
+    const col=mPts>=0?'var(--accent)':'var(--err)';
+    return `<div title="${(matches[mid]?.label||mid)}: ${mPts>=0?'+':''}${mPts}" style="width:6px;height:${h}px;background:${col};border-radius:1px;opacity:.7;"></div>`;
+   }).join('')+'</div>';
+  }
+  return `<div class="lb-row"${dq?' style="opacity:.45"':''}>${rankEl}<div style="flex:1;min-width:0;"><div class="lb-team">${name}${dq?` <span style="font-size:.62rem;padding:1px 5px;border-radius:8px;background:var(--err-bg);color:var(--err);border:1px solid var(--err-border);font-weight:700;margin-left:5px;">DQ</span>`:``}</div><div class="lb-meta">Top: ${info.topPlayer} (${info.topPts>=0?'+':''}${Math.round(info.topPts)} pts) | ${info.playerCount} scorers | <span style="color:var(--accent);">${ppc} pts/Cr</span></div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--accent),var(--accent-light));border-radius:2px;transition:width .6s;"></div></div>${sparkline}</div><div class="lb-pts">${info.pts>=0?'+':''}${Math.round(info.pts)}</div></div>`;
  }).join('');
 }
 
@@ -1823,7 +2002,7 @@ window.renderAllSquads=function(){
    var kc=k.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
    var playerPts=pts[k]||pts[kc]||0;
    var ptsColor=playerPts>0?'var(--ok)':playerPts<0?'var(--err)':'var(--dim)';
-   return '<tr><td style="padding:5px 8px;font-size:.82rem;">'+(isOs?'<span style="color:var(--warn);margin-right:2px;">●</span>':'')+name+'</td><td style="padding:5px 8px;font-size:.72rem;color:var(--dim);">'+iplTeam+'</td><td style="padding:5px 8px;font-size:.72rem;">'+role+'</td><td style="padding:5px 8px;font-family:var(--f);color:'+ptsColor+';text-align:right;font-weight:600;">'+(playerPts>=0?'+':'')+playerPts+'</td></tr>';
+   return '<tr><td style="padding:5px 8px;font-size:.82rem;cursor:pointer;" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')">'+(isOs?'<span style="color:var(--warn);margin-right:2px;">●</span>':'')+name+'</td><td style="padding:5px 8px;font-size:.72rem;color:var(--dim);">'+iplTeam+'</td><td style="padding:5px 8px;font-size:.72rem;">'+role+'</td><td style="padding:5px 8px;font-family:var(--f);color:'+ptsColor+';text-align:right;font-weight:600;">'+(playerPts>=0?'+':'')+playerPts+'</td></tr>';
   }
 
   var teamTotal=0;
@@ -1855,6 +2034,78 @@ window.renderAllSquads=function(){
  });
 
  body.innerHTML=html||'<div class="empty" style="padding:20px;">No teams found.</div>';
+};
+
+// -- Player Performance Modal --
+window.showPlayerModal=function(playerName){
+ if(!roomState||!playerName) return;
+ const modal=document.getElementById('playerModal');
+ const nameEl=document.getElementById('pmPlayerName');
+ const metaEl=document.getElementById('pmPlayerMeta');
+ const bodyEl=document.getElementById('pmPlayerBody');
+ if(!modal||!nameEl) return;
+
+ nameEl.textContent=playerName;
+ const nLow=playerName.toLowerCase().trim();
+ const nClean=nLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+
+ // Find player info
+ let role='',iplTeam='',isOs=false,soldPrice=0,owner='';
+ if(roomState.players){
+  const pArr=Array.isArray(roomState.players)?roomState.players:Object.values(roomState.players);
+  const found=pArr.find(p=>{const pn=(p.name||p.n||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
+  if(found){role=found.role||found.r||'';iplTeam=found.iplTeam||found.t||'';isOs=O(found);soldPrice=found.soldPrice||0;owner=found.soldTo||'';}
+ }
+ // Also check rosters for owner + soldPrice
+ if(roomState.teams){
+  Object.values(roomState.teams).forEach(t=>{
+   const roster=Array.isArray(t.roster)?t.roster:(t.roster?Object.values(t.roster):[]);
+   const p=roster.find(x=>{const xn=(x.name||x.n||'').toLowerCase().trim();return xn===nLow||xn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
+   if(p){owner=t.name;soldPrice=p.soldPrice||soldPrice;if(!role)role=p.role||p.r||'';if(!iplTeam)iplTeam=p.iplTeam||p.t||'';}
+  });
+ }
+
+ metaEl.innerHTML=`
+  <span class="badge bg">${iplTeam||'--'}</span>
+  <span class="badge bb">${role||'--'}</span>
+  ${isOs?'<span class="badge" style="background:rgba(245,158,11,.1);color:#F59E0B;border:1px solid rgba(245,158,11,.3);">Overseas</span>':'<span class="badge bb">Indian</span>'}
+  <span style="font-size:.82rem;color:var(--accent);font-weight:600;">${owner?'Owned by: '+owner:'Unowned'}</span>
+  ${soldPrice?`<span style="font-size:.82rem;color:var(--dim);">Bought for: \u20b9${soldPrice.toFixed(2)} Cr</span>`:''}
+ `;
+
+ // Build match-by-match breakdown
+ const matches=roomState.matches||{};
+ const matchList=Object.entries(matches).sort((a,b)=>(a[1].timestamp||0)-(b[1].timestamp||0));
+ let totalPts=0;
+ let rows='';
+ matchList.forEach(([mid,m])=>{
+  if(!m.players) return;
+  const pData=Object.values(m.players).find(p=>{const pn=(p.name||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
+  if(!pData) return;
+  totalPts+=pData.pts||0;
+  const ptsCol=(pData.pts||0)>=0?'var(--ok)':'var(--err)';
+  rows+=`<tr style="border-bottom:1px solid var(--b1);">
+   <td style="padding:8px 10px;font-size:.84rem;font-weight:500;">${m.label||mid}</td>
+   <td style="padding:8px 10px;text-align:right;font-weight:700;color:${ptsCol};font-family:var(--mono);">${(pData.pts||0)>=0?'+':''}${pData.pts||0}</td>
+   <td style="padding:8px 10px;font-size:.75rem;color:var(--dim);max-width:200px;word-break:break-word;">${(pData.breakdown||'').replace(/\|/g,' | ')}</td>
+  </tr>`;
+ });
+
+ if(!rows){
+  bodyEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--dim);">No match data for this player yet.</div>';
+ } else {
+  const totalCol=totalPts>=0?'var(--ok)':'var(--err)';
+  bodyEl.innerHTML=`
+   <div style="padding:10px 14px;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:.84rem;color:var(--dim);">Season Total</span>
+    <span style="font-size:1.3rem;font-weight:800;color:${totalCol};font-family:var(--mono);">${totalPts>=0?'+':''}${totalPts}</span>
+   </div>
+   <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="background:var(--surface);"><th style="padding:6px 10px;text-align:left;font-size:.72rem;color:var(--dim);text-transform:uppercase;">Match</th><th style="padding:6px 10px;text-align:right;font-size:.72rem;color:var(--dim);text-transform:uppercase;">Points</th><th style="padding:6px 10px;text-align:left;font-size:.72rem;color:var(--dim);text-transform:uppercase;">Breakdown</th></tr></thead>
+    <tbody>${rows}</tbody>
+   </table></div>`;
+ }
+ modal.classList.add('open');
 };
 
 // -- Render Analytics --
@@ -2248,122 +2499,122 @@ function renderMatchData(data){
  const matches=data?.matches||{};
  const matchIds=Object.keys(matches).sort((a,b)=>(matches[b].timestamp||0)-(matches[a].timestamp||0));
  if(!matchIds.length){container.innerHTML='<div class="empty">No matches recorded yet. Use the Points tab to add match data.</div>';return;}
+
+ // Lookup IPL team for player name
+ function getIplTeam(name){
+  const nLow=(name||'').toLowerCase().trim();
+  const nClean=nLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+  if(data.players){
+   const pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+   const f=pArr.find(p=>{const pn=(p.name||p.n||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
+   if(f) return (f.iplTeam||f.t||'').toUpperCase();
+  }
+  const rd=rawData.find(p=>{const pn=(p.n||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
+  return rd?(rd.t||'').toUpperCase():'';
+ }
+
  container.innerHTML=matchIds.map(mid=>{
   const m=matches[mid];
-  const players=m.players?Object.values(m.players):[];
+  const players=m.players?Object.entries(m.players):[];
   const resultLabel=m.result==='noresult'?'No Result':m.result==='superover'?'Super Over':'Completed';
   const isOpen=expandedMatches.has(mid);
+
+  // Parse player performances and tag with IPL team
   const batters=[],bowlers=[],fielders=[];
-  players.forEach(p=>{
+  players.forEach(([pkey,p])=>{
    const bd=p.breakdown||'';
+   const team=p.iplTeam||(getIplTeam(p.name));
    const batM=bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x\u00d7]4)?(?:\s+(\d+)[x\u00d7]6)?/);
-   if(batM) batters.push({name:p.name,runs:+batM[1],balls:+batM[2],fours:+(batM[3]||0),sixes:+(batM[4]||0),duck:bd.includes('DUCK'),pts:p.pts});
+   if(batM) batters.push({name:p.name,team,runs:+batM[1],balls:+batM[2],fours:+(batM[3]||0),sixes:+(batM[4]||0),duck:bd.includes('DUCK'),pts:p.pts});
    const bowM=bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
-   if(bowM) bowlers.push({name:p.name,wkts:+bowM[1],overs:+bowM[2],runs:+(bowM[3]||0),pts:p.pts});
+   if(bowM) bowlers.push({name:p.name,team,wkts:+bowM[1],overs:+bowM[2],runs:+(bowM[3]||0),pts:p.pts});
    const fldM=bd.match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
-   if(fldM&&(+fldM[1]||+fldM[2]||+fldM[3])) fielders.push({name:p.name,catches:+fldM[1],stumpings:+fldM[2],runouts:+fldM[3],pts:p.pts});
+   if(fldM&&(+fldM[1]||+fldM[2]||+fldM[3])) fielders.push({name:p.name,team,catches:+fldM[1],stumpings:+fldM[2],runouts:+fldM[3],pts:p.pts});
   });
-  batters.sort((a,b)=>b.runs-a.runs);
-  bowlers.sort((a,b)=>b.wkts-a.wkts);
-  const allPts=[...players].sort((a,b)=>(b.pts||0)-(a.pts||0));
+
+  // Determine the two teams from player data
+  const teamSet=new Set([...batters,...bowlers,...fielders].map(p=>p.team).filter(Boolean));
+  const teams=[...teamSet];
+  const team1=teams[0]||'Team 1';
+  const team2=teams[1]||'Team 2';
+  const isTeam1=t=>t===team1;
+
   const sr=p=>p.balls>0?((p.runs/p.balls)*100).toFixed(0):'--';
-  const eco=p=>p.overs>0?(p.runs/p.overs).toFixed(2):'--';
+  const eco=p=>p.overs>0?(p.runs/normalizeOvers(p.overs)).toFixed(2):'--';
 
   // Styles
-  const BASE='font-family:inherit;font-size:.82rem;vertical-align:middle;padding:9px 14px;border-bottom:1px solid var(--b0);';
-  const THs='font-size:.67rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;padding:9px 14px;border-bottom:2px solid var(--b1);background:rgba(108,84,200,0.04);white-space:nowrap;vertical-align:middle;';
-  const nameCol='font-weight:600;color:var(--txt);'+BASE;
+  const BASE='font-family:inherit;font-size:.82rem;vertical-align:middle;padding:8px 12px;border-bottom:1px solid var(--b0);';
+  const THs='font-size:.67rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;padding:8px 12px;border-bottom:2px solid var(--b1);background:rgba(108,84,200,0.04);white-space:nowrap;vertical-align:middle;';
+  const nameCol='font-weight:600;color:var(--txt);cursor:pointer;'+BASE;
   const numCol='color:var(--txt2);text-align:right;'+BASE;
   const boldNumCol='font-weight:700;color:var(--txt);text-align:right;'+BASE;
   const ptsCol=pts=>`font-weight:700;text-align:right;white-space:nowrap;${BASE}color:${pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)'};`;
-  const THl=`style="${THs}text-align:left;"`;
-  const THr=`style="${THs}text-align:right;"`;
 
-  const sec=(label,tbl)=>`
-   <div style="border-top:2px solid var(--b0);">
-    <div style="padding:10px 18px 0;font-size:.65rem;font-weight:700;color:var(--accent);letter-spacing:.09em;text-transform:uppercase;">${label}</div>
-    <div style="overflow-x:auto;">${tbl}</div>
-   </div>`;
+  function teamSec(label,color){
+   return `<div style="padding:8px 16px;font-size:.72rem;font-weight:800;color:${color};letter-spacing:.06em;text-transform:uppercase;background:${color}11;border-bottom:1px solid var(--b1);">${label}</div>`;
+  }
 
-  const battingTable=batters.length?sec('Batting',`
-   <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
-    <colgroup>
-     <col style="min-width:160px;">
-     <col style="width:52px;"><col style="width:52px;">
-     <col style="width:44px;"><col style="width:44px;">
-     <col style="width:60px;"><col style="width:64px;">
-    </colgroup>
-    <thead><tr>
-     <th ${THl}>Player</th>
-     <th ${THr}>R</th><th ${THr}>B</th>
-     <th ${THr}>4s</th><th ${THr}>6s</th>
-     <th ${THr}>SR</th><th ${THr}>Pts</th>
-    </tr></thead>
-    <tbody>${batters.map(p=>`<tr style="transition:background .12s;" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background=''">
-     <td style="${nameCol}">${p.name}${p.duck?'&nbsp;<span style="background:var(--err-bg);color:var(--err);border-radius:3px;padding:0 4px;font-size:.60rem;font-weight:700;">DUCK</span>':''}</td>
-     <td style="${boldNumCol}">${p.runs}</td>
-     <td style="${numCol}">${p.balls}</td>
-     <td style="${numCol}">${p.fours}</td>
-     <td style="${numCol}">${p.sixes}</td>
-     <td style="${numCol}">${sr(p)}</td>
-     <td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
-    </tr>`).join('')}</tbody>
-   </table>`):'';
+  function batTable(arr){
+   if(!arr.length) return '<div style="padding:10px 16px;font-size:.78rem;color:var(--dim);font-style:italic;">No batting data</div>';
+   return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:right;">R</th><th style="${THs}text-align:right;">B</th><th style="${THs}text-align:right;">4s</th><th style="${THs}text-align:right;">6s</th><th style="${THs}text-align:right;">SR</th><th style="${THs}text-align:right;">Pts</th>
+   </tr></thead><tbody>${arr.sort((a,b)=>b.runs-a.runs).map(p=>`<tr>
+    <td style="${nameCol}" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}${p.duck?'&nbsp;<span style="background:var(--err-bg);color:var(--err);border-radius:3px;padding:0 4px;font-size:.60rem;font-weight:700;">DUCK</span>':''}</td>
+    <td style="${boldNumCol}">${p.runs}</td><td style="${numCol}">${p.balls}</td><td style="${numCol}">${p.fours}</td><td style="${numCol}">${p.sixes}</td><td style="${numCol}">${sr(p)}</td><td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
+   </tr>`).join('')}</tbody></table></div>`;
+  }
 
-  const bowlingTable=bowlers.length?sec('Bowling',`
-   <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
-    <colgroup>
-     <col style="min-width:160px;">
-     <col style="width:52px;"><col style="width:52px;">
-     <col style="width:44px;"><col style="width:72px;"><col style="width:64px;">
-    </colgroup>
-    <thead><tr>
-     <th ${THl}>Player</th>
-     <th ${THr}>Ov</th><th ${THr}>R</th>
-     <th ${THr}>W</th><th ${THr}>Eco</th><th ${THr}>Pts</th>
-    </tr></thead>
-    <tbody>${bowlers.map(p=>`<tr onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background=''">
-     <td style="${nameCol}">${p.name}</td>
-     <td style="${numCol}">${p.overs}</td>
-     <td style="${numCol}">${p.runs}</td>
-     <td style="${boldNumCol}">${p.wkts}</td>
-     <td style="${numCol}">${eco(p)}</td>
-     <td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
-    </tr>`).join('')}</tbody>
-   </table>`):'';
+  function bowlTable(arr){
+   if(!arr.length) return '<div style="padding:10px 16px;font-size:.78rem;color:var(--dim);font-style:italic;">No bowling data</div>';
+   return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:right;">Ov</th><th style="${THs}text-align:right;">R</th><th style="${THs}text-align:right;">W</th><th style="${THs}text-align:right;">Eco</th><th style="${THs}text-align:right;">Pts</th>
+   </tr></thead><tbody>${arr.sort((a,b)=>b.wkts-a.wkts).map(p=>`<tr>
+    <td style="${nameCol}" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td>
+    <td style="${numCol}">${p.overs}</td><td style="${numCol}">${p.runs}</td><td style="${boldNumCol}">${p.wkts}</td><td style="${numCol}">${eco(p)}</td><td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
+   </tr>`).join('')}</tbody></table></div>`;
+  }
 
-  const fieldingTable=fielders.length?sec('Fielding',`
-   <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
-    <colgroup>
-     <col style="min-width:160px;">
-     <col style="width:80px;"><col style="width:96px;"><col style="width:84px;"><col style="width:64px;">
-    </colgroup>
-    <thead><tr>
-     <th ${THl}>Player</th>
-     <th ${THr}>Catches</th><th ${THr}>Stumpings</th><th ${THr}>Run-outs</th><th ${THr}>Pts</th>
-    </tr></thead>
-    <tbody>${fielders.map(p=>`<tr onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background=''">
-     <td style="${nameCol}">${p.name}</td>
-     <td style="${numCol}">${p.catches}</td>
-     <td style="${numCol}">${p.stumpings}</td>
-     <td style="${numCol}">${p.runouts}</td>
-     <td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
-    </tr>`).join('')}</tbody>
-   </table>`):'';
+  function fldTable(arr){
+   if(!arr.length) return '';
+   return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:right;">Catches</th><th style="${THs}text-align:right;">Stumpings</th><th style="${THs}text-align:right;">Run-outs</th><th style="${THs}text-align:right;">Pts</th>
+   </tr></thead><tbody>${arr.map(p=>`<tr>
+    <td style="${nameCol}" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td>
+    <td style="${numCol}">${p.catches}</td><td style="${numCol}">${p.stumpings}</td><td style="${numCol}">${p.runouts}</td><td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
+   </tr>`).join('')}</tbody></table></div>`;
+  }
 
-  const ptsTable=sec('Points Summary',`
-   <table style="width:100%;border-collapse:collapse;">
-    <thead><tr>
-     <th ${THl} style="${THs}text-align:left;width:180px;">Player</th>
-     <th ${THl}>Breakdown</th>
-     <th ${THr} style="${THs}text-align:right;width:72px;">Pts</th>
-    </tr></thead>
-    <tbody>${allPts.map(p=>`<tr onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background=''">
-     <td style="${nameCol}width:180px;white-space:nowrap;">${p.name}</td>
-     <td style="${BASE}color:var(--dim2);font-size:.76rem;">${(p.breakdown||'').replace(/ \| /g,' . ')}</td>
-     <td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
-    </tr>`).join('')}</tbody>
-   </table>`);
+  // Group by team
+  const t1bat=batters.filter(p=>isTeam1(p.team));
+  const t2bat=batters.filter(p=>!isTeam1(p.team));
+  const t1bowl=bowlers.filter(p=>isTeam1(p.team));
+  const t2bowl=bowlers.filter(p=>!isTeam1(p.team));
+  const t1fld=fielders.filter(p=>isTeam1(p.team));
+  const t2fld=fielders.filter(p=>!isTeam1(p.team));
+
+  const bg1=TEAM_CLR[team1]||'var(--accent)';
+  const bg2c=TEAM_CLR[team2]||'var(--hot)';
+
+  const innings=`
+   ${teamSec(team1+' — Batting',bg1)}${batTable(t1bat)}
+   ${teamSec(team1+' — Bowling',bg1)}${bowlTable(t1bowl)}
+   ${teamSec(team2+' — Batting',bg2c)}${batTable(t2bat)}
+   ${teamSec(team2+' — Bowling',bg2c)}${bowlTable(t2bowl)}
+   ${(t1fld.length||t2fld.length)?teamSec(team1+' — Fielding',bg1)+fldTable(t1fld):''}
+   ${t2fld.length?teamSec(team2+' — Fielding',bg2c)+fldTable(t2fld):''}
+  `;
+
+  // Points summary — all players sorted
+  const allPts=[...Object.values(m.players||{})].sort((a,b)=>(b.pts||0)-(a.pts||0));
+  const ptsTable=`<div style="border-top:2px solid var(--b1);"><div style="padding:8px 16px;font-size:.72rem;font-weight:800;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;">Points Summary</div>
+   <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:left;">Team</th><th style="${THs}text-align:left;">Breakdown</th><th style="${THs}text-align:right;">Pts</th>
+   </tr></thead><tbody>${allPts.map(p=>`<tr>
+    <td style="${nameCol}" onclick="window.showPlayerModal('${(p.name||'').replace(/'/g,"\\'")}')">${p.name||'--'}</td>
+    <td style="${BASE}font-size:.72rem;"><span class="badge bg" style="font-size:.62rem;">${p.iplTeam||getIplTeam(p.name)||'--'}</span></td>
+    <td style="${BASE}color:var(--dim2);font-size:.74rem;">${(p.breakdown||'').replace(/ \| /g,' | ')}</td>
+    <td style="${ptsCol(p.pts||0)}">${(p.pts||0)>0?'+':''}${p.pts||0}</td>
+   </tr>`).join('')}</tbody></table></div></div>`;
 
   const deleteBtn=isAdmin?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();window.deleteMatch('${mid}','${(m.label||mid).replace(/'/g,"\\'")}')">Delete</button>`:'';
   const _canManage=isAdmin||isSuperAdminEmail(user?.email);
@@ -2374,25 +2625,28 @@ function renderMatchData(data){
    <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:.62rem;color:var(--dim2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">MOTM</span><input class="edit-input" style="min-width:120px;" value="${m.motm||''}" onblur="window.saveMatchMeta('${mid}','motm',this.value)"></div>
   </div>`:'';
 
-  return`<div class="match-block" id="mb_${mid}">
-   <div class="match-block-hdr" onclick="window.toggleMatchBlock('${mid}')">
+  // Total points for each team in this match
+  const t1total=allPts.filter(p=>(p.iplTeam||getIplTeam(p.name))===team1).reduce((s,p)=>s+(p.pts||0),0);
+  const t2total=allPts.filter(p=>(p.iplTeam||getIplTeam(p.name))===team2).reduce((s,p)=>s+(p.pts||0),0);
+
+  return`<div class="match-block" id="mb_${mid}" style="margin-bottom:12px;">
+   <div class="match-block-hdr" onclick="window.toggleMatchBlock('${mid}')" style="cursor:pointer;">
     <div style="flex:1;min-width:0;">
-     <div class="match-label">${m.label||mid}</div>
+     <div style="font-size:.95rem;font-weight:800;color:var(--txt);">${m.label||mid}</div>
      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
       ${m.winner?`<span style="background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok);border-radius:20px;padding:2px 9px;font-size:.68rem;font-weight:600;">${m.winner} won</span>`:''}
       ${m.motm?`<span style="background:var(--accent-glow);border:1px solid var(--accent-border);color:var(--accent);border-radius:20px;padding:2px 9px;font-size:.68rem;font-weight:600;">MOTM: ${m.motm}</span>`:''}
       <span style="background:var(--surface);border:1px solid var(--b1);border-radius:20px;padding:2px 9px;font-size:.68rem;color:var(--dim2);">${resultLabel}</span>
-      <span style="font-size:.68rem;color:var(--dim);">${batters.length} batters . ${bowlers.length} bowlers${fielders.length?' . '+fielders.length+' fielders':''}</span>
+      <span style="font-size:.68rem;color:var(--dim);font-family:var(--mono);">${team1}: ${t1total>=0?'+':''}${t1total} | ${team2}: ${t2total>=0?'+':''}${t2total}</span>
      </div>
     </div>
     <div style="display:flex;gap:7px;align-items:center;flex-shrink:0;">
-     ${snapshotBtn}
-     ${deleteBtn}
+     ${snapshotBtn}${deleteBtn}
      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--dim);transition:transform .2s;${isOpen?'transform:rotate(180deg)':''}"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
    </div>
    <div class="match-body${isOpen?' open':''}" id="mbd_${mid}">
-    ${metaEditor}${battingTable}${bowlingTable}${fieldingTable}${ptsTable}
+    ${metaEditor}${innings}${ptsTable}
    </div>
   </div>`;
  }).join('');
@@ -2646,6 +2900,13 @@ function collectGscData(){
  playerPts[key].pts+=pts;
  playerPts[key].breakdown.push(`${src}: ${pts>=0?'+':''}${pts}`);
  }
+ // Lookup role helper (uses rawData since global scorecard may not have roomState)
+ function _gscLookupRole(name){
+ const nLow=name.trim().toLowerCase();
+ const nClean=nLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+ const rd=rawData.find(p=>{const pn=(p.n||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
+ return rd?(rd.r||''):'';
+ }
  // Batting
  document.querySelectorAll('[id^="gscbr"][id$="name"]').forEach(inp=>{
  const id=inp.id.replace('name','');
@@ -2656,8 +2917,10 @@ function collectGscData(){
  const sixes=parseInt(document.getElementById(`${id}sixes`)?.value)||0;
  const dis=document.getElementById(`${id}dis`)?.value||'out';
  const isMot=name.toLowerCase()===motm;
- const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot);
- addP(name,pts,`Bat(${runs}r ${balls}b ${fours}\u00d74 ${sixes}\u00d76${dis==='duck'?' DUCK':''})`);
+ const _pRole=_gscLookupRole(name);
+ const isDuck=(runs===0&&dis==='out')||dis==='duck';
+ const pts=calcBattingPoints(runs,balls,fours,sixes,dis,false,isMot,_pRole);
+ addP(name,pts,`Bat(${runs}r ${balls}b ${fours}\u00d74 ${sixes}\u00d76${isDuck&&_pRole.toLowerCase()!=='bowler'?' DUCK':''})`);
  });
  // Bowling
  document.querySelectorAll('[id^="gscbow"][id$="name"]').forEach(inp=>{
@@ -4119,9 +4382,59 @@ var IPL_SCHEDULE=[
 {sr:17,date:"11 Apr",t1:"PBKS",t2:"SRH",city:"Chandigarh",time:"15:30"},
 {sr:18,date:"11 Apr",t1:"CSK",t2:"DC",city:"Chennai",time:"19:30"},
 {sr:19,date:"12 Apr",t1:"LSG",t2:"GT",city:"Lucknow",time:"15:30"},
-{sr:20,date:"12 Apr",t1:"MI",t2:"RCB",city:"Mumbai",time:"19:30"}
+{sr:20,date:"12 Apr",t1:"MI",t2:"RCB",city:"Mumbai",time:"19:30"},
+{sr:21,date:"13 Apr",t1:"SRH",t2:"RR",city:"Hyderabad",time:"19:30"},
+{sr:22,date:"14 Apr",t1:"CSK",t2:"KKR",city:"Chennai",time:"19:30"},
+{sr:23,date:"15 Apr",t1:"RCB",t2:"LSG",city:"Bengaluru",time:"19:30"},
+{sr:24,date:"16 Apr",t1:"MI",t2:"PBKS",city:"Mumbai",time:"19:30"},
+{sr:25,date:"17 Apr",t1:"GT",t2:"KKR",city:"Ahmedabad",time:"19:30"},
+{sr:26,date:"18 Apr",t1:"RCB",t2:"DC",city:"Bengaluru",time:"15:30"},
+{sr:27,date:"18 Apr",t1:"SRH",t2:"CSK",city:"Hyderabad",time:"19:30"},
+{sr:28,date:"19 Apr",t1:"KKR",t2:"RR",city:"Kolkata",time:"15:30"},
+{sr:29,date:"19 Apr",t1:"PBKS",t2:"LSG",city:"New Chandigarh",time:"19:30"},
+{sr:30,date:"20 Apr",t1:"GT",t2:"MI",city:"Ahmedabad",time:"19:30"},
+{sr:31,date:"21 Apr",t1:"SRH",t2:"DC",city:"Hyderabad",time:"19:30"},
+{sr:32,date:"22 Apr",t1:"LSG",t2:"RR",city:"Lucknow",time:"19:30"},
+{sr:33,date:"23 Apr",t1:"MI",t2:"CSK",city:"Mumbai",time:"19:30"},
+{sr:34,date:"24 Apr",t1:"RCB",t2:"GT",city:"Bengaluru",time:"19:30"},
+{sr:35,date:"25 Apr",t1:"DC",t2:"PBKS",city:"Delhi",time:"15:30"},
+{sr:36,date:"25 Apr",t1:"RR",t2:"SRH",city:"Jaipur",time:"19:30"},
+{sr:37,date:"26 Apr",t1:"GT",t2:"CSK",city:"Ahmedabad",time:"15:30"},
+{sr:38,date:"26 Apr",t1:"LSG",t2:"KKR",city:"Lucknow",time:"19:30"},
+{sr:39,date:"27 Apr",t1:"DC",t2:"RCB",city:"Delhi",time:"19:30"},
+{sr:40,date:"28 Apr",t1:"PBKS",t2:"RR",city:"New Chandigarh",time:"19:30"},
+{sr:41,date:"29 Apr",t1:"MI",t2:"SRH",city:"Mumbai",time:"19:30"},
+{sr:42,date:"30 Apr",t1:"GT",t2:"RCB",city:"Ahmedabad",time:"19:30"},
+{sr:43,date:"01 May",t1:"RR",t2:"DC",city:"Jaipur",time:"19:30"},
+{sr:44,date:"02 May",t1:"CSK",t2:"MI",city:"Chennai",time:"15:30"},
+{sr:45,date:"03 May",t1:"SRH",t2:"KKR",city:"Hyderabad",time:"15:30"},
+{sr:46,date:"03 May",t1:"GT",t2:"PBKS",city:"Ahmedabad",time:"19:30"},
+{sr:47,date:"04 May",t1:"MI",t2:"LSG",city:"Mumbai",time:"19:30"},
+{sr:48,date:"05 May",t1:"DC",t2:"CSK",city:"Delhi",time:"19:30"},
+{sr:49,date:"06 May",t1:"SRH",t2:"PBKS",city:"Hyderabad",time:"19:30"},
+{sr:50,date:"07 May",t1:"LSG",t2:"RCB",city:"Lucknow",time:"19:30"},
+{sr:51,date:"08 May",t1:"DC",t2:"KKR",city:"Delhi",time:"19:30"},
+{sr:52,date:"09 May",t1:"RR",t2:"GT",city:"Jaipur",time:"19:30"},
+{sr:53,date:"10 May",t1:"CSK",t2:"LSG",city:"Chennai",time:"15:30"},
+{sr:54,date:"10 May",t1:"RCB",t2:"MI",city:"Raipur",time:"19:30"},
+{sr:55,date:"11 May",t1:"PBKS",t2:"DC",city:"Dharamshala",time:"19:30"},
+{sr:56,date:"12 May",t1:"GT",t2:"SRH",city:"Ahmedabad",time:"19:30"},
+{sr:57,date:"13 May",t1:"RCB",t2:"KKR",city:"Raipur",time:"19:30"},
+{sr:58,date:"14 May",t1:"PBKS",t2:"MI",city:"Dharamshala",time:"19:30"},
+{sr:59,date:"15 May",t1:"LSG",t2:"CSK",city:"Lucknow",time:"19:30"},
+{sr:60,date:"16 May",t1:"KKR",t2:"GT",city:"Kolkata",time:"19:30"},
+{sr:61,date:"17 May",t1:"PBKS",t2:"RCB",city:"Dharamshala",time:"15:30"},
+{sr:62,date:"17 May",t1:"DC",t2:"RR",city:"Delhi",time:"19:30"},
+{sr:63,date:"18 May",t1:"CSK",t2:"SRH",city:"Chennai",time:"19:30"},
+{sr:64,date:"19 May",t1:"RR",t2:"LSG",city:"Jaipur",time:"19:30"},
+{sr:65,date:"20 May",t1:"KKR",t2:"MI",city:"Kolkata",time:"19:30"},
+{sr:66,date:"21 May",t1:"CSK",t2:"GT",city:"Chennai",time:"19:30"},
+{sr:67,date:"22 May",t1:"SRH",t2:"RCB",city:"Hyderabad",time:"19:30"},
+{sr:68,date:"23 May",t1:"LSG",t2:"PBKS",city:"Lucknow",time:"19:30"},
+{sr:69,date:"24 May",t1:"MI",t2:"RR",city:"Mumbai",time:"15:30"},
+{sr:70,date:"24 May",t1:"KKR",t2:"DC",city:"Kolkata",time:"19:30"}
 ];
-var TRADE_WINDOWS=[5, 13];
+var TRADE_WINDOWS=[10, 20, 30, 40, 50, 60];
 var TEAM_CLR={CSK:'#F9CD05',MI:'#004BA0',RCB:'#EC1C24',KKR:'#3A225D',DC:'#004C93',PBKS:'#ED1B24',RR:'#EA1A85',SRH:'#FF822A',GT:'#1C1C2B',LSG:'#A72056'};
 var TEAM_TXT={CSK:'#000',MI:'#fff',RCB:'#fff',KKR:'#fff',DC:'#fff',PBKS:'#fff',RR:'#fff',SRH:'#fff',GT:'#fff',LSG:'#fff'};
 

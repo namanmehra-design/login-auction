@@ -652,7 +652,14 @@ body.light .topbar { background: rgba(248,250,252,0.88); }
   display: flex;
   align-items: center;
   gap: 10px;
+  transition: background .15s;
 }
+.match-block-hdr:hover { background: var(--bg2); }
+
+/* Collapsible match body */
+.match-body { display: none; }
+.match-body.open { display: block; animation: matchBodyIn .25s var(--ease); }
+@keyframes matchBodyIn { from { opacity: 0; } to { opacity: 1; } }
 .pname { font-weight: 700; font-size: 1rem; color: var(--txt); }
 .ptag { font-size: .72rem; color: var(--dim); }
 .ptags { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -817,20 +824,7 @@ body.light .topbar { background: rgba(248,250,252,0.88); }
 .ai-status.done { display: block; color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border); }
 .ai-status.fail { display: block; color: var(--err); background: var(--err-bg); border: 1px solid var(--err-border); }
 
-/* ═══════════════════════════════════════
-   SEARCH BAR
-   ═══════════════════════════════════════ */
-.search-bar {
-  padding: 10px 14px;
-  font-size: .84rem;
-  border-radius: var(--round);
-  background: var(--bg2);
-  border: 1px solid var(--b1);
-  color: var(--txt);
-  width: 100%;
-  margin-bottom: 12px;
-}
-.search-bar:focus { border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-glow); }
+/* Search bar base — flex layout defined in responsive section below */
 
 /* ═══════════════════════════════════════
    SETUP TAB — members, join progress
@@ -1156,14 +1150,135 @@ body.light .topbar { background: rgba(248,250,252,0.88); }
 .dtab.active, .dtab:hover { background: var(--surface); color: var(--txt); border-color: var(--b2); }
 
 /* ═══════════════════════════════════════
+   QUICK BID BUTTONS
+   ═══════════════════════════════════════ */
+.qbtn {
+  padding: 12px 8px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--txt);
+  background: var(--surface);
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all .15s var(--ease);
+}
+.qbtn:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent-light);
+  background: var(--accent-glow);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(45,212,191,0.15);
+}
+.qbtn:active:not(:disabled) { transform: scale(0.96); }
+.qbtn-blocked, .qbtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: var(--bg2);
+  border-color: var(--b1);
+  color: var(--dim);
+}
+
+/* ═══════════════════════════════════════
+   NOT INTERESTED BUTTON
+   ═══════════════════════════════════════ */
+.ni-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  font-family: var(--f);
+  font-size: .84rem;
+  font-weight: 600;
+  color: var(--dim);
+  background: var(--surface);
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all .2s;
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+.ni-btn:hover:not(.pressed) {
+  background: var(--err-bg);
+  color: var(--err);
+  border-color: var(--err-border);
+}
+.ni-btn.pressed {
+  background: var(--surface2);
+  color: var(--dim);
+  cursor: default;
+  opacity: .7;
+}
+
+/* ═══════════════════════════════════════
+   SEARCH BAR (fix — make it flex row)
+   ═══════════════════════════════════════ */
+.search-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  margin-bottom: 12px;
+}
+.search-bar input, .search-bar select {
+  font-size: .82rem;
+  padding: 8px 12px;
+  border: 1px solid var(--b1);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--txt);
+  font-family: var(--f);
+}
+
+/* ═══════════════════════════════════════
+   PLAYER MODAL — clickable names
+   ═══════════════════════════════════════ */
+td[onclick] { cursor: pointer; }
+td[onclick]:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════
+   LIVE AUCTION — pulsing dot
+   ═══════════════════════════════════════ */
+.ablock.live { animation: none; }
+.bidder-strip.show { display: flex; }
+.bidder-strip:not(.show) { display: none; }
+.ni-strip.show { display: flex; }
+.ni-strip:not(.show) { display: none; }
+.bidder-dot { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Player tag pills in auction block */
+.ptag {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: .72rem;
+  font-weight: 600;
+  border-radius: var(--round);
+  background: var(--surface2);
+  color: var(--txt2);
+  border: 1px solid var(--b1);
+}
+.ptag.ov { background: rgba(245,158,11,.08); color: #F59E0B; border-color: rgba(245,158,11,.25); }
+.ptag.in { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-border); }
+
+/* ═══════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
   body { font-size: 14px; }
   .content { padding: 12px 14px; }
-  .at-title { font-size: 1.25rem; }
+  .at { padding: 12px 0 8px; }
+  .at-title { font-size: 1.15rem; }
   .srow { grid-template-columns: repeat(3, 1fr); }
-  .sval { font-size: 1.2rem; }
+  .sval { font-size: 1.1rem; }
   .tcard-pills { grid-template-columns: repeat(2, 1fr); }
   .member-grid { grid-template-columns: 1fr; }
   .setup-stat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1172,14 +1287,35 @@ body.light .topbar { background: rgba(248,250,252,0.88); }
   .auth-bdy { padding: 20px; }
   .bid-amt { font-size: 1.8rem; }
   .clock-name { font-size: 1.5rem; }
+  .topbar { padding: 10px 14px; gap: 8px; }
+  .tb-title { font-size: .85rem; }
+  .modal { padding: 20px; margin: 10px; max-height: 90vh; overflow-y: auto; }
+  .lb-row { padding: 12px 14px; gap: 10px; }
+  .lb-pts { font-size: 1rem; }
+  .tgrid { grid-template-columns: 1fr; }
+  .rc-actions { flex-wrap: wrap; }
+  .match-pick-grid { grid-template-columns: 1fr; }
+  .dtabs { flex-wrap: wrap; }
+  .search-bar { flex-direction: column; }
+  .search-bar input, .search-bar select { width: 100%; }
 }
 
 @media (max-width: 480px) {
   .srow { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .spill { padding: 12px 8px; }
-  .sval { font-size: 1rem; }
+  .spill { padding: 10px 6px; }
+  .sval { font-size: .95rem; }
   .anav-btn { padding: 6px 10px; font-size: .72rem; }
-  .qgrid { grid-template-columns: repeat(3, 1fr); }
+  .anav-btn svg { display: none; }
+  .qgrid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .qbtn { padding: 10px 4px; font-size: .78rem; }
+  .bid-amt { font-size: 1.5rem; }
+  .pname { font-size: .92rem; }
+  .tcard-pills { grid-template-columns: repeat(2, 1fr); gap: 4px; }
+  .tpill { padding: 6px 4px; }
+  .tpill-val { font-size: .8rem; }
+  .auth-brand { font-size: 1.3rem; }
+  .topbar .btn { padding: 6px 10px; font-size: .72rem; }
+  .topbar .btn svg { width: 14px; height: 14px; }
 }
 
 /* ═══════════════════════════════════════
