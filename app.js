@@ -4253,26 +4253,76 @@ function _mtRenderA(){
     ? '<div style="padding:8px 16px;background:var(--ok-bg);border-bottom:1px solid var(--ok-border);font-size:.80rem;font-weight:600;color:var(--ok);text-align:center;">&#10003; Squad valid &mdash; all criteria met</div>'
     : '<div style="padding:8px 16px;background:var(--err-bg);border-bottom:1px solid var(--err-border);font-size:.80rem;font-weight:600;color:var(--err);text-align:center;">&#10007; Squad not valid &mdash; fix red criteria above. Team is DISQUALIFIED from scoring until valid.</div>';
 
-  function row(name, sec){
-    var p=pData(name), role=p.role||p.r||'', ipl=p.iplTeam||p.t||'', os=!!(p.isOverseas||p.o), pts=ptsMap[name.toLowerCase()]||0;
-    var targets = sec==='xi' ? [['bench','Bench'],['reserves','Res']] : sec==='bench' ? [['xi','XI'],['reserves','Res']] : [['xi','XI'],['bench','Bench']];
-    var btns = targets.map(function(tb){
-      return '<button data-n="'+encodeURIComponent(name)+'" data-f="'+sec+'" data-t="'+tb[0]+'" onclick="window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" style="font-size:.67rem;padding:3px 9px;border-radius:20px;border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);">&#8594;'+tb[1]+'</button>';
+  // IPL team jersey colors
+  var JERSEY={CSK:'#F9CD05',MI:'#004BA0',RCB:'#EC1C24',KKR:'#3A225D',DC:'#004C93',PBKS:'#ED1B24',RR:'#EA1A85',SRH:'#FF822A',GT:'#1C1C2B',LSG:'#A72056'};
+  var JERSEY_TXT={CSK:'#000',MI:'#fff',RCB:'#fff',KKR:'#fff',DC:'#fff',PBKS:'#fff',RR:'#fff',SRH:'#fff',GT:'#fff',LSG:'#fff'};
+
+  // Build a player card (jersey style)
+  function playerCard(name, sec, compact){
+    var p=pData(name), role=p.role||p.r||'', ipl=(p.iplTeam||p.t||'').toUpperCase(), os=!!(p.isOverseas||p.o||name.indexOf('*')>=0);
+    var pts=ptsMap[name.toLowerCase()]||0;
+    var jCol=JERSEY[ipl]||'var(--surface2)', jTxt=JERSEY_TXT[ipl]||'var(--txt)';
+    var shortName=name.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    if(shortName.length>14){var parts=shortName.split(' ');shortName=parts.length>1?parts[0][0]+'. '+parts.slice(1).join(' '):shortName.substring(0,12)+'...';}
+    var targets=sec==='xi'?[['bench','B'],['reserves','R']]:sec==='bench'?[['xi','XI'],['reserves','R']]:[['xi','XI'],['bench','B']];
+    var moveHtml=targets.map(function(tb){
+      return '<button data-n="'+encodeURIComponent(name)+'" data-f="'+sec+'" data-t="'+tb[0]+'" onclick="event.stopPropagation();window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" style="font-size:.58rem;padding:2px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-family:var(--f);backdrop-filter:blur(4px);">'+tb[1]+'</button>';
     }).join('');
-    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:5px;">'
-      + (os?'<span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;flex-shrink:0;display:inline-block;"></span>':'')
-      + '<span style="flex:1;font-size:.84rem;font-weight:600;color:var(--txt);">'+name+'</span>'
-      + '<span style="font-size:.68rem;color:var(--dim);">'+ipl+'</span>'
-      + '<span style="font-size:.68rem;padding:1px 6px;border-radius:10px;background:var(--accent-glow);color:var(--accent);font-weight:700;">'+role+'</span>'
-      + '<span style="font-size:.72rem;font-weight:700;min-width:42px;text-align:right;color:'+(pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)')+';">'+(pts>0?'+':'')+pts+'</span>'
-      + '<div style="display:flex;gap:3px;">'+btns+'</div></div>';
+    var ptsCol=pts>0?'#34D399':pts<0?'#FB7185':'#94A3B8';
+    // Jersey SVG shape
+    var jerseySvg='<svg width="'+(compact?36:44)+'" height="'+(compact?28:34)+'" viewBox="0 0 44 34" fill="none"><path d="M22 2C18 2 16 0 12 0L2 6V14L8 12V32H36V12L42 14V6L32 0C28 0 26 2 22 2Z" fill="'+jCol+'" stroke="rgba(255,255,255,.15)" stroke-width="1"/><text x="22" y="22" text-anchor="middle" fill="'+jTxt+'" font-size="9" font-weight="800" font-family="var(--mono)">'+ipl+'</text></svg>';
+
+    return '<div onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;position:relative;'+(compact?'min-width:70px;':'min-width:80px;')+'">'
+      + (os?'<div style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--accent);border:1.5px solid rgba(0,0,0,.3);z-index:2;"></div>':'')
+      + '<div style="position:relative;">'+jerseySvg+'</div>'
+      + '<div style="background:'+jCol+';color:'+jTxt+';padding:2px 8px;border-radius:4px;font-size:.66rem;font-weight:700;margin-top:2px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);">'+shortName+'</div>'
+      + '<div style="font-size:.62rem;font-weight:700;color:'+ptsCol+';margin-top:2px;font-family:var(--mono);">'+(pts>0?'+':'')+pts+' pts</div>'
+      + '<div style="display:flex;gap:2px;margin-top:3px;">'+moveHtml+'</div>'
+      + '</div>';
   }
 
-  function sec(title, col, key, badge){
-    var players=sq[key]||[];
-    return '<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:8px 8px 0 0;background:'+col+';"><span style="font-size:.84rem;font-weight:700;color:#fff;">'+title+'</span><span style="font-size:.75rem;color:rgba(255,255,255,.8);">'+badge+'</span></div>'
-      + '<div style="background:var(--surface);border:1px solid var(--b1);border-top:none;border-radius:0 0 8px 8px;padding:8px;">'
-      + (players.length ? players.map(function(n){return row(n,key);}).join('') : '<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">Empty</div>')
+  // Group XI by role for pitch layout
+  var xiWks=[],xiBats=[],xiArs=[],xiBowls=[];
+  sq.xi.forEach(function(n){
+    var r=pRole(n);
+    if(r.indexOf('wicketkeeper')>=0||r.indexOf('keeper')>=0) xiWks.push(n);
+    else if(r.indexOf('all-rounder')>=0||r.indexOf('all rounder')>=0) xiArs.push(n);
+    else if(r.indexOf('bowler')>=0) xiBowls.push(n);
+    else xiBats.push(n);
+  });
+
+  function pitchRow(label,players,bgOpacity){
+    if(!players.length) return '';
+    return '<div style="text-align:center;padding:12px 8px;">'
+      + '<div style="font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.5);">'+label+'</div>'
+      + '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">'
+      + players.map(function(n){return playerCard(n,'xi',false);}).join('')
+      + '</div></div>';
+  }
+
+  // Cricket pitch HTML
+  var pitchHtml='<div style="position:relative;background:linear-gradient(180deg,#1a5c2a 0%,#1e6b30 15%,#22783a 30%,#1e6b30 50%,#22783a 70%,#1e6b30 85%,#1a5c2a 100%);border-radius:var(--rl);overflow:hidden;padding:8px 0;min-height:300px;">'
+    // Pitch strip (center rectangle)
+    + '<div style="position:absolute;left:50%;top:12%;transform:translateX(-50%);width:28%;height:76%;background:linear-gradient(180deg,#c4a96a,#d4b87a,#c4a96a);border-radius:6px;opacity:.18;"></div>'
+    // Crease lines
+    + '<div style="position:absolute;left:50%;top:16%;transform:translateX(-50%);width:18%;height:1px;background:rgba(255,255,255,.15);"></div>'
+    + '<div style="position:absolute;left:50%;top:84%;transform:translateX(-50%);width:18%;height:1px;background:rgba(255,255,255,.15);"></div>'
+    // Outfield lines (subtle)
+    + '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:90%;height:90%;border:1px solid rgba(255,255,255,.06);border-radius:50%;"></div>'
+    // Player rows
+    + pitchRow('WICKET-KEEPERS',xiWks)
+    + pitchRow('BATTERS',xiBats)
+    + pitchRow('ALL-ROUNDERS',xiArs)
+    + pitchRow('BOWLERS',xiBowls)
+    + '</div>';
+
+  // Bench section (below pitch)
+  function offPitchSection(title,players,key,gradient,icon){
+    if(!players.length&&key!=='bench') return '';
+    return '<div style="margin-top:12px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:10px 10px 0 0;background:'+gradient+';"><span style="font-size:.80rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</span><span style="font-size:.72rem;color:rgba(255,255,255,.7);">'+players.length+' players</span></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--b1);border-top:none;border-radius:0 0 10px 10px;padding:10px;">'
+      + (players.length?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:6px 0;">'+players.map(function(n){return playerCard(n,key,true);}).join('')+'</div>':'<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">No players</div>')
       + '</div></div>';
   }
 
@@ -4281,11 +4331,14 @@ function _mtRenderA(){
   var prs=document.getElementById('mt_res_A'); if(prs) prs.textContent='Reserves: '+resCount;
   var vl=document.getElementById('mt_val_A'); if(vl) vl.style.display='none';
 
+  var _isLocked=!!(roomState.squadLocked);
   var lockBanner=_isLocked?'<div style="padding:10px 16px;background:var(--warn-bg);border-bottom:1px solid var(--warn-border);font-size:.82rem;font-weight:600;color:var(--warn);text-align:center;">Squad changes are LOCKED by admin</div>':'';
-  el.innerHTML = lockBanner + statusHtml + tHtml + '<div style="padding:12px;">'
-    + sec('&#9889; Playing XI', 'linear-gradient(90deg,#4A35A0,#6C54C8)', 'xi', xiCount+'/11')
-    + sec('&#129681; Bench', 'linear-gradient(90deg,#065F46,#059669)', 'bench', benchCount+'/5')
-    + sec('&#128230; Reserves', 'linear-gradient(90deg,#374151,#6B7280)', 'reserves', resCount+'')
+
+  el.innerHTML = lockBanner + statusHtml + tHtml
+    + '<div style="padding:12px;">'
+    + pitchHtml
+    + offPitchSection('BENCH',sq.bench,'bench','linear-gradient(90deg,#065F46,#059669)','&#129681;')
+    + offPitchSection('RESERVES',sq.reserves,'reserves','linear-gradient(90deg,#374151,#6B7280)','&#128230;')
     + '</div>';
 }
 
