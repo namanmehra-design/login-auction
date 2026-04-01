@@ -838,7 +838,7 @@ function renderBlock(data){
  if(data.currentBlock?.active){
  const pid=String(data.currentBlock.playerId);
  const p=data.players?.[pid]||data.players?.[parseInt(pid)];
- if(!p){blk.innerHTML=`<div style="color:var(--dim)">Player not found (id:${pid}). Try re-initializing.</div>`;ctrl.style.display='none';return;}
+ if(!p){blk.innerHTML=`<div class="blk-missing">Player not found (id:${pid}). Try re-initializing.</div>`;ctrl.style.display='none';return;}
 
  blk.classList.add('live');
  ctrl.style.display='block';
@@ -876,7 +876,7 @@ function renderBlock(data){
     const quotaFull=(rosterFull||osLimitHit)&&!amLastBidder;
     const blocked=tooSmall||cantAfford||alreadyNI||quotaFull;
     const title=osLimitHit&&!rosterFull?`Overseas limit reached (${myOsCount}/${osLimitBid})`:quotaFull?`Squad full (${myRosterLen}/${maxPl} players)`:tooSmall?'Not allowed above \u20b93 Cr':cantAfford?`Exceeds your budget (\u20b9${myTeamBudget.toFixed(2)} Cr left)`:'';
-    return `<button class="qbtn${blocked?' qbtn-blocked':''}" ${blocked?'disabled':''}${title?` title="${title}"`:''}  onclick="window.addBid(${amt})">${lbl}${(cantAfford||quotaFull)?'<span style=\"font-size:.60rem;margin-left:3px;opacity:.6;\">x</span>':''}</button>`;
+    return `<button class="qbtn${blocked?' qbtn-blocked':''}" ${blocked?'disabled':''}${title?` title="${title}"`:''}  onclick="window.addBid(${amt})">${lbl}${(cantAfford||quotaFull)?'<span class="blk-qbtn-x">x</span>':''}</button>`;
   }).join('');
 })();
 
@@ -977,15 +977,15 @@ function renderBlock(data){
  if(isAdmin){const p=document.getElementById('soldPreview');if(p)p.style.display='none';}
  const la=data.currentBlock?.lastAction;
  if(la==='unsold'){
- blk.innerHTML=`<div style="font-family:var(--f);font-size:2.8rem;color:var(--err)">\u274c UNSOLD</div>`;
+ blk.innerHTML=`<div class="blk-unsold">\u274c UNSOLD</div>`;
  } else if(la?.startsWith('sold')){
  const pts=la.split('_');
  blk.innerHTML=`
- <div style="font-family:var(--f);font-size:2.8rem;color:var(--ok)">SOLD</div><div style="margin-top:8px;color:var(--dim2)">To <strong style="color:var(--txt)">${pts[2]}</strong></div><div style="font-family:var(--f);font-size:2rem;color:var(--accent);margin-top:4px">\u20b9${parseFloat(pts[3]).toFixed(2)} Cr</div>`;
+ <div class="blk-sold">SOLD</div><div class="blk-sold-to">To <strong>${pts[2]}</strong></div><div class="blk-sold-price">\u20b9${parseFloat(pts[3]).toFixed(2)} Cr</div>`;
  } else if(data.auctionComplete){
- blk.innerHTML=`<div style="text-align:center;padding:30px 0;"><div style="font-family:var(--f);font-size:2.2rem;color:var(--ok);margin-bottom:8px;">AUCTION COMPLETE</div><div style="color:var(--dim);margin-bottom:16px;">All teams have reached their player quota.</div>${isAdmin?`<button class="btn btn-gold" onclick="window.reinitiateAuction()" style="max-width:280px;">Reinitiate Auction (Unsold Players)</button>`:''}</div>`;
+ blk.innerHTML=`<div class="blk-complete-wrap"><div class="blk-complete-title">AUCTION COMPLETE</div><div class="blk-complete-sub">All teams have reached their player quota.</div>${isAdmin?`<button class="btn btn-gold" onclick="window.reinitiateAuction()">Reinitiate Auction (Unsold Players)</button>`:''}</div>`;
  } else {
- blk.innerHTML=`<div style="color:var(--dim);padding:20px 0">Ready -- pull a player to begin.</div>`;
+ blk.innerHTML=`<div class="blk-ready">Ready -- pull a player to begin.</div>`;
  }
  }
 }
@@ -1007,7 +1007,7 @@ function renderLedger(all){
  rows.sort((a,b)=>N(a).localeCompare(N(b)));
  document.getElementById('rosterTbody').innerHTML=rows.map((p,i)=>{
  const sc=p.status==='available'?'<span class="badge bb">Available</span>':p.status==='unsold'?'<span class="badge br">Unsold</span>':'<span class="badge bs">Sold</span>';
- return`<tr><td style="color:var(--dim)">${i+1}</td><td style="font-weight:600;cursor:pointer;color:var(--accent-light);" onclick="window.showPlayerModal('${N(p).replace(/'/g,"\\'")}')">${N(p)}</td><td><span class="badge bg">${T(p)}</span></td><td>${R(p)}</td><td style="font-size:.78rem;color:var(--dim2)">${O(p)?' \ufe0f Overseas':' Indian'}</td><td>\u20b9${(p.basePrice||0).toFixed(2)}</td><td>${sc}</td><td style="color:var(--accent-light);font-weight:700">${p.soldPrice?'\u20b9'+p.soldPrice.toFixed(2):'--'}</td><td style="color:var(--dim2)">${p.soldTo||'--'}</td></tr>`;
+ return`<tr><td class="ldg-idx">${i+1}</td><td class="ldg-name" onclick="window.showPlayerModal('${N(p).replace(/'/g,"\\'")}')">${N(p)}</td><td><span class="badge bg">${T(p)}</span></td><td>${R(p)}</td><td class="ldg-origin">${O(p)?' \ufe0f Overseas':' Indian'}</td><td>\u20b9${(p.basePrice||0).toFixed(2)}</td><td>${sc}</td><td class="ldg-sold-price">${p.soldPrice?'\u20b9'+p.soldPrice.toFixed(2):'--'}</td><td class="ldg-buyer">${p.soldTo||'--'}</td></tr>`;
  }).join('');
 }
 
@@ -1676,18 +1676,18 @@ function renderPointsTab(){
  if(!tbody) return;
 
  if(!sorted.length){
- tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--dim);">No match data yet. Admin can add scorecards above.</td></tr>';
+ tbody.innerHTML='<tr><td colspan="8" class="pts-empty">No match data yet. Admin can add scorecards above.</td></tr>';
  return;
  }
 
  tbody.innerHTML=sorted.map((p,i)=>{
  const key=p.name.toLowerCase();
- const owner=ownerMap[key]||'<span style="color:var(--dim)">Unowned</span>';
+ const owner=ownerMap[key]||'<span class="pts-unowned">Unowned</span>';
  const role=roleMap[key]||'--';
  const iplTeam=iplTeamMap[key]||'--';
- const ptsColor=p.pts>=0?'var(--ok)':'var(--err)';
+ const ptsCls=p.pts>=0?'pts-val-pos':'pts-val-neg';
  const histTitle=p.matches.map(m=>`${m.label}: ${m.pts>=0?'+':''}${m.pts} (${m.breakdown})`).join('\n');
- return `<tr><td style="color:var(--dim)">${i+1}</td><td style="font-weight:600;cursor:pointer;color:var(--accent-light);" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td><td><span class="badge bg">${iplTeam}</span></td><td style="color:var(--accent-light)">${typeof owner==='string'?owner:owner}</td><td style="color:var(--dim2)">${role}</td><td style="text-align:center">${p.matchCount}</td><td style="font-family:var(--f);font-size:1.1rem;color:${ptsColor};text-align:right">${p.pts>=0?'+':''}${p.pts}</td><td><button class="match-hist-btn" title="${histTitle.replace(/"/g,"'")}">${p.matchCount}</button></td></tr>`;
+ return `<tr><td class="pts-idx">${i+1}</td><td class="pts-name" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td><td><span class="badge bg">${iplTeam}</span></td><td class="pts-owner">${typeof owner==='string'?owner:owner}</td><td class="pts-role">${role}</td><td class="pts-count">${p.matchCount}</td><td class="pts-val ${ptsCls}">${p.pts>=0?'+':''}${p.pts}</td><td><button class="match-hist-btn" title="${histTitle.replace(/"/g,"'")}">${p.matchCount}</button></td></tr>`;
  }).join('');
 }
 window.renderPointsTab=renderPointsTab;
@@ -1942,30 +1942,26 @@ function renderLeaderboard(data){
   return;
  }
 
- const medalStyles=[
-  'background:linear-gradient(135deg,#FFD700,#FFA500);color:#7A4500;border:1px solid rgba(255,180,0,0.4);',
-  'background:linear-gradient(135deg,#C0C0C0,#A0A0A0);color:#404040;border:1px solid rgba(180,180,180,0.4);',
-  'background:linear-gradient(135deg,#CD7F32,#A0522D);color:#fff;border:1px solid rgba(180,100,40,0.4);',
- ];
+ const medalClasses=['lb-rank-1','lb-rank-2','lb-rank-3'];
  body.innerHTML=sorted.map(([name,info],i)=>{
   const rankEl=i<3
-   ?`<div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:800;flex-shrink:0;${medalStyles[i]}">${i+1}</div>`
-   :`<div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:var(--dim);background:var(--surface);border:1px solid var(--b1);flex-shrink:0;">${i+1}</div>`;
+   ?`<div class="lb-rank ${medalClasses[i]}">${i+1}</div>`
+   :`<div class="lb-rank lb-rank-other">${i+1}</div>`;
   const bar=sorted[0][1].pts>0?Math.round((info.pts/sorted[0][1].pts)*100):0;
   const ppc=info.spent>0?(info.pts/info.spent).toFixed(1):'--';
   const dq=!info.squadValid;
   // Per-match sparkline (small dots showing match-by-match performance)
   let sparkline='';
   if(filterVal==='all'&&teamPts[name]?.perMatch){
-   sparkline='<div style="display:flex;gap:2px;margin-top:4px;align-items:flex-end;height:16px;">'+matchIds.map(mid=>{
+   sparkline='<div class="lb-sparkline">'+matchIds.map(mid=>{
     const mPts=teamPts[name].perMatch[mid]||0;
     const maxMPts=Math.max(...Object.values(teamPts).map(t=>Math.abs(t.perMatch[mid]||0)),1);
     const h=Math.max(2,Math.round(Math.abs(mPts)/maxMPts*14));
-    const col=mPts>=0?'var(--accent)':'var(--err)';
-    return `<div title="${(matches[mid]?.label||mid)}: ${mPts>=0?'+':''}${mPts}" style="width:6px;height:${h}px;background:${col};border-radius:1px;opacity:.7;"></div>`;
+    const colCls=mPts>=0?'var(--accent)':'var(--err)';
+    return `<div title="${(matches[mid]?.label||mid)}: ${mPts>=0?'+':''}${mPts}" class="lb-spark-bar ${mPts>=0?'lb-spark-bar-pos':'lb-spark-bar-neg'}" style="height:${h}px;"></div>`;
    }).join('')+'</div>';
   }
-  return `<div class="lb-row"${dq?' style="opacity:.45"':''}>${rankEl}<div style="flex:1;min-width:0;"><div class="lb-team">${name}${dq?` <span style="font-size:.62rem;padding:1px 5px;border-radius:8px;background:var(--err-bg);color:var(--err);border:1px solid var(--err-border);font-weight:700;margin-left:5px;">DQ</span>`:``}</div><div class="lb-meta">Top: ${info.topPlayer} (${info.topPts>=0?'+':''}${Math.round(info.topPts)} pts) | ${info.playerCount} scorers | <span style="color:var(--accent);">${ppc} pts/Cr</span></div><div style="height:4px;background:var(--b1);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${bar}%;background:linear-gradient(90deg,var(--accent),var(--accent-light));border-radius:2px;transition:width .6s;"></div></div>${sparkline}</div><div class="lb-pts">${info.pts>=0?'+':''}${Math.round(info.pts)}</div></div>`;
+  return `<div class="lb-row${dq?' lb-row-dq':''}">${rankEl}<div class="lb-info"><div class="lb-team">${name}${dq?` <span class="lb-dq-badge">DQ</span>`:``}</div><div class="lb-meta">Top: ${info.topPlayer} (${info.topPts>=0?'+':''}${Math.round(info.topPts)} pts) | ${info.playerCount} scorers | <span class="lb-ppc">${ppc} pts/Cr</span></div><div class="lb-bar-track"><div class="lb-bar-fill" style="width:${bar}%;"></div></div>${sparkline}</div><div class="lb-pts">${info.pts>=0?'+':''}${Math.round(info.pts)}</div></div>`;
  }).join('');
 }
 
@@ -2016,8 +2012,8 @@ window.renderAllSquads=function(){
    var k=name.toLowerCase().trim();
    var kc=k.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
    var playerPts=pts[k]||pts[kc]||0;
-   var ptsColor=playerPts>0?'var(--ok)':playerPts<0?'var(--err)':'var(--dim)';
-   return '<tr><td style="padding:5px 8px;font-size:.82rem;cursor:pointer;" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')">'+(isOs?'<span style="color:var(--warn);margin-right:2px;">●</span>':'')+name+'</td><td style="padding:5px 8px;font-size:.72rem;color:var(--dim);">'+iplTeam+'</td><td style="padding:5px 8px;font-size:.72rem;">'+role+'</td><td style="padding:5px 8px;font-family:var(--f);color:'+ptsColor+';text-align:right;font-weight:600;">'+(playerPts>=0?'+':'')+playerPts+'</td></tr>';
+   var ptsCls=playerPts>0?'sq-p-pts-pos':playerPts<0?'sq-p-pts-neg':'sq-p-pts-zero';
+   return '<tr><td class="sq-p-name" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')">'+(isOs?'<span class="sq-p-os-dot">\u25cf</span>':'')+name+'</td><td class="sq-p-ipl">'+iplTeam+'</td><td class="sq-p-role">'+role+'</td><td class="sq-p-pts '+ptsCls+'">'+(playerPts>=0?'+':'')+playerPts+'</td></tr>';
   }
 
   var teamTotal=0;
@@ -2027,28 +2023,28 @@ window.renderAllSquads=function(){
    teamTotal+=(pts[k]||pts[kc]||0);
   });
 
-  html+='<div style="margin-bottom:20px;border:1px solid var(--b1);border-radius:var(--r);overflow:hidden;">';
-  html+='<div style="padding:10px 14px;background:var(--surface);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--b1);"><strong style="font-size:.92rem;">'+team.name+'</strong><span style="font-family:var(--f);font-size:1rem;color:var(--accent);font-weight:700;">'+(teamTotal>=0?'+':'')+teamTotal+'</span></div>';
-  html+='<table style="width:100%;border-collapse:collapse;">';
+  html+='<div class="sq-card">';
+  html+='<div class="sq-card-hdr"><strong class="sq-card-name">'+team.name+'</strong><span class="sq-card-pts">'+(teamTotal>=0?'+':'')+teamTotal+'</span></div>';
+  html+='<table class="sq-table">';
 
   // XI
-  html+='<tr><td colspan="4" style="padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.08em;background:rgba(45,212,191,.06);border-bottom:1px solid var(--b1);">Playing XI ('+xi.length+')</td></tr>';
+  html+='<tr><td colspan="4" class="sq-section-hdr sq-section-xi">Playing XI ('+xi.length+')</td></tr>';
   xi.forEach(function(n){html+=pRow(n,'xi');});
 
   // Bench
-  html+='<tr><td colspan="4" style="padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.08em;background:rgba(251,191,36,.06);border-bottom:1px solid var(--b1);border-top:1px solid var(--b1);">Bench ('+bench.length+')</td></tr>';
+  html+='<tr><td colspan="4" class="sq-section-hdr sq-section-bench">Bench ('+bench.length+')</td></tr>';
   bench.forEach(function(n){html+=pRow(n,'bench');});
 
   // Reserves
   if(reserves.length){
-   html+='<tr><td colspan="4" style="padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.02);border-bottom:1px solid var(--b1);border-top:1px solid var(--b1);">Reserves ('+reserves.length+')</td></tr>';
+   html+='<tr><td colspan="4" class="sq-section-hdr sq-section-reserves">Reserves ('+reserves.length+')</td></tr>';
    reserves.forEach(function(n){html+=pRow(n,'reserves');});
   }
 
   html+='</table></div>';
  });
 
- body.innerHTML=html||'<div class="empty" style="padding:20px;">No teams found.</div>';
+ body.innerHTML=html||'<div class="empty">No teams found.</div>';
 };
 
 // -- Player Performance Modal --
@@ -2083,9 +2079,9 @@ window.showPlayerModal=function(playerName){
  metaEl.innerHTML=`
   <span class="badge bg">${iplTeam||'--'}</span>
   <span class="badge bb">${role||'--'}</span>
-  ${isOs?'<span class="badge" style="background:rgba(245,158,11,.1);color:#F59E0B;border:1px solid rgba(245,158,11,.3);">Overseas</span>':'<span class="badge bb">Indian</span>'}
-  <span style="font-size:.82rem;color:var(--accent);font-weight:600;">${owner?'Owned by: '+owner:'Unowned'}</span>
-  ${soldPrice?`<span style="font-size:.82rem;color:var(--dim);">Bought for: \u20b9${soldPrice.toFixed(2)} Cr</span>`:''}
+  ${isOs?'<span class="badge pm-overseas-badge">Overseas</span>':'<span class="badge bb">Indian</span>'}
+  <span class="pm-owner-info">${owner?'Owned by: '+owner:'Unowned'}</span>
+  ${soldPrice?`<span class="pm-price-info">Bought for: \u20b9${soldPrice.toFixed(2)} Cr</span>`:''}
  `;
 
  // Build match-by-match breakdown
@@ -2098,25 +2094,25 @@ window.showPlayerModal=function(playerName){
   const pData=Object.values(m.players).find(p=>{const pn=(p.name||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
   if(!pData) return;
   totalPts+=pData.pts||0;
-  const ptsCol=(pData.pts||0)>=0?'var(--ok)':'var(--err)';
-  rows+=`<tr style="border-bottom:1px solid var(--b1);">
-   <td style="padding:8px 10px;font-size:.84rem;font-weight:500;">${m.label||mid}</td>
-   <td style="padding:8px 10px;text-align:right;font-weight:700;color:${ptsCol};font-family:var(--mono);">${(pData.pts||0)>=0?'+':''}${pData.pts||0}</td>
-   <td style="padding:8px 10px;font-size:.75rem;color:var(--dim);max-width:200px;word-break:break-word;">${(pData.breakdown||'').replace(/\|/g,' | ')}</td>
+  const ptsColCls=(pData.pts||0)>=0?'md-td-pts-pos':'md-td-pts-neg';
+  rows+=`<tr class="pm-row">
+   <td class="pm-td pm-td-match">${m.label||mid}</td>
+   <td class="pm-td pm-td-pts ${ptsColCls}">${(pData.pts||0)>=0?'+':''}${pData.pts||0}</td>
+   <td class="pm-td pm-td-bd">${(pData.breakdown||'').replace(/\|/g,' | ')}</td>
   </tr>`;
  });
 
  if(!rows){
-  bodyEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--dim);">No match data for this player yet.</div>';
+  bodyEl.innerHTML='<div class="pm-no-data">No match data for this player yet.</div>';
  } else {
-  const totalCol=totalPts>=0?'var(--ok)':'var(--err)';
+  const totalColCls=totalPts>=0?'md-td-pts-pos':'md-td-pts-neg';
   bodyEl.innerHTML=`
-   <div style="padding:10px 14px;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
-    <span style="font-size:.84rem;color:var(--dim);">Season Total</span>
-    <span style="font-size:1.3rem;font-weight:800;color:${totalCol};font-family:var(--mono);">${totalPts>=0?'+':''}${totalPts}</span>
+   <div class="pm-season-total">
+    <span class="pm-season-label">Season Total</span>
+    <span class="pm-season-val ${totalColCls}">${totalPts>=0?'+':''}${totalPts}</span>
    </div>
-   <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
-    <thead><tr style="background:var(--surface);"><th style="padding:6px 10px;text-align:left;font-size:.72rem;color:var(--dim);text-transform:uppercase;">Match</th><th style="padding:6px 10px;text-align:right;font-size:.72rem;color:var(--dim);text-transform:uppercase;">Points</th><th style="padding:6px 10px;text-align:left;font-size:.72rem;color:var(--dim);text-transform:uppercase;">Breakdown</th></tr></thead>
+   <div class="md-overflow"><table class="pm-table">
+    <thead><tr><th class="pm-th">Match</th><th class="pm-th pm-th-right">Points</th><th class="pm-th">Breakdown</th></tr></thead>
     <tbody>${rows}</tbody>
    </table></div>`;
  }
@@ -2160,24 +2156,24 @@ function renderAnalytics(data){
 
  // -- Card builder -- clean single-row layout --
  function card(icon,title,subtitle,rows){
-  const empty=`<div style="padding:18px 16px;font-size:.78rem;color:var(--dim);text-align:center;letter-spacing:0;">No data yet</div>`;
+  const empty=`<div class="an-card-empty">No data yet</div>`;
   const body=rows.length?rows.map((r,i)=>{
    const owner=ownerMap[r.name.toLowerCase()]||'Unowned';
-   return`<div style="display:grid;grid-template-columns:18px 1fr auto;align-items:center;padding:9px 14px;border-bottom:1px solid var(--b0);gap:0 10px;">
-    <span style="font-size:.68rem;font-weight:500;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums;line-height:1;">${i+1}</span>
-    <div style="min-width:0;">
-     <div style="font-size:.82rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${r.name}</div>
-     <div style="font-size:.67rem;color:var(--dim);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${owner} . ${r.matchCount}m${r._sub?' . '+r._sub:''}</div>
+   return`<div class="an-row">
+    <span class="an-row-idx">${i+1}</span>
+    <div class="an-row-info">
+     <div class="an-row-name">${r.name}</div>
+     <div class="an-row-sub">${owner} . ${r.matchCount}m${r._sub?' . '+r._sub:''}</div>
     </div>
-    <div style="font-size:.84rem;font-weight:600;color:var(--accent);white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;min-width:48px;letter-spacing:-.01em;">${r._stat}</div>
+    <div class="an-row-stat">${r._stat}</div>
    </div>`;
   }).join(''):empty;
-  return`<div style="background:var(--surface2);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden;">
-   <div style="padding:10px 14px;border-bottom:1px solid var(--b1);background:var(--surface);display:grid;grid-template-columns:16px 1fr;align-items:start;gap:0 9px;">
-    <div style="margin-top:2px;color:var(--dim2);display:flex;align-items:center;">${icon}</div>
+  return`<div class="an-card">
+   <div class="an-card-hdr">
+    <div class="an-card-icon">${icon}</div>
     <div>
-     <div style="font-size:.73rem;font-weight:600;color:var(--txt);letter-spacing:.01em;">${title}</div>
-     ${subtitle?`<div style="font-size:.64rem;color:var(--dim);margin-top:1px;">${subtitle}</div>`:''}
+     <div class="an-card-title">${title}</div>
+     ${subtitle?`<div class="an-card-subtitle">${subtitle}</div>`:''}
     </div>
    </div>
    ${body}
@@ -2185,12 +2181,12 @@ function renderAnalytics(data){
  }
 
  const sec=(label,icon,cards)=>`
-  <div style="margin-bottom:22px;">
-   <div style="display:grid;grid-template-columns:16px 1fr;align-items:center;gap:0 8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--b1);">
-    <div style="color:var(--dim2);display:flex;align-items:center;">${icon}</div>
-    <span style="font-size:.68rem;font-weight:600;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;">${label}</span>
+  <div class="an-sec">
+   <div class="an-sec-hdr">
+    <div class="an-sec-icon">${icon}</div>
+    <span class="an-sec-label">${label}</span>
    </div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;">${cards}</div>
+   <div class="an-sec-grid">${cards}</div>
   </div>`;
 
 
@@ -2557,45 +2553,40 @@ function renderMatchData(data){
   const sr=p=>p.balls>0?((p.runs/p.balls)*100).toFixed(0):'--';
   const eco=p=>p.overs>0?(p.runs/normalizeOvers(p.overs)).toFixed(2):'--';
 
-  // Styles
-  const BASE='font-family:inherit;font-size:.82rem;vertical-align:middle;padding:8px 12px;border-bottom:1px solid var(--b0);';
-  const THs='font-size:.67rem;font-weight:700;color:var(--dim2);letter-spacing:.06em;text-transform:uppercase;padding:8px 12px;border-bottom:2px solid var(--b1);background:rgba(108,84,200,0.04);white-space:nowrap;vertical-align:middle;';
-  const nameCol='font-weight:600;color:var(--txt);cursor:pointer;'+BASE;
-  const numCol='color:var(--txt2);text-align:right;'+BASE;
-  const boldNumCol='font-weight:700;color:var(--txt);text-align:right;'+BASE;
-  const ptsCol=pts=>`font-weight:700;text-align:right;white-space:nowrap;${BASE}color:${pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)'};`;
+  // Styles via CSS classes
+  const ptsCls=pts=>pts>0?'md-td-pts-pos':pts<0?'md-td-pts-neg':'md-td-pts-zero';
 
-  function teamSec(label,color){
-   return `<div style="padding:8px 16px;font-size:.72rem;font-weight:800;color:${color};letter-spacing:.06em;text-transform:uppercase;background:${color}11;border-bottom:1px solid var(--b1);">${label}</div>`;
+  function teamSec(label,teamCode){
+   return `<div class="md-team-sec md-team-sec-${teamCode}">${label}</div>`;
   }
 
   function batTable(arr){
-   if(!arr.length) return '<div style="padding:10px 16px;font-size:.78rem;color:var(--dim);font-style:italic;">No batting data</div>';
-   return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
-    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:right;">R</th><th style="${THs}text-align:right;">B</th><th style="${THs}text-align:right;">4s</th><th style="${THs}text-align:right;">6s</th><th style="${THs}text-align:right;">SR</th><th style="${THs}text-align:right;">Pts</th>
+   if(!arr.length) return '<div class="md-no-data">No batting data</div>';
+   return `<div class="md-overflow"><table class="md-table"><thead><tr>
+    <th class="md-th md-th-left">Player</th><th class="md-th md-th-right">R</th><th class="md-th md-th-right">B</th><th class="md-th md-th-right">4s</th><th class="md-th md-th-right">6s</th><th class="md-th md-th-right">SR</th><th class="md-th md-th-right">Pts</th>
    </tr></thead><tbody>${arr.sort((a,b)=>b.runs-a.runs).map(p=>`<tr>
-    <td style="${nameCol}" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}${p.duck?'&nbsp;<span style="background:var(--err-bg);color:var(--err);border-radius:3px;padding:0 4px;font-size:.60rem;font-weight:700;">DUCK</span>':''}</td>
-    <td style="${boldNumCol}">${p.runs}</td><td style="${numCol}">${p.balls}</td><td style="${numCol}">${p.fours}</td><td style="${numCol}">${p.sixes}</td><td style="${numCol}">${sr(p)}</td><td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
+    <td class="md-td md-td-name" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}${p.duck?'&nbsp;<span class="md-duck-badge">DUCK</span>':''}</td>
+    <td class="md-td md-td-num-bold">${p.runs}</td><td class="md-td md-td-num">${p.balls}</td><td class="md-td md-td-num">${p.fours}</td><td class="md-td md-td-num">${p.sixes}</td><td class="md-td md-td-num">${sr(p)}</td><td class="md-td md-td-pts ${ptsCls(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
    </tr>`).join('')}</tbody></table></div>`;
   }
 
   function bowlTable(arr){
-   if(!arr.length) return '<div style="padding:10px 16px;font-size:.78rem;color:var(--dim);font-style:italic;">No bowling data</div>';
-   return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
-    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:right;">Ov</th><th style="${THs}text-align:right;">R</th><th style="${THs}text-align:right;">W</th><th style="${THs}text-align:right;">Eco</th><th style="${THs}text-align:right;">Pts</th>
+   if(!arr.length) return '<div class="md-no-data">No bowling data</div>';
+   return `<div class="md-overflow"><table class="md-table"><thead><tr>
+    <th class="md-th md-th-left">Player</th><th class="md-th md-th-right">Ov</th><th class="md-th md-th-right">R</th><th class="md-th md-th-right">W</th><th class="md-th md-th-right">Eco</th><th class="md-th md-th-right">Pts</th>
    </tr></thead><tbody>${arr.sort((a,b)=>b.wkts-a.wkts).map(p=>`<tr>
-    <td style="${nameCol}" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td>
-    <td style="${numCol}">${p.overs}</td><td style="${numCol}">${p.runs}</td><td style="${boldNumCol}">${p.wkts}</td><td style="${numCol}">${eco(p)}</td><td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
+    <td class="md-td md-td-name" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td>
+    <td class="md-td md-td-num">${p.overs}</td><td class="md-td md-td-num">${p.runs}</td><td class="md-td md-td-num-bold">${p.wkts}</td><td class="md-td md-td-num">${eco(p)}</td><td class="md-td md-td-pts ${ptsCls(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
    </tr>`).join('')}</tbody></table></div>`;
   }
 
   function fldTable(arr){
    if(!arr.length) return '';
-   return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
-    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:right;">Catches</th><th style="${THs}text-align:right;">Stumpings</th><th style="${THs}text-align:right;">Run-outs</th><th style="${THs}text-align:right;">Pts</th>
+   return `<div class="md-overflow"><table class="md-table"><thead><tr>
+    <th class="md-th md-th-left">Player</th><th class="md-th md-th-right">Catches</th><th class="md-th md-th-right">Stumpings</th><th class="md-th md-th-right">Run-outs</th><th class="md-th md-th-right">Pts</th>
    </tr></thead><tbody>${arr.map(p=>`<tr>
-    <td style="${nameCol}" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td>
-    <td style="${numCol}">${p.catches}</td><td style="${numCol}">${p.stumpings}</td><td style="${numCol}">${p.runouts}</td><td style="${ptsCol(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
+    <td class="md-td md-td-name" onclick="window.showPlayerModal('${p.name.replace(/'/g,"\\'")}')">${p.name}</td>
+    <td class="md-td md-td-num">${p.catches}</td><td class="md-td md-td-num">${p.stumpings}</td><td class="md-td md-td-num">${p.runouts}</td><td class="md-td md-td-pts ${ptsCls(p.pts)}">${p.pts>0?'+':''}${p.pts}</td>
    </tr>`).join('')}</tbody></table></div>`;
   }
 
@@ -2607,57 +2598,54 @@ function renderMatchData(data){
   const t1fld=fielders.filter(p=>isTeam1(p.team));
   const t2fld=fielders.filter(p=>!isTeam1(p.team));
 
-  const bg1=TEAM_CLR[team1]||'var(--accent)';
-  const bg2c=TEAM_CLR[team2]||'var(--hot)';
-
   const innings=`
-   ${teamSec(team1+' — Batting',bg1)}${batTable(t1bat)}
-   ${teamSec(team1+' — Bowling',bg1)}${bowlTable(t1bowl)}
-   ${teamSec(team2+' — Batting',bg2c)}${batTable(t2bat)}
-   ${teamSec(team2+' — Bowling',bg2c)}${bowlTable(t2bowl)}
-   ${(t1fld.length||t2fld.length)?teamSec(team1+' — Fielding',bg1)+fldTable(t1fld):''}
-   ${t2fld.length?teamSec(team2+' — Fielding',bg2c)+fldTable(t2fld):''}
+   ${teamSec(team1+' — Batting',team1)}${batTable(t1bat)}
+   ${teamSec(team1+' — Bowling',team1)}${bowlTable(t1bowl)}
+   ${teamSec(team2+' — Batting',team2)}${batTable(t2bat)}
+   ${teamSec(team2+' — Bowling',team2)}${bowlTable(t2bowl)}
+   ${(t1fld.length||t2fld.length)?teamSec(team1+' — Fielding',team1)+fldTable(t1fld):''}
+   ${t2fld.length?teamSec(team2+' — Fielding',team2)+fldTable(t2fld):''}
   `;
 
   // Points summary — all players sorted
   const allPts=[...Object.values(m.players||{})].sort((a,b)=>(b.pts||0)-(a.pts||0));
-  const ptsTable=`<div style="border-top:2px solid var(--b1);"><div style="padding:8px 16px;font-size:.72rem;font-weight:800;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;">Points Summary</div>
-   <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
-    <th style="${THs}text-align:left;">Player</th><th style="${THs}text-align:left;">Team</th><th style="${THs}text-align:left;">Breakdown</th><th style="${THs}text-align:right;">Pts</th>
+  const ptsTable=`<div class="md-pts-summary-hdr"><div class="md-pts-summary-title">Points Summary</div>
+   <div class="md-overflow"><table class="md-table"><thead><tr>
+    <th class="md-th md-th-left">Player</th><th class="md-th md-th-left">Team</th><th class="md-th md-th-left">Breakdown</th><th class="md-th md-th-right">Pts</th>
    </tr></thead><tbody>${allPts.map(p=>`<tr>
-    <td style="${nameCol}" onclick="window.showPlayerModal('${(p.name||'').replace(/'/g,"\\'")}')">${p.name||'--'}</td>
-    <td style="${BASE}font-size:.72rem;"><span class="badge bg" style="font-size:.62rem;">${p.iplTeam||getIplTeam(p.name)||'--'}</span></td>
-    <td style="${BASE}color:var(--dim2);font-size:.74rem;">${(p.breakdown||'').replace(/ \| /g,' | ')}</td>
-    <td style="${ptsCol(p.pts||0)}">${(p.pts||0)>0?'+':''}${p.pts||0}</td>
+    <td class="md-td md-td-name" onclick="window.showPlayerModal('${(p.name||'').replace(/'/g,"\\'")}')">${p.name||'--'}</td>
+    <td class="md-td"><span class="badge bg">${p.iplTeam||getIplTeam(p.name)||'--'}</span></td>
+    <td class="md-td md-td-breakdown">${(p.breakdown||'').replace(/ \| /g,' | ')}</td>
+    <td class="md-td md-td-pts ${ptsCls(p.pts||0)}">${(p.pts||0)>0?'+':''}${p.pts||0}</td>
    </tr>`).join('')}</tbody></table></div></div>`;
 
   const deleteBtn=isAdmin?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();window.deleteMatch('${mid}','${(m.label||mid).replace(/'/g,"\\'")}')">Delete</button>`:'';
   const _canManage=isAdmin||isSuperAdminEmail(user?.email);
-  const snapshotBtn=_canManage?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();window.resnapshotMatch('${mid}')" title="Update squad snapshot to current teams" style="font-size:.72rem;">Re-snapshot</button>`:'';
-  const metaEditor=isAdmin?`<div style="padding:10px 16px;border-bottom:1px solid var(--b0);display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(108,84,200,0.03);">
-   <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:.62rem;color:var(--dim2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Label</span><input class="edit-input" style="min-width:150px;" value="${m.label||''}" onblur="window.saveMatchMeta('${mid}','label',this.value)"></div>
-   <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:.62rem;color:var(--dim2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Winner</span><input class="edit-input" style="min-width:50px;" value="${m.winner||''}" onblur="window.saveMatchMeta('${mid}','winner',this.value.toUpperCase())"></div>
-   <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:.62rem;color:var(--dim2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">MOTM</span><input class="edit-input" style="min-width:120px;" value="${m.motm||''}" onblur="window.saveMatchMeta('${mid}','motm',this.value)"></div>
+  const snapshotBtn=_canManage?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();window.resnapshotMatch('${mid}')" title="Update squad snapshot to current teams">Re-snapshot</button>`:'';
+  const metaEditor=isAdmin?`<div class="md-meta-editor">
+   <div class="md-meta-field"><span class="md-meta-label">Label</span><input class="edit-input edit-input-label" value="${m.label||''}" onblur="window.saveMatchMeta('${mid}','label',this.value)"></div>
+   <div class="md-meta-field"><span class="md-meta-label">Winner</span><input class="edit-input edit-input-winner" value="${m.winner||''}" onblur="window.saveMatchMeta('${mid}','winner',this.value.toUpperCase())"></div>
+   <div class="md-meta-field"><span class="md-meta-label">MOTM</span><input class="edit-input edit-input-motm" value="${m.motm||''}" onblur="window.saveMatchMeta('${mid}','motm',this.value)"></div>
   </div>`:'';
 
   // Total points for each team in this match
   const t1total=allPts.filter(p=>(p.iplTeam||getIplTeam(p.name))===team1).reduce((s,p)=>s+(p.pts||0),0);
   const t2total=allPts.filter(p=>(p.iplTeam||getIplTeam(p.name))===team2).reduce((s,p)=>s+(p.pts||0),0);
 
-  return`<div class="match-block" id="mb_${mid}" style="margin-bottom:12px;">
-   <div class="match-block-hdr" onclick="window.toggleMatchBlock('${mid}')" style="cursor:pointer;">
-    <div style="flex:1;min-width:0;">
-     <div style="font-size:.95rem;font-weight:800;color:var(--txt);">${m.label||mid}</div>
-     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
-      ${m.winner?`<span style="background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok);border-radius:20px;padding:2px 9px;font-size:.68rem;font-weight:600;">${m.winner} won</span>`:''}
-      ${m.motm?`<span style="background:var(--accent-glow);border:1px solid var(--accent-border);color:var(--accent);border-radius:20px;padding:2px 9px;font-size:.68rem;font-weight:600;">MOTM: ${m.motm}</span>`:''}
-      <span style="background:var(--surface);border:1px solid var(--b1);border-radius:20px;padding:2px 9px;font-size:.68rem;color:var(--dim2);">${resultLabel}</span>
-      <span style="font-size:.68rem;color:var(--dim);font-family:var(--mono);">${team1}: ${t1total>=0?'+':''}${t1total} | ${team2}: ${t2total>=0?'+':''}${t2total}</span>
+  return`<div class="match-block" id="mb_${mid}">
+   <div class="match-block-hdr" onclick="window.toggleMatchBlock('${mid}')">
+    <div class="lb-info">
+     <div class="md-match-hdr-label">${m.label||mid}</div>
+     <div class="md-match-hdr-tags">
+      ${m.winner?`<span class="md-tag md-tag-winner">${m.winner} won</span>`:''}
+      ${m.motm?`<span class="md-tag md-tag-motm">MOTM: ${m.motm}</span>`:''}
+      <span class="md-tag md-tag-result">${resultLabel}</span>
+      <span class="md-tag-team-pts">${team1}: ${t1total>=0?'+':''}${t1total} | ${team2}: ${t2total>=0?'+':''}${t2total}</span>
      </div>
     </div>
-    <div style="display:flex;gap:7px;align-items:center;flex-shrink:0;">
+    <div class="md-hdr-actions">
      ${snapshotBtn}${deleteBtn}
-     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--dim);transition:transform .2s;${isOpen?'transform:rotate(180deg)':''}"><polyline points="6 9 12 15 18 9"/></svg>
+     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="md-chevron${isOpen?' md-chevron-open':''}"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
    </div>
    <div class="match-body${isOpen?' open':''}" id="mbd_${mid}">
@@ -4176,9 +4164,9 @@ function _mtRenderA(){
     var st = roomState;
     var tn = (user && st && st.members && st.members[user.uid] && st.members[user.uid].teamName) || myTeamName || '';
     if(!st || !tn){
-      el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--dim);font-size:.84rem;line-height:1.8;"><div style="font-size:2rem;margin-bottom:8px;">&#x1F44B;</div><strong style="color:var(--txt);">Register first</strong><br>Go to the Setup tab to get started.</div>';
+      el.innerHTML = '<div class="mt-empty"><div class="mt-empty-icon">&#x1F44B;</div><strong class="mt-empty-title">Register first</strong><br>Go to the Setup tab to get started.</div>';
     } else {
-      el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--dim);font-size:.84rem;line-height:1.8;"><div style="font-size:2rem;margin-bottom:8px;">&#x1F3CF;</div><strong style="color:var(--txt);">No players yet</strong><br>Your roster will appear here once players join <strong style="color:var(--accent);">' + tn + '</strong>.</div>';
+      el.innerHTML = '<div class="mt-empty"><div class="mt-empty-icon">&#x1F3CF;</div><strong class="mt-empty-title">No players yet</strong><br>Your roster will appear here once players join <strong class="mt-empty-accent">' + tn + '</strong>.</div>';
     }
     return;
   }
@@ -4254,19 +4242,21 @@ function _mtRenderA(){
   });
 
   // Tracker HTML
-  var tHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;padding:12px 16px;border-bottom:1px solid var(--b1);">';
+  var tHtml = '<div class="mt-tracker-grid">';
   checks.forEach(function(c){
-    var bg=c.ok?'var(--ok-bg)':'var(--err-bg)', bdr=c.ok?'var(--ok-border)':'var(--err-border)', col=c.ok?'var(--ok)':'var(--err)';
-    tHtml += '<div style="padding:8px 10px;border-radius:var(--r);background:'+bg+';border:1px solid '+bdr+';text-align:center;">'
-      + '<div style="font-size:.68rem;font-weight:600;color:'+col+';text-transform:uppercase;letter-spacing:.04em;">'+(c.ok?'&#10003;':'&#10007;')+' '+c.label+'</div>'
-      + '<div style="font-size:.90rem;font-weight:700;color:'+col+';margin-top:2px;">'+c.val+'</div></div>';
+    var cellCls=c.ok?'mt-tracker-cell-ok':'mt-tracker-cell-err';
+    var lblCls=c.ok?'mt-tracker-label-ok':'mt-tracker-label-err';
+    var valCls=c.ok?'mt-tracker-val-ok':'mt-tracker-val-err';
+    tHtml += '<div class="mt-tracker-cell '+cellCls+'">'
+      + '<div class="mt-tracker-label '+lblCls+'">'+(c.ok?'&#10003;':'&#10007;')+' '+c.label+'</div>'
+      + '<div class="mt-tracker-val '+valCls+'">'+c.val+'</div></div>';
   });
   tHtml += '</div>';
 
   var _isLocked=!!(roomState.squadLocked); var _isAdminUser=!!isAdmin;
   var statusHtml = allValid
-    ? '<div style="padding:8px 16px;background:var(--ok-bg);border-bottom:1px solid var(--ok-border);font-size:.80rem;font-weight:600;color:var(--ok);text-align:center;">&#10003; Squad valid &mdash; all criteria met</div>'
-    : '<div style="padding:8px 16px;background:var(--err-bg);border-bottom:1px solid var(--err-border);font-size:.80rem;font-weight:600;color:var(--err);text-align:center;">&#10007; Squad not valid &mdash; fix red criteria above. Team is DISQUALIFIED from scoring until valid.</div>';
+    ? '<div class="mt-status-valid">&#10003; Squad valid &mdash; all criteria met</div>'
+    : '<div class="mt-status-invalid">&#10007; Squad not valid &mdash; fix red criteria above. Team is DISQUALIFIED from scoring until valid.</div>';
 
   // IPL team jersey colors
   var JERSEY={CSK:'#F9CD05',MI:'#004BA0',RCB:'#EC1C24',KKR:'#3A225D',DC:'#004C93',PBKS:'#ED1B24',RR:'#EA1A85',SRH:'#FF822A',GT:'#1C1C2B',LSG:'#A72056'};
@@ -4276,27 +4266,26 @@ function _mtRenderA(){
   function playerCard(name, sec, compact){
     var p=pData(name), role=p.role||p.r||'', ipl=(p.iplTeam||p.t||'').toUpperCase(), os=!!(p.isOverseas||p.o||name.indexOf('*')>=0);
     var pts=ptsMap[name.toLowerCase()]||0;
-    var jCol=JERSEY[ipl]||'var(--surface2)', jTxt=JERSEY_TXT[ipl]||'var(--txt)';
     var shortName=name.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
     if(shortName.length>14){var parts=shortName.split(' ');shortName=parts.length>1?parts[0][0]+'. '+parts.slice(1).join(' '):shortName.substring(0,12)+'...';}
     var safeName=encodeURIComponent(name);
     var targets=sec==='xi'?[['bench','Bench'],['reserves','Res']]:sec==='bench'?[['xi','XI'],['reserves','Res']]:[['xi','XI'],['bench','Bench']];
     var moveHtml=targets.map(function(tb){
-      return '<button data-n="'+safeName+'" data-f="'+sec+'" data-t="'+tb[0]+'" onclick="event.stopPropagation();window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" style="font-size:.64rem;padding:4px 8px;border-radius:var(--round);border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);min-height:28px;">'+tb[1]+'</button>';
+      return '<button data-n="'+safeName+'" data-f="'+sec+'" data-t="'+tb[0]+'" onclick="event.stopPropagation();window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" class="mt-move-btn">'+tb[1]+'</button>';
     }).join('');
-    var ptsCol=pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)';
+    var ptsCls=pts>0?'mt-player-pts-pos':pts<0?'mt-player-pts-neg':'mt-player-pts-zero';
 
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:6px;transition:all .15s;cursor:pointer;" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')">'
-      + '<div style="width:36px;height:36px;border-radius:8px;background:'+jCol+';display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;">'
-      + '<span style="font-size:.62rem;font-weight:900;color:'+jTxt+';font-family:var(--mono);">'+ipl+'</span>'
-      + (os?'<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);"></div>':'')
+    return '<div class="mt-player-card" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')">'
+      + '<div class="mt-jersey team-bg-'+ipl+'">'
+      + '<span class="mt-jersey-text">'+ipl+'</span>'
+      + (os?'<div class="mt-os-dot"></div>':'')
       + '</div>'
-      + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-size:.84rem;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+shortName+'</div>'
-      + '<div style="font-size:.68rem;color:var(--dim);margin-top:1px;">'+role+'</div>'
+      + '<div class="mt-player-info">'
+      + '<div class="mt-player-name">'+shortName+'</div>'
+      + '<div class="mt-player-role">'+role+'</div>'
       + '</div>'
-      + '<div style="font-family:var(--mono);font-size:.82rem;font-weight:700;color:'+ptsCol+';min-width:44px;text-align:right;">'+(pts>0?'+':'')+pts+'</div>'
-      + '<div style="display:flex;gap:4px;" onclick="event.stopPropagation()">'+moveHtml+'</div>'
+      + '<div class="mt-player-pts '+ptsCls+'">'+(pts>0?'+':'')+pts+'</div>'
+      + '<div class="mt-move-btns" onclick="event.stopPropagation()">'+moveHtml+'</div>'
       + '</div>';
   }
 
@@ -4310,35 +4299,35 @@ function _mtRenderA(){
     else xiBats.push(n);
   });
 
-  function roleSection(label,emoji,players,key,gradient){
+  function roleSection(label,emoji,players,key,gradientCls){
     if(!players.length) return '';
-    return '<div style="margin-bottom:10px;">'
-      + '<div style="padding:8px 14px;border-radius:8px 8px 0 0;background:'+gradient+';display:flex;align-items:center;justify-content:space-between;">'
-      + '<span style="font-size:.72rem;font-weight:800;color:#fff;letter-spacing:.06em;text-transform:uppercase;">'+emoji+' '+label+'</span>'
-      + '<span style="font-size:.68rem;color:rgba(255,255,255,.7);">'+players.length+'</span></div>'
-      + '<div style="background:var(--surface);border:1px solid var(--b1);border-top:none;border-radius:0 0 8px 8px;padding:6px;">'
+    return '<div class="mt-section-mb">'
+      + '<div class="mt-role-hdr '+gradientCls+'">'
+      + '<span class="mt-role-label">'+emoji+' '+label+'</span>'
+      + '<span class="mt-role-count">'+players.length+'</span></div>'
+      + '<div class="mt-role-body">'
       + players.map(function(n){return playerCard(n,key,false);}).join('')
       + '</div></div>';
   }
 
   // Playing XI — grouped by role
-  var pitchHtml='<div style="margin-bottom:4px;">'
-    + '<div style="padding:10px 14px;background:linear-gradient(135deg,rgba(232,168,56,.08),rgba(139,92,246,.05));border:1px solid var(--accent-border);border-radius:var(--rl);margin-bottom:10px;text-align:center;">'
-    + '<div style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">PLAYING XI</div>'
-    + '<div style="font-size:.78rem;color:var(--dim);margin-top:2px;">'+xiCount+' / 11 selected</div></div>'
-    + roleSection('Wicket-Keepers','&#129351;',xiWks,'xi','linear-gradient(90deg,#7C3AED,#6D28D9)')
-    + roleSection('Batters','&#127951;',xiBats,'xi','linear-gradient(90deg,#2563EB,#1D4ED8)')
-    + roleSection('All-Rounders','&#9889;',xiArs,'xi','linear-gradient(90deg,#059669,#047857)')
-    + roleSection('Bowlers','&#127936;',xiBowls,'xi','linear-gradient(90deg,#DC2626,#B91C1C)')
+  var pitchHtml='<div>'
+    + '<div class="mt-xi-header">'
+    + '<div class="mt-xi-label">PLAYING XI</div>'
+    + '<div class="mt-xi-count">'+xiCount+' / 11 selected</div></div>'
+    + roleSection('Wicket-Keepers','&#129351;',xiWks,'xi','mt-role-wk')
+    + roleSection('Batters','&#127951;',xiBats,'xi','mt-role-bat')
+    + roleSection('All-Rounders','&#9889;',xiArs,'xi','mt-role-ar')
+    + roleSection('Bowlers','&#127936;',xiBowls,'xi','mt-role-bowl')
     + '</div>';
 
   // Bench section (below pitch)
-  function offPitchSection(title,players,key,gradient,icon){
+  function offPitchSection(title,players,key,hdrCls,icon){
     if(!players.length&&key!=='bench') return '';
-    return '<div style="margin-top:12px;">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:10px 10px 0 0;background:'+gradient+';"><span style="font-size:.80rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</span><span style="font-size:.72rem;color:rgba(255,255,255,.7);">'+players.length+' players</span></div>'
-      + '<div style="background:var(--surface);border:1px solid var(--b1);border-top:none;border-radius:0 0 10px 10px;padding:10px;">'
-      + (players.length?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:6px 0;">'+players.map(function(n){return playerCard(n,key,true);}).join('')+'</div>':'<div style="padding:12px;text-align:center;color:var(--dim);font-size:.80rem;">No players</div>')
+    return '<div class="mt-section-mt">'
+      + '<div class="mt-offpitch-hdr '+hdrCls+'"><span class="mt-offpitch-label">'+icon+' '+title+'</span><span class="mt-offpitch-count">'+players.length+' players</span></div>'
+      + '<div class="mt-offpitch-body">'
+      + (players.length?'<div class="mt-offpitch-grid">'+players.map(function(n){return playerCard(n,key,true);}).join('')+'</div>':'<div class="mt-offpitch-empty">No players</div>')
       + '</div></div>';
   }
 
@@ -4348,13 +4337,13 @@ function _mtRenderA(){
   var vl=document.getElementById('mt_val_A'); if(vl) vl.style.display='none';
 
   var _isLocked=!!(roomState.squadLocked);
-  var lockBanner=_isLocked?'<div style="padding:10px 16px;background:var(--warn-bg);border-bottom:1px solid var(--warn-border);font-size:.82rem;font-weight:600;color:var(--warn);text-align:center;">Squad changes are LOCKED by admin</div>':'';
+  var lockBanner=_isLocked?'<div class="mt-lock-banner">Squad changes are LOCKED by admin</div>':'';
 
   el.innerHTML = lockBanner + statusHtml + tHtml
-    + '<div style="padding:12px;">'
+    + '<div class="mt-pad">'
     + pitchHtml
-    + offPitchSection('BENCH',sq.bench,'bench','linear-gradient(90deg,#065F46,#059669)','&#129681;')
-    + offPitchSection('RESERVES',sq.reserves,'reserves','linear-gradient(90deg,#374151,#6B7280)','&#128230;')
+    + offPitchSection('BENCH',sq.bench,'bench','mt-bench-hdr','&#129681;')
+    + offPitchSection('RESERVES',sq.reserves,'reserves','mt-reserves-hdr','&#128230;')
     + '</div>';
 }
 
@@ -4514,20 +4503,19 @@ window.renderSchedule=function(){
   if(tradeWindowSet.has(i)){
    var _wIdx=TRADE_WINDOWS.indexOf(i)+1;
    var _prevMatch=IPL_SCHEDULE[i-1]; var _nextMatch=IPL_SCHEDULE[i];
-   html+='<div style="padding:14px 16px;margin:12px 0;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:var(--r);text-align:center;">'
-    +'<div style="font-size:.92rem;font-weight:700;color:var(--warn);margin-bottom:4px;">CHANGE &amp; TRADE WINDOW '+_wIdx+'</div>'
-    +'<div style="font-size:.78rem;color:var(--dim);">Between Match #'+(_prevMatch?_prevMatch.sr:'')+' ('+(_prevMatch?_prevMatch.date:'')+') and Match #'+(_nextMatch?_nextMatch.sr:'')+' ('+(_nextMatch?_nextMatch.date:'')+')</div>'
-    +'<div style="font-size:.75rem;color:var(--dim2);margin-top:4px;">Teams may trade players and adjust squads during this window</div></div>';
+   html+='<div class="sch-trade-window">'
+    +'<div class="sch-trade-title">CHANGE &amp; TRADE WINDOW '+_wIdx+'</div>'
+    +'<div class="sch-trade-sub">Between Match #'+(_prevMatch?_prevMatch.sr:'')+' ('+(_prevMatch?_prevMatch.date:'')+') and Match #'+(_nextMatch?_nextMatch.sr:'')+' ('+(_nextMatch?_nextMatch.date:'')+')</div>'
+    +'<div class="sch-trade-note">Teams may trade players and adjust squads during this window</div></div>';
   }
-  if(m.date!==prevDate){ html+='<div style="font-size:.75rem;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;padding:12px 12px 4px;">'+m.date+' 2026</div>'; prevDate=m.date; }
-  var bg1=TEAM_CLR[m.t1]||'var(--surface2)',txt1=TEAM_TXT[m.t1]||'var(--txt)',bg2=TEAM_CLR[m.t2]||'var(--surface2)',txt2=TEAM_TXT[m.t2]||'var(--txt)';
-  html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:6px;">'
-   +'<span style="font-size:.72rem;color:var(--dim);min-width:22px;text-align:center;">#'+m.sr+'</span>'
-   +'<span style="font-size:.82rem;font-weight:700;min-width:48px;text-align:center;padding:3px 8px;border-radius:6px;background:'+bg1+';color:'+txt1+';">'+m.t1+'</span>'
-   +'<span style="font-size:.72rem;color:var(--dim);">vs</span>'
-   +'<span style="font-size:.82rem;font-weight:700;min-width:48px;text-align:center;padding:3px 8px;border-radius:6px;background:'+bg2+';color:'+txt2+';">'+m.t2+'</span>'
-   +'<span style="flex:1;font-size:.78rem;color:var(--txt2);">'+m.city+'</span>'
-   +'<span style="font-size:.78rem;font-weight:600;color:var(--accent);">'+m.time+' IST</span></div>';
+  if(m.date!==prevDate){ html+='<div class="sch-date-hdr">'+m.date+' 2026</div>'; prevDate=m.date; }
+  html+='<div class="sch-match">'
+   +'<span class="sch-sr">#'+m.sr+'</span>'
+   +'<span class="sch-team-badge team-bg-'+m.t1+'">'+m.t1+'</span>'
+   +'<span class="sch-vs">vs</span>'
+   +'<span class="sch-team-badge team-bg-'+m.t2+'">'+m.t2+'</span>'
+   +'<span class="sch-city">'+m.city+'</span>'
+   +'<span class="sch-time">'+m.time+' IST</span></div>';
  }); el.innerHTML=html;
 };
 
@@ -4555,11 +4543,11 @@ window.addTradePlayer=function(side){
 window._renderTradeList=function(listId, arr, side){
  var el=document.getElementById(listId);
  if(!el) return;
- if(!arr.length){ el.innerHTML='<div style="font-size:.78rem;color:var(--dim);padding:4px;">No players selected</div>'; return; }
+ if(!arr.length){ el.innerHTML='<div class="trade-list-empty">No players selected</div>'; return; }
  el.innerHTML=arr.map(function(p,i){
-  return '<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px;font-size:.82rem;">'
-   +'<span style="flex:1;">'+p.name+'</span>'
-   +'<button onclick="window._removeTradePlayer(\''+side+'\','+i+')" style="background:none;border:none;color:var(--err);cursor:pointer;font-size:.9rem;">x</button>'
+  return '<div class="trade-list-item">'
+   +'<span class="trade-list-name">'+p.name+'</span>'
+   +'<button onclick="window._removeTradePlayer(\''+side+'\','+i+')" class="trade-list-remove">x</button>'
    +'</div>';
  }).join('');
 };
@@ -4758,20 +4746,20 @@ window.renderTrades=function(data){
    var isMine = t.from===myTeamName;
    var isForMe = t.to===myTeamName;
    var actions='';
-   if(isForMe) actions='<button class="btn btn-sm" style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border);" onclick="window.acceptTrade(\''+tid+'\')">Accept</button><button class="btn btn-ghost btn-sm" onclick="window.rejectTrade(\''+tid+'\')">Reject</button>';
+   if(isForMe) actions='<button class="btn btn-sm trade-accept-btn" onclick="window.acceptTrade(\''+tid+'\')">Accept</button><button class="btn btn-ghost btn-sm" onclick="window.rejectTrade(\''+tid+'\')">Reject</button>';
    else if(isMine) actions='<button class="btn btn-ghost btn-sm" onclick="window.cancelTrade(\''+tid+'\')">Cancel</button>';
-   else actions='<span style="font-size:.75rem;color:var(--dim);">Between other teams</span>';
+   else actions='<span class="trade-other-label">Between other teams</span>';
 
-   return '<div style="background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);padding:12px;margin-bottom:8px;">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-    +'<span style="font-weight:600;font-size:.85rem;color:var(--txt);">'+t.from+' &#8596; '+t.to+'</span>'
-    +'<span style="font-size:.72rem;color:var(--dim);">'+new Date(t.proposedAt).toLocaleDateString()+'</span></div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
-    +'<div><div style="font-size:.72rem;color:var(--dim);margin-bottom:4px;">'+t.from+' sends:</div>'
-    +t.sending.map(function(n){return '<div style="font-size:.82rem;font-weight:500;color:var(--err);">- '+n+'</div>';}).join('')+'</div>'
-    +'<div><div style="font-size:.72rem;color:var(--dim);margin-bottom:4px;">'+t.to+' sends:</div>'
-    +t.receiving.map(function(n){return '<div style="font-size:.82rem;font-weight:500;color:var(--ok);">- '+n+'</div>';}).join('')+'</div></div>'
-    +'<div style="display:flex;gap:8px;">'+actions+'</div></div>';
+   return '<div class="trade-card">'
+    +'<div class="trade-card-hdr">'
+    +'<span class="trade-card-teams">'+t.from+' &#8596; '+t.to+'</span>'
+    +'<span class="trade-card-date">'+new Date(t.proposedAt).toLocaleDateString()+'</span></div>'
+    +'<div class="trade-card-grid">'
+    +'<div><div class="trade-card-section-label">'+t.from+' sends:</div>'
+    +t.sending.map(function(n){return '<div class="trade-card-player-send">- '+n+'</div>';}).join('')+'</div>'
+    +'<div><div class="trade-card-section-label">'+t.to+' sends:</div>'
+    +t.receiving.map(function(n){return '<div class="trade-card-player-recv">- '+n+'</div>';}).join('')+'</div></div>'
+    +'<div class="trade-card-actions">'+actions+'</div></div>';
   }).join('');
  }
 
@@ -4779,13 +4767,14 @@ window.renderTrades=function(data){
  else {
   historyEl.innerHTML=history.slice(0,20).map(function(e){
    var t=e[1];
-   var statusCol = t.status==='accepted'?'var(--ok)':t.status==='rejected'?'var(--err)':'var(--dim)';
    var statusLabel = t.status==='accepted'?'Completed':t.status==='rejected'?'Rejected':'Cancelled';
-   return '<div style="background:var(--surface);border:1px solid var(--b0);border-radius:var(--r);padding:10px;margin-bottom:6px;opacity:'+(t.status==='accepted'?'1':'.6')+';">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
-    +'<span style="font-size:.82rem;font-weight:500;">'+t.from+' &#8596; '+t.to+'</span>'
-    +'<span style="font-size:.72rem;font-weight:600;color:'+statusCol+';">'+statusLabel+'</span></div>'
-    +'<div style="font-size:.75rem;color:var(--dim);margin-top:4px;">Sent: '+t.sending.join(', ')+' | Received: '+t.receiving.join(', ')+'</div></div>';
+   var cardCls = t.status==='accepted'?'trade-history-card':'trade-history-card trade-history-card-inactive';
+   var statusCls = 'trade-history-status trade-history-status-'+t.status;
+   return '<div class="'+cardCls+'">'
+    +'<div class="trade-history-hdr">'
+    +'<span class="trade-history-teams">'+t.from+' &#8596; '+t.to+'</span>'
+    +'<span class="'+statusCls+'">'+statusLabel+'</span></div>'
+    +'<div class="trade-history-detail">Sent: '+t.sending.join(', ')+' | Received: '+t.receiving.join(', ')+'</div></div>';
   }).join('');
  }
 };
