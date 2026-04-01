@@ -122,10 +122,9 @@ function migrateDuckPoints(rid,data){
  Object.entries(data.matches).forEach(([mid,m])=>{
   if(!m.players) return;
   Object.entries(m.players).forEach(([pkey,p])=>{
-   const bd=p.breakdown||'';
-   // Find players with 0 runs who didn't get duck penalty
-   if(bd.indexOf('Bat(0r')>=0&&bd.indexOf('DUCK')<0){
-    // Lookup role
+   const bd=(p.breakdown||'').toLowerCase();
+   // Find players with 0 runs who didn't get duck penalty yet (case-insensitive check)
+   if(bd.indexOf('bat(0r')>=0&&bd.indexOf('duck')<0){
     const pName=(p.name||'').toLowerCase().trim();
     const pClean=pName.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
     let role='';
@@ -135,16 +134,32 @@ function migrateDuckPoints(rid,data){
      if(found) role=(found.role||found.r||'').toLowerCase();
     }
     if(!role){const rd=rawData.find(x=>{const xn=(x.n||'').toLowerCase().trim();return xn===pName||xn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===pClean;});if(rd)role=(rd.r||'').toLowerCase();}
-    // Only penalize non-bowlers
     if(role&&role!=='bowler'){
      upd[`auctions/${rid}/matches/${mid}/players/${pkey}/pts`]=(p.pts||0)-5;
-     upd[`auctions/${rid}/matches/${mid}/players/${pkey}/breakdown`]=bd+' | Duck: -5';
+     upd[`auctions/${rid}/matches/${mid}/players/${pkey}/breakdown`]=(p.breakdown||'')+' | DUCK: -5';
      needsWrite=true;
     }
    }
   });
  });
- if(needsWrite) update(ref(db),upd).then(()=>{console.log('Duck points corrected for',rid);window.showAlert('Duck penalties retroactively applied.','ok');}).catch(e=>console.warn('Duck migration:',e));
+ // Also repair any players where duck was applied multiple times (the 3x bug)
+ Object.entries(data.matches).forEach(([mid,m])=>{
+  if(!m.players) return;
+  Object.entries(m.players).forEach(([pkey,p])=>{
+   const bd=p.breakdown||'';
+   // Count how many times "Duck" or "DUCK" appears
+   const duckMatches=(bd.match(/[Dd]uck:\s*-5/g)||[]).length;
+   if(duckMatches>1){
+    // Remove all duck penalties and re-apply exactly once
+    const extraPenalties=(duckMatches-1)*5; // restore over-deducted points
+    const cleanBd=bd.replace(/\s*\|\s*[Dd]uck:\s*-5/g,'')+ ' | DUCK: -5';
+    upd[`auctions/${rid}/matches/${mid}/players/${pkey}/pts`]=(p.pts||0)+extraPenalties;
+    upd[`auctions/${rid}/matches/${mid}/players/${pkey}/breakdown`]=cleanBd;
+    needsWrite=true;
+   }
+  });
+ });
+ if(needsWrite) update(ref(db),upd).then(()=>{console.log('Duck points corrected for',rid);window.showAlert('Duck penalties corrected.','ok');}).catch(e=>console.warn('Duck migration:',e));
 }
 
 window.showAlert=function(msg,type='err'){
@@ -4257,27 +4272,31 @@ function _mtRenderA(){
   var JERSEY={CSK:'#F9CD05',MI:'#004BA0',RCB:'#EC1C24',KKR:'#3A225D',DC:'#004C93',PBKS:'#ED1B24',RR:'#EA1A85',SRH:'#FF822A',GT:'#1C1C2B',LSG:'#A72056'};
   var JERSEY_TXT={CSK:'#000',MI:'#fff',RCB:'#fff',KKR:'#fff',DC:'#fff',PBKS:'#fff',RR:'#fff',SRH:'#fff',GT:'#fff',LSG:'#fff'};
 
-  // Build a player card (jersey style)
+  // Build a player card (jersey style) — uses data attributes to avoid quote escaping issues
   function playerCard(name, sec, compact){
     var p=pData(name), role=p.role||p.r||'', ipl=(p.iplTeam||p.t||'').toUpperCase(), os=!!(p.isOverseas||p.o||name.indexOf('*')>=0);
     var pts=ptsMap[name.toLowerCase()]||0;
     var jCol=JERSEY[ipl]||'var(--surface2)', jTxt=JERSEY_TXT[ipl]||'var(--txt)';
     var shortName=name.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
     if(shortName.length>14){var parts=shortName.split(' ');shortName=parts.length>1?parts[0][0]+'. '+parts.slice(1).join(' '):shortName.substring(0,12)+'...';}
-    var targets=sec==='xi'?[['bench','B'],['reserves','R']]:sec==='bench'?[['xi','XI'],['reserves','R']]:[['xi','XI'],['bench','B']];
+    var safeName=encodeURIComponent(name);
+    var targets=sec==='xi'?[['bench','Bench'],['reserves','Res']]:sec==='bench'?[['xi','XI'],['reserves','Res']]:[['xi','XI'],['bench','Bench']];
     var moveHtml=targets.map(function(tb){
-      return '<button data-n="'+encodeURIComponent(name)+'" data-f="'+sec+'" data-t="'+tb[0]+'" onclick="event.stopPropagation();window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" style="font-size:.58rem;padding:2px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-family:var(--f);backdrop-filter:blur(4px);">'+tb[1]+'</button>';
+      return '<button data-n="'+safeName+'" data-f="'+sec+'" data-t="'+tb[0]+'" onclick="event.stopPropagation();window.mt_move_A(decodeURIComponent(this.dataset.n),this.dataset.f,this.dataset.t)" style="font-size:.64rem;padding:4px 8px;border-radius:var(--round);border:1px solid var(--b2);background:var(--surface);color:var(--txt2);cursor:pointer;font-family:var(--f);min-height:28px;">'+tb[1]+'</button>';
     }).join('');
-    var ptsCol=pts>0?'#34D399':pts<0?'#FB7185':'#94A3B8';
-    // Jersey SVG shape
-    var jerseySvg='<svg width="'+(compact?36:44)+'" height="'+(compact?28:34)+'" viewBox="0 0 44 34" fill="none"><path d="M22 2C18 2 16 0 12 0L2 6V14L8 12V32H36V12L42 14V6L32 0C28 0 26 2 22 2Z" fill="'+jCol+'" stroke="rgba(255,255,255,.15)" stroke-width="1"/><text x="22" y="22" text-anchor="middle" fill="'+jTxt+'" font-size="9" font-weight="800" font-family="var(--mono)">'+ipl+'</text></svg>';
+    var ptsCol=pts>0?'var(--ok)':pts<0?'var(--err)':'var(--dim)';
 
-    return '<div onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;position:relative;'+(compact?'min-width:70px;':'min-width:80px;')+'">'
-      + (os?'<div style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--accent);border:1.5px solid rgba(0,0,0,.3);z-index:2;"></div>':'')
-      + '<div style="position:relative;">'+jerseySvg+'</div>'
-      + '<div style="background:'+jCol+';color:'+jTxt+';padding:2px 8px;border-radius:4px;font-size:.66rem;font-weight:700;margin-top:2px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);">'+shortName+'</div>'
-      + '<div style="font-size:.62rem;font-weight:700;color:'+ptsCol+';margin-top:2px;font-family:var(--mono);">'+(pts>0?'+':'')+pts+' pts</div>'
-      + '<div style="display:flex;gap:2px;margin-top:3px;">'+moveHtml+'</div>'
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--b0);border-radius:var(--r);margin-bottom:6px;transition:all .15s;cursor:pointer;" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')">'
+      + '<div style="width:36px;height:36px;border-radius:8px;background:'+jCol+';display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;">'
+      + '<span style="font-size:.62rem;font-weight:900;color:'+jTxt+';font-family:var(--mono);">'+ipl+'</span>'
+      + (os?'<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);"></div>':'')
+      + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:.84rem;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+shortName+'</div>'
+      + '<div style="font-size:.68rem;color:var(--dim);margin-top:1px;">'+role+'</div>'
+      + '</div>'
+      + '<div style="font-family:var(--mono);font-size:.82rem;font-weight:700;color:'+ptsCol+';min-width:44px;text-align:right;">'+(pts>0?'+':'')+pts+'</div>'
+      + '<div style="display:flex;gap:4px;" onclick="event.stopPropagation()">'+moveHtml+'</div>'
       + '</div>';
   }
 
@@ -4291,29 +4310,26 @@ function _mtRenderA(){
     else xiBats.push(n);
   });
 
-  function pitchRow(label,players,bgOpacity){
+  function roleSection(label,emoji,players,key,gradient){
     if(!players.length) return '';
-    return '<div style="text-align:center;padding:12px 8px;">'
-      + '<div style="font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.5);">'+label+'</div>'
-      + '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">'
-      + players.map(function(n){return playerCard(n,'xi',false);}).join('')
+    return '<div style="margin-bottom:10px;">'
+      + '<div style="padding:8px 14px;border-radius:8px 8px 0 0;background:'+gradient+';display:flex;align-items:center;justify-content:space-between;">'
+      + '<span style="font-size:.72rem;font-weight:800;color:#fff;letter-spacing:.06em;text-transform:uppercase;">'+emoji+' '+label+'</span>'
+      + '<span style="font-size:.68rem;color:rgba(255,255,255,.7);">'+players.length+'</span></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--b1);border-top:none;border-radius:0 0 8px 8px;padding:6px;">'
+      + players.map(function(n){return playerCard(n,key,false);}).join('')
       + '</div></div>';
   }
 
-  // Cricket pitch HTML
-  var pitchHtml='<div style="position:relative;background:linear-gradient(180deg,#1a5c2a 0%,#1e6b30 15%,#22783a 30%,#1e6b30 50%,#22783a 70%,#1e6b30 85%,#1a5c2a 100%);border-radius:var(--rl);overflow:hidden;padding:8px 0;min-height:300px;">'
-    // Pitch strip (center rectangle)
-    + '<div style="position:absolute;left:50%;top:12%;transform:translateX(-50%);width:28%;height:76%;background:linear-gradient(180deg,#c4a96a,#d4b87a,#c4a96a);border-radius:6px;opacity:.18;"></div>'
-    // Crease lines
-    + '<div style="position:absolute;left:50%;top:16%;transform:translateX(-50%);width:18%;height:1px;background:rgba(255,255,255,.15);"></div>'
-    + '<div style="position:absolute;left:50%;top:84%;transform:translateX(-50%);width:18%;height:1px;background:rgba(255,255,255,.15);"></div>'
-    // Outfield lines (subtle)
-    + '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:90%;height:90%;border:1px solid rgba(255,255,255,.06);border-radius:50%;"></div>'
-    // Player rows
-    + pitchRow('WICKET-KEEPERS',xiWks)
-    + pitchRow('BATTERS',xiBats)
-    + pitchRow('ALL-ROUNDERS',xiArs)
-    + pitchRow('BOWLERS',xiBowls)
+  // Playing XI — grouped by role
+  var pitchHtml='<div style="margin-bottom:4px;">'
+    + '<div style="padding:10px 14px;background:linear-gradient(135deg,rgba(232,168,56,.08),rgba(139,92,246,.05));border:1px solid var(--accent-border);border-radius:var(--rl);margin-bottom:10px;text-align:center;">'
+    + '<div style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">PLAYING XI</div>'
+    + '<div style="font-size:.78rem;color:var(--dim);margin-top:2px;">'+xiCount+' / 11 selected</div></div>'
+    + roleSection('Wicket-Keepers','&#129351;',xiWks,'xi','linear-gradient(90deg,#7C3AED,#6D28D9)')
+    + roleSection('Batters','&#127951;',xiBats,'xi','linear-gradient(90deg,#2563EB,#1D4ED8)')
+    + roleSection('All-Rounders','&#9889;',xiArs,'xi','linear-gradient(90deg,#059669,#047857)')
+    + roleSection('Bowlers','&#127936;',xiBowls,'xi','linear-gradient(90deg,#DC2626,#B91C1C)')
     + '</div>';
 
   // Bench section (below pitch)
