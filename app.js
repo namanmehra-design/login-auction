@@ -4359,24 +4359,55 @@ function cbzNormalizeOvers(ov){
 }
 
 // -- Step 1: Fetch matches --
+// Does the series / match look like IPL (Indian Premier League)?
+function cbzIsIPL(seriesName, matchInfo){
+  const s = (seriesName || '').toLowerCase();
+  if(s.includes('indian premier league') || /\bipl\b/.test(s)) return true;
+  // Fallback: sometimes series name is "Indian Premier League 2026" on nested seriesAdWrapper only
+  const ms = ((matchInfo && (matchInfo.seriesName||matchInfo.seriesname)) || '').toLowerCase();
+  return ms.includes('indian premier league') || /\bipl\b/.test(ms);
+}
+
+// Flat helper — fetch endpoint, return IPL-only raw match entries with Cricbuzz shape intact.
+async function cbzFetchIPLMatchesRaw(endpoint){
+  const data = await cbzFetch(endpoint);
+  const out=[];
+  (data.typeMatches||[]).forEach(type=>{
+    (type.seriesMatches||[]).forEach(sm=>{
+      const series=sm.seriesAdWrapper||sm;
+      const seriesName=series.seriesName||series.seriesname||'';
+      (series.matches||[]).forEach(m=>{
+        const mi=m.matchInfo||{};
+        if(cbzIsIPL(seriesName, mi)) out.push(m);
+      });
+    });
+  });
+  return out;
+}
+// Flat-array wrapper the CD ticker consumes — returns [] if nothing is live so
+// the ticker can fall back to the Loading placeholder.
+window.cbzFetchIPLLive = () => cbzFetchIPLMatchesRaw('/matches/v1/live').catch(()=>[]);
+
 async function cbzLoadMatches(endpoint){
   cbzSetStatus('cbzMatchStatus', 'Loading matches...', 'loading');
   document.getElementById('cbzMatchList').innerHTML='';
   try{
     const data = await cbzFetch(endpoint);
     // Cricbuzz wraps matches in typeMatches -> seriesMatches -> matches
+    // We only want IPL matches on the super-admin picker.
     const allMatches=[];
     (data.typeMatches||[]).forEach(type=>{
       (type.seriesMatches||[]).forEach(sm=>{
         const series=sm.seriesAdWrapper||sm;
+        const seriesName=series.seriesName||series.seriesname||'';
         (series.matches||[]).forEach(m=>{
           const mi=m.matchInfo||{};
           const ms=m.matchScore||{};
-          // Only include IPL / T20 type if possible, else include all
+          if(!cbzIsIPL(seriesName, mi)) return;
           allMatches.push({
             matchId: mi.matchId,
             teams: `${mi.team1?.teamSName||mi.team1?.teamsname||'?'} vs ${mi.team2?.teamSName||mi.team2?.teamsname||'?'}`,
-            series: series.seriesName||mi.seriesName||series.seriesname||mi.seriesname||'',
+            series: seriesName||mi.seriesName||mi.seriesname||'',
             venue: mi.venueInfo?.ground||mi.venueinfo?.ground||'',
             state: mi.state||'',
             status: mi.status||'',
@@ -4388,7 +4419,7 @@ async function cbzLoadMatches(endpoint){
     });
 
     if(!allMatches.length){
-      cbzSetStatus('cbzMatchStatus', 'No matches found.', 'fail');
+      cbzSetStatus('cbzMatchStatus', 'No IPL matches found.', 'fail');
       return;
     }
     cbzSetStatus('cbzMatchStatus', `${allMatches.length} match${allMatches.length===1?'':'es'} loaded -- click one to select.`, 'done');
