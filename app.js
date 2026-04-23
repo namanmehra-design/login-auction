@@ -3604,12 +3604,14 @@ window.saveGlobalScorecard=async function(){
 
 // -- Render global scorecard history --
 function renderGlobalScorecardHistory(){
- if(!user) return;
+ if(!user){ console.warn('[scorecards] renderGlobalScorecardHistory: user is null'); return; }
  const list=document.getElementById('gscHistoryList');
- if(!list) return;
+ if(!list){ console.warn('[scorecards] renderGlobalScorecardHistory: #gscHistoryList not in DOM — wrong sub-tab?'); return; }
+ console.log('[scorecards] reading users/' + user.uid + '/scorecards as ' + (user.email||'?'));
  get(ref(db,`users/${user.uid}/scorecards`)).then(snap=>{
  const data=snap.val();
- if(!data){list.innerHTML='<div class="empty">No matches saved yet.</div>';return;}
+ console.log('[scorecards] read result: ' + (data ? Object.keys(data).length + ' matches' : 'null/empty') + ' at users/' + user.uid + '/scorecards');
+ if(!data){list.innerHTML='<div class="empty">No matches saved yet.<div style="font-size:10px;color:var(--mute);margin-top:6px;">(logged in as '+escapeHtml(user.email||'?')+' — path: users/'+user.uid.substring(0,6)+'…/scorecards)</div></div>';return;}
  const entries=Object.entries(data).sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0));
  list.innerHTML=entries.map(([mid,m])=>{
  const playerCount=m.players?Object.keys(m.players).length:0;
