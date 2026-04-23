@@ -398,25 +398,40 @@ function loadDash(){
  // Unsubscribe previous dashboard listeners to prevent memory leak / lag
  if(window._dashListenerA1){window._dashListenerA1();window._dashListenerA1=null;}
  if(window._dashListenerA2){window._dashListenerA2();window._dashListenerA2=null;}
+ // EAGER fetch: run a one-shot get() immediately so the dashboard
+ // populates even if the onValue listener is delayed by permissions
+ // races, token refresh, or Safari's aggressive caching.
+ (async()=>{
+  try{ if(typeof window.cdForceLoadRooms==='function') await window.cdForceLoadRooms(); }
+  catch(e){ console.warn('eager rooms fetch:',e); }
+ })();
+ // Wrap every onValue callback in try/catch — a single thrown error
+ // inside the handler silently detaches the listener in Firebase SDK,
+ // so a malformed /users/{uid}/auctions node would freeze the dashboard
+ // on "Loading…" with no obvious cause.
  window._dashListenerA1=onValue(ref(db,`users/${user.uid}/auctions`),snap=>{
+ try{
  const rooms=snap.val(),c=document.getElementById('roomListContainer');
  // Expose to window for cd-app.js bridge
- window.userAuctionRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,maxTeams:r.maxTeams,maxPlayers:r.maxPlayers,createdAt:r.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
+ window.userAuctionRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,maxTeams:r?.maxTeams,maxPlayers:r?.maxPlayers,createdAt:r?.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
  window.dispatchEvent(new CustomEvent('cd-rooms-update'));
  if(!c) return;
  if(!rooms){c.innerHTML='<div class="empty">No rooms yet -- create one above.</div>';return;}
- const _entries=Object.entries(rooms).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
- c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r,true)).join('');
+ const _entries=Object.entries(rooms).sort((a,b)=>(b[1]?.createdAt||0)-(a[1]?.createdAt||0));
+ c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r||{},true)).join('');
+ }catch(e){ console.warn('dashListenerA1:', e); }
  });
  window._dashListenerA2=onValue(ref(db,`users/${user.uid}/joined`),snap=>{
+ try{
  const rooms=snap.val(),c=document.getElementById('joinedRoomListContainer');
  // Expose to window for cd-app.js bridge
- window.userJoinedRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,joinedAt:r.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+ window.userJoinedRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,joinedAt:r?.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
  window.dispatchEvent(new CustomEvent('cd-rooms-update'));
  if(!c) return;
  if(!rooms){c.innerHTML='<div class="empty">No joined rooms yet.</div>';return;}
- const _entries=Object.entries(rooms).sort((a,b)=>(b[1].joinedAt||0)-(a[1].joinedAt||0));
- c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r,false)).join('');
+ const _entries=Object.entries(rooms).sort((a,b)=>(b[1]?.joinedAt||0)-(a[1]?.joinedAt||0));
+ c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r||{},false)).join('');
+ }catch(e){ console.warn('dashListenerA2:', e); }
  });
 
  // DEEP SCAN: Find rooms where the user is a member but NOT in their /users path (data sync issue)
@@ -473,10 +488,16 @@ window.leaveAuctionRoom=function(rid,name){
 
 window.createNewRoom=function(){
  if(!user)return;
- const name=document.getElementById('newRoomName').value.trim()||'My League';
- const budget=parseFloat(document.getElementById('newRoomBudget').value)||100;
- const maxTeams=parseInt(document.getElementById('newRoomMaxTeams').value)||6;
- const maxPlayers=parseInt(document.getElementById('newRoomMaxPlayers').value)||20;
+ const rawName=document.getElementById('newRoomName').value.trim()||'My League';
+ // Cap room names at 80 chars so a pathological paste can't blow up
+ // downstream renderers (Teams tab, header title, invite link UI).
+ const name=rawName.length>80?rawName.slice(0,80):rawName;
+ // Clamp numeric config to sane bounds. DevTools / typos can bypass
+ // HTML min/max and ship 0 / negatives / thousand-player rosters that
+ // corrupt purse math, bid caps, and leaderboard invariants.
+ const budget=Math.min(500,Math.max(10,parseFloat(document.getElementById('newRoomBudget').value)||100));
+ const maxTeams=Math.min(10,Math.max(2,parseInt(document.getElementById('newRoomMaxTeams').value)||6));
+ const maxPlayers=Math.min(30,Math.max(11,parseInt(document.getElementById('newRoomMaxPlayers').value)||20));
  const maxOverseas=Math.min(8,Math.max(4,parseInt(document.getElementById('newRoomMaxOverseas')?.value)||8));
  const nr=push(ref(db,'auctions'));
  const upd={};
@@ -802,7 +823,12 @@ function loadRoom(rid){
 
  // Attach onValue INSIDE Promise.all so isAdmin is always set before first render
  if(roomListener){roomListener();roomListener=null;}
+ // Wrap the full callback body in try/catch. If any single render fails
+ // (null-safety issue, DOM race, migration throw), the SDK silently drops
+ // the listener — leaving the room frozen on whatever it last painted.
+ // Catching here keeps the connection alive and logs the real error.
  roomListener=onValue(ref(db,`auctions/${rid}`),snap=>{
+ try {
  const data=snap.val();
  if(!data)return;
  roomState=data;
@@ -1045,6 +1071,7 @@ function loadRoom(rid){
   _rlBtn.style.color=data.releaseLocked?'#fff':'var(--txt2)';
  }
  if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
+ } catch(e){ console.warn('roomListener onValue:', e); }
  });
  }); // end Promise.all .then()
 }
@@ -1399,6 +1426,12 @@ window.pressNotInterested=function(){
 window.addBid=function(inc){
  if(!roomState?.currentBlock?.active)return window.showAlert('No player on the block yet.','err');
  if(!myTeamName)return window.showAlert('Register your team first before bidding. Use the Setup tab.','err');
+ // Reject non-numeric and non-positive increments. Without this, a console
+ // call like addBid(-5) would actually lower the current bid and then
+ // overwrite lastBidderTeam — a trivial integrity hole for a shared room.
+ const incNum=Number(inc);
+ if(!Number.isFinite(incNum)||incNum<=0)return window.showAlert('Invalid bid increment.','err');
+ inc=incNum;
  const curBid=roomState.currentBlock.currentBid||0;
  // Minimum increment rule: once price crosses \u20b93Cr, no 0.1 increments allowed
  if(inc<0.2&&curBid>=3)return window.showAlert('Bids of \u20b90.10 Cr are not allowed above \u20b93 Cr. Use \u20b90.50 Cr or higher.','err');
@@ -5459,16 +5492,21 @@ window.acceptTrade=function(tradeId){
   var fromRoster=Array.isArray(fromTeam.roster)?fromTeam.roster.slice():(fromTeam.roster?Object.values(fromTeam.roster):[]);
   var toRoster=Array.isArray(toTeam.roster)?toTeam.roster.slice():(toTeam.roster?Object.values(toTeam.roster):[]);
 
+  // Coerce to arrays — Firebase strips empty arrays so an old trade record
+  // could have trade.sending === undefined and crash forEach.
+  var sendingList=Array.isArray(trade.sending)?trade.sending:(trade.sending?Object.values(trade.sending):[]);
+  var receivingList=Array.isArray(trade.receiving)?trade.receiving:(trade.receiving?Object.values(trade.receiving):[]);
+
   // Move "sending" players: from -> to
   var sendingPlayers=[];
-  trade.sending.forEach(function(name){
+  sendingList.forEach(function(name){
    var idx=fromRoster.findIndex(function(p){return(p.name||p.n||'')===name;});
    if(idx>=0){ sendingPlayers.push(fromRoster[idx]); fromRoster.splice(idx,1); }
   });
 
   // Move "receiving" players: to -> from
   var receivingPlayers=[];
-  trade.receiving.forEach(function(name){
+  receivingList.forEach(function(name){
    var idx=toRoster.findIndex(function(p){return(p.name||p.n||'')===name;});
    if(idx>=0){ receivingPlayers.push(toRoster[idx]); toRoster.splice(idx,1); }
   });
@@ -5486,14 +5524,14 @@ window.acceptTrade=function(tradeId){
   // Also update draftedBy/soldTo in the players array if it exists
   if(data.players){
    var allP=Array.isArray(data.players)?data.players:Object.values(data.players||{});
-   trade.sending.forEach(function(name){
+   sendingList.forEach(function(name){
     var pIdx=allP.findIndex(function(p){return(p.name||p.n||'')===name;});
     if(pIdx>=0){
      upd['auctions/'+roomId+'/players/'+pIdx+'/draftedBy']=trade.to;
      upd['auctions/'+roomId+'/players/'+pIdx+'/soldTo']=trade.to;
     }
    });
-   trade.receiving.forEach(function(name){
+   receivingList.forEach(function(name){
     var pIdx=allP.findIndex(function(p){return(p.name||p.n||'')===name;});
     if(pIdx>=0){
      upd['auctions/'+roomId+'/players/'+pIdx+'/draftedBy']=trade.from;
