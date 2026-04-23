@@ -287,8 +287,8 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
               <div style="font-size:11px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Joined Rooms</div>
               <div style="display:flex;gap:8px;align-items:center;">
-                <input id="cdJoinRoomId" placeholder="Room ID or invite link" style="padding:8px 14px;width:240px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--sans);" />
-                <button onclick="window.initiateJoinRoom()" style="padding:8px 14px;border-radius:9999px;background:var(--glass-2);border:1px solid var(--line-2);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer;">Join</button>
+                <input id="cdJoinRoomId" placeholder="Room ID or invite link" onkeydown="if(event.key==='Enter')CD.handleJoinRoom()" style="padding:8px 14px;width:240px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--sans);" />
+                <button onclick="CD.handleJoinRoom()" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));border:none;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Join</button>
               </div>
             </div>
             <div id="cd-joined-rooms-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
@@ -325,17 +325,7 @@
         <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);margin-bottom:6px;">Max overseas</div><input id="cdNewRoomMaxOverseas" type="number" value="8" style="width:100%;padding:10px 14px;font-size:13px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:8px;outline:none;font-family:var(--sans);" /></div>
       </div>
       <div style="display:flex;gap:10px;margin-top:18px;">
-        <button onclick="(function(){
-          var n=document.getElementById('roomName'),b=document.getElementById('roomBudget'),mt=document.getElementById('roomMaxTeams'),mp=document.getElementById('roomMaxPlayers'),mo=document.getElementById('roomMaxOverseas');
-          if(n)n.value=document.getElementById('cdNewRoomName').value;
-          if(b)b.value=document.getElementById('cdNewRoomBudget').value;
-          if(mt)mt.value=document.getElementById('cdNewRoomMaxTeams').value;
-          if(mp)mp.value=document.getElementById('cdNewRoomMaxPlayers').value;
-          if(mo)mo.value=document.getElementById('cdNewRoomMaxOverseas').value;
-          window.createNewRoom();
-          window._cdShowCreate=false;
-          CD.render();
-        })()" style="padding:10px 20px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Create room</button>
+        <button onclick="CD.handleCreateRoom()" style="padding:10px 20px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Create room</button>
         <button onclick="window._cdShowCreate=false;CD.render();" style="padding:10px 20px;border-radius:9999px;background:transparent;color:var(--mute);border:1px solid var(--line);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
       </div>
     </div>`;
@@ -419,12 +409,12 @@
   };
 
   CD.renderMobileBottomNav = () => `
-    <div style="position:fixed;bottom:14px;left:14px;right:14px;z-index:100;padding:6px;border-radius:9999px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);box-shadow:var(--sh-2);display:flex;gap:2px;">
-      ${NAV.slice(0, 5).map(n => `
-        <div onclick="CD.go('${n.id}')" style="flex:1;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;color:${CD.state.activeNav === n.id ? '#fff' : 'var(--mute)'};background:${CD.state.activeNav === n.id ? 'linear-gradient(180deg,var(--electric-2),var(--electric))' : 'transparent'};border-radius:9999px;cursor:pointer;position:relative;">
-          ${I(n.icon, 16)}
-          <div style="font-size:9px;font-weight:600;">${n.label}</div>
-          ${n.live ? `<div style="position:absolute;top:6px;right:30%;width:6px;height:6px;border-radius:50%;background:var(--pink);"></div>` : ''}
+    <div style="position:fixed;bottom:10px;left:10px;right:10px;z-index:100;padding:5px;border-radius:9999px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);-webkit-backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);box-shadow:var(--sh-2);display:flex;gap:2px;overflow-x:auto;">
+      ${NAV.map(n => `
+        <div onclick="CD.go('${n.id}')" style="flex:1;min-width:54px;padding:7px 3px;display:flex;flex-direction:column;align-items:center;gap:2px;color:${CD.state.activeNav === n.id ? '#fff' : 'var(--mute)'};background:${CD.state.activeNav === n.id ? 'linear-gradient(180deg,var(--electric-2),var(--electric))' : 'transparent'};border-radius:9999px;cursor:pointer;position:relative;">
+          ${I(n.icon, 14)}
+          <div style="font-size:8.5px;font-weight:600;letter-spacing:0.04em;">${n.label}</div>
+          ${n.live ? `<div style="position:absolute;top:5px;right:30%;width:5px;height:5px;border-radius:50%;background:var(--pink);"></div>` : ''}
         </div>
       `).join('')}
     </div>
@@ -803,20 +793,21 @@
           <div style="font-size:11px;color:var(--mute);letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">Season Standings</div>
           <h2 class="ed" style="font-size:48px;line-height:1;margin-top:6px;">The <span class="ed-i" style="color:var(--gold);">podium</span></h2>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:16px;align-items:end;position:relative;${CD.state.isMobile ? 'grid-template-columns:1fr;' : ''}">
-          ${[1,0,2].map(i => {
+        <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:16px;align-items:end;position:relative;${CD.state.isMobile ? 'grid-template-columns:1fr;' : ''}">
+          ${(CD.state.isMobile ? [0,1,2] : [1,0,2]).map(i => {
             const t = podium[i]; if(!t) return '<div></div>';
             const c = podColors[i];
-            const h = i === 0 ? 200 : i === 1 ? 140 : 110;
+            const h = i === 0 ? 220 : i === 1 ? 160 : 120;
             const crown = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+            const rankNum = i + 1; // ALWAYS show real rank: 1, 2, 3
             return `
               <div style="text-align:center;">
-                <div style="font-size:36px;margin-bottom:8px;filter:drop-shadow(0 0 12px ${c.text});">${crown}</div>
-                ${CD.Avatar({name: t.name, size: i === 0 ? 80 : 64})}
-                <div style="font-size:10px;color:${c.text};letter-spacing:0.2em;text-transform:uppercase;font-weight:700;margin-top:8px;">Rank ${i+1}</div>
-                <div class="ed" style="font-size:${i===0?22:18}px;margin-top:4px;">${esc(t.name)}</div>
-                <div style="margin-top:8px;display:inline-block;padding:6px 14px;border-radius:9999px;background:${c.bg};border:1px solid ${c.text}40;color:${c.text};font-family:var(--display);font-weight:800;font-size:14px;">${t.pts >= 0 ? '+' : ''}${t.pts}</div>
-                ${!CD.state.isMobile ? `<div style="margin-top:14px;height:${h}px;background:linear-gradient(180deg,${c.bg},transparent);border-top-left-radius:14px;border-top-right-radius:14px;border:1px solid ${c.text}30;border-bottom:none;display:flex;align-items:start;justify-content:center;padding-top:18px;"><div style="font-family:var(--serif);font-style:italic;font-weight:800;font-size:${i===0?92:72}px;color:${c.text}cc;line-height:1;filter:drop-shadow(0 0 20px ${c.text});">${i+1}</div></div>` : ''}
+                <div style="font-size:${i===0?44:36}px;margin-bottom:8px;filter:drop-shadow(0 0 16px ${c.text});">${crown}</div>
+                ${CD.Avatar({name: t.name, size: i === 0 ? 92 : 72})}
+                <div style="font-size:10px;color:${c.text};letter-spacing:0.2em;text-transform:uppercase;font-weight:700;margin-top:10px;">Rank ${rankNum}</div>
+                <div class="ed" style="font-size:${i===0?24:18}px;margin-top:4px;">${esc(t.name)}</div>
+                <div style="margin-top:8px;display:inline-block;padding:6px 14px;border-radius:9999px;background:${c.bg};border:1px solid ${c.text}40;color:${c.text};font-family:var(--display);font-weight:800;font-size:${i===0?16:14}px;">${t.pts >= 0 ? '+' : ''}${t.pts}</div>
+                ${!CD.state.isMobile ? `<div style="margin-top:14px;height:${h}px;background:linear-gradient(180deg,${c.bg},transparent);border-top-left-radius:14px;border-top-right-radius:14px;border:1px solid ${c.text}30;border-bottom:none;display:flex;align-items:start;justify-content:center;padding-top:18px;"><div style="font-family:var(--serif);font-style:italic;font-weight:800;font-size:${i===0?110:80}px;color:${c.text}cc;line-height:1;filter:drop-shadow(0 0 20px ${c.text});">${rankNum}</div></div>` : ''}
               </div>
             `;
           }).join('')}
@@ -1000,6 +991,30 @@
       CD.state.view = 'dashboard';
       CD.render();
     }
+  };
+  CD.handleCreateRoom = () => {
+    // Read CD form values, populate the (real) classic UI form, then call createNewRoom
+    const map = [
+      ['cdNewRoomName', 'newRoomName'],
+      ['cdNewRoomBudget', 'newRoomBudget'],
+      ['cdNewRoomMaxTeams', 'newRoomMaxTeams'],
+      ['cdNewRoomMaxPlayers', 'newRoomMaxPlayers'],
+      ['cdNewRoomMaxOverseas', 'newRoomMaxOverseas']
+    ];
+    map.forEach(([cdId, classicId]) => {
+      const cd = document.getElementById(cdId);
+      const cl = document.getElementById(classicId);
+      if(cd && cl) cl.value = cd.value;
+    });
+    if(typeof window.createNewRoom === 'function') window.createNewRoom();
+    window._cdShowCreate = false;
+    CD.render();
+  };
+  CD.handleJoinRoom = () => {
+    const cd = document.getElementById('cdJoinRoomId');
+    const cl = document.getElementById('joinRoomCode');
+    if(cd && cl) cl.value = cd.value;
+    if(typeof window.initiateJoinRoom === 'function') window.initiateJoinRoom();
   };
 
   // ── NAVIGATION ──────────────────────────────────────────────────
