@@ -6,15 +6,60 @@
 <title>IPL Fantasy Auction 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="cd-styles.css">
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* CD design root container */
+  #cd-root { position: relative; z-index: 5; min-height: 100vh; }
+  #cd-root.cd-active { display: block; }
+  #cd-root:not(.cd-active) { display: none; }
+  body.cd-mode #app-shell, body.cd-mode #auth-view, body.cd-mode .aurora,
+  body.cd-mode .hamburger, body.cd-mode .sidebar, body.cd-mode .sidebar-overlay,
+  body.cd-mode .theme-toggle { display: none !important; }
+  body:not(.cd-mode) #cd-root { display: none !important; }
+  /* CD toggle button */
+  .cd-toggle-btn {
+    position: fixed; top: 14px; right: 14px; z-index: 9999;
+    padding: 8px 14px; border-radius: 9999px;
+    background: linear-gradient(180deg, #FF5AA0, #FF2D87);
+    color: #fff; border: none; cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    box-shadow: 0 4px 14px rgba(255,45,135,0.45);
+  }
+</style>
 <script>
 (function(){
   if(!localStorage.getItem('ipl-theme')) localStorage.setItem('ipl-theme','dark');
   if(localStorage.getItem('ipl-theme')==='light') document.body.classList.add('light');
+  // CD design mode — defaults ON, can be toggled
+  var cdMode = localStorage.getItem('cd-mode');
+  if(cdMode === null){ localStorage.setItem('cd-mode', '1'); cdMode = '1'; }
+  if(cdMode === '1') document.documentElement.dataset.cdMode = '1';
 })();
 </script>
 </head>
 <body>
+
+<!-- New Design Root (CD = Cricket Design) -->
+<div id="cd-root"></div>
+
+<!-- Toggle between classic and new design -->
+<button class="cd-toggle-btn" onclick="(function(){var v=localStorage.getItem('cd-mode')==='1'?'0':'1';localStorage.setItem('cd-mode',v);location.reload();})()" id="cdToggleBtn">
+  <span id="cdToggleLabel">Classic View</span>
+</button>
+<script>
+(function(){
+  var on = localStorage.getItem('cd-mode') === '1';
+  if(on){
+    document.body.classList.add('cd-mode');
+    var r = document.getElementById('cd-root'); if(r) r.classList.add('cd-active');
+    var lbl = document.getElementById('cdToggleLabel'); if(lbl) lbl.textContent = 'Classic View';
+  } else {
+    var lbl = document.getElementById('cdToggleLabel'); if(lbl) lbl.textContent = 'New Design';
+  }
+})();
+</script>
 
 <!-- Aurora Background -->
 <div class="aurora" id="aurora">
@@ -936,5 +981,9 @@
 </div><!-- /app-shell -->
 
 <script type="module" src="app.js"></script>
+<!-- New Cricket Design — loaded after app.js so window.* handlers exist -->
+<script src="cd-primitives.js"></script>
+<script src="cd-scenes.js"></script>
+<script src="cd-bridge.js"></script>
 </body>
 </html>
