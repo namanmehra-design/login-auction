@@ -3904,9 +3904,13 @@
     }
 
     // CRITICAL: detect login/logout by polling window.user (showAuth/showApp are module-scoped, can't override)
+    // After auth resolves, the auth-poll SELF-CANCELS and re-subscribes on a
+    // slower 1s cadence (no more 200ms loops running forever).
     let lastUserUid = null;
     let lastRoomId = null;
     let _authResolved = false;
+    let _fastPoll = null;
+    let _slowPoll = null;
     // Fallback: after 1500ms always clear pending so we never stall forever
     // if Firebase fails to init (e.g. offline). This is the worst-case splash time.
     setTimeout(() => {
@@ -3915,23 +3919,27 @@
         if(CD.state.authPending){ CD.state.authPending = false; CD.render(); }
       }
     }, 1500);
-    setInterval(() => {
+    const pollTick = () => {
       try {
         const u = window.user;
         const uid = u && u.uid;
         const rid = window.roomId;
-        // First tick where auth has hydrated — flip authPending off so render picks real view.
         if(!_authResolved){
           if(uid || window._cdAuthReady){
             _authResolved = true;
             if(CD.state.authPending){ CD.state.authPending = false; CD.render(); }
           }
         }
+        // Downshift to 1s polling once auth is resolved — post-login
+        // user/room transitions are rare; 200ms is wasted CPU.
+        if(_authResolved && _fastPoll && !_slowPoll){
+          clearInterval(_fastPoll); _fastPoll = null;
+          _slowPoll = setInterval(pollTick, 1000);
+        }
         if(uid !== lastUserUid){
           lastUserUid = uid;
           if(_authResolved && CD.state.authPending){ CD.state.authPending = false; }
           if(uid){
-            // Logged in
             if(rid){
               CD.state.view = 'room';
               if(!CD.state.activeNav || (CD.state.activeNav === 'auction' && CD.state.activeSub == null)){
@@ -3942,7 +3950,6 @@
               CD.state.view = 'dashboard';
             }
           } else {
-            // Logged out
             CD.state.view = 'auth';
             window._cdSignup = false;
           }
@@ -3958,9 +3965,11 @@
           }
         }
       } catch(e){ console.error('CD auth poll:', e); }
-    }, 200);
+    };
+    _fastPoll = setInterval(pollTick, 200);
 
-    // Poll for room data changes
+    // Poll for room data changes. Debounced via scheduleRender (which now
+    // has a rAF + edit-guard wrapper).
     let lastKey = '';
     setInterval(() => {
       try {
@@ -3982,6 +3991,7 @@
     }, 400);
 
     // Listen for room list updates (fired by app.js when Firebase data loads)
+    let _lastGridKey = '';
     const updateRoomGrids = () => {
       try {
         const myGrid = document.getElementById('cd-my-rooms-grid');
@@ -3996,6 +4006,12 @@
         if(Date.now() - window._cdBootTime > 2500 && !window.userAuctionRooms && window.user && window.user.uid){
           if(typeof window.cdForceLoadRooms === 'function') window.cdForceLoadRooms();
         }
+        // Diff-guard: only rewrite when the room-list actually changed.
+        // Stops the 800ms interval from hammering innerHTML on idle dashboard.
+        const gridKey = myRooms.map(r=>r.id+':'+(r.name||'')+':'+(r.budget||'')+':'+(r.maxTeams||'')+':'+(r.maxPlayers||'')).join('|')
+          + '##' + joinedRooms.map(r=>r.id+':'+(r.name||'')+':'+(r.budget||'')+':'+(r.maxTeams||'')+':'+(r.maxPlayers||'')).join('|');
+        if(gridKey === _lastGridKey) return;
+        _lastGridKey = gridKey;
         const buildCards = (rooms, isOwner) => {
           if(!rooms.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">' + (isOwner ? 'No rooms yet — create one above.' : 'No joined rooms yet.') + '</div>';
           return rooms.map(r => {
