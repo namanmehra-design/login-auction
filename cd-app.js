@@ -133,11 +133,26 @@
     return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
   };
 
+  // Render a muted em-dash pill for missing team codes — consumer helper so
+  // roster cards / pitch tiles / points-by-match rows degrade gracefully when
+  // p.iplTeam / p.t / p.team is empty, unknown, or not in TEAM_COLORS.
+  CD.TeamCodePill = (rawCode, styleExtra = '') => {
+    const code = teamCode(rawCode) || '';
+    if(code){
+      return CD.Pill({ style: 'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;' + styleExtra, children: esc(code) });
+    }
+    // Missing: muted grey-on-dark em-dash
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:1px 6px;border-radius:9999px;font-size:8.5px;font-weight:600;white-space:nowrap;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.35);letter-spacing:0.06em;${styleExtra}">&mdash;</span>`;
+  };
+
   // ── PRIMITIVES ──────────────────────────────────────────────────
   // Player avatar: IPL team logo background → Cricbuzz photo fades in
+  // When team is missing/unknown, render a neutral grey circle with initials
+  // (no team-color background) — never silently fall back to MI.
   CD.Avatar = ({ team, name, size = 40 } = {}) => {
-    const code = teamCode(team) || teamCode(name) || 'MI';
-    const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
+    const codeRaw = teamCode(team) || teamCode(name);
+    const code = codeRaw || '';
+    const [c1, c2] = code ? (TEAM_COLORS[code] || ['#444','#222']) : ['#2a2d3a','#1a1c26'];
     const init = initialsOf(name);
     const uid = 'cdav_' + Math.random().toString(36).slice(2, 9);
     // Async-load Cricbuzz photo if helpers available
@@ -256,8 +271,59 @@
     editingSquad: false,    // My Team — edit mode on/off
     squadDraft: null,       // { xi: [names], bench: [names], reserves: [names] }
     squadSaving: false,     // Save-in-flight flag
-    adminSub: 'scorecards'  // Super Admin sub-tab
+    adminSub: 'scorecards', // Super Admin sub-tab
+    rosterStale: false,     // Soft warning: a roster changed while super admin is mid-entry
+    rosterStaleTeams: []    // Which teams changed (for the banner copy)
   };
+
+  // Roster-change listener: release/replace flows dispatch _cdRosterChanged
+  // with detail.team. If the super admin has the match-entry form visible,
+  // show a soft warning banner + Resync control.
+  if(!window._cdRosterChangeWired){
+    window._cdRosterChangeWired = true;
+    window.addEventListener('_cdRosterChanged', (ev) => {
+      try {
+        const form = document.getElementById('gscFormBody');
+        if(!form || form.style.display === 'none') return;
+        const team = ev?.detail?.team || '';
+        CD.state.rosterStale = true;
+        if(team && CD.state.rosterStaleTeams.indexOf(team) < 0) CD.state.rosterStaleTeams.push(team);
+        CD._paintRosterStaleBanner();
+      } catch(e){ console.warn('roster-change listener:', e); }
+    });
+  }
+
+  // Inject / refresh the banner above gscFormBody.
+  CD._paintRosterStaleBanner = () => {
+    const form = document.getElementById('gscFormBody');
+    if(!form) return;
+    let banner = document.getElementById('cd-roster-stale-banner');
+    if(!CD.state.rosterStale){
+      if(banner) banner.remove();
+      return;
+    }
+    const teams = CD.state.rosterStaleTeams.slice(-3);
+    const teamList = teams.length ? ' (' + teams.map(t => String(t).replace(/</g,'&lt;')).join(', ') + ')' : '';
+    const html = `<div id="cd-roster-stale-banner" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(255,200,61,0.1);border:1px solid rgba(255,200,61,0.5);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;font-size:12px;color:#FFD97D;font-weight:600;">Roster changed${teamList} — snapshot may be stale. Click Resync to reload current squads.</div>
+      <button onclick="CD.resyncRosterSnapshot()" style="padding:6px 14px;border-radius:9999px;background:linear-gradient(180deg,rgba(255,200,61,0.3),rgba(255,200,61,0.1));border:1px solid rgba(255,200,61,0.6);color:#FFE49A;font-weight:700;font-size:11px;cursor:pointer;letter-spacing:0.06em;">Resync</button>
+    </div>`;
+    if(banner) banner.outerHTML = html;
+    else form.insertAdjacentHTML('afterbegin', html);
+  };
+
+  CD.resyncRosterSnapshot = () => {
+    try {
+      const rs = window.roomState || window.draftState || {};
+      if(typeof window._cdRosterResyncHook === 'function') window._cdRosterResyncHook(rs);
+      CD.state.rosterStale = false;
+      CD.state.rosterStaleTeams = [];
+      const b = document.getElementById('cd-roster-stale-banner');
+      if(b) b.remove();
+      window.showAlert?.('Roster snapshot resynced from live data.','ok');
+    } catch(e){ console.warn('resyncRosterSnapshot:', e); }
+  };
+
   window.addEventListener('resize', () => {
     const wasMobile = CD.state.isMobile;
     CD.state.isMobile = window.innerWidth < 900;
@@ -716,9 +782,15 @@
     </div>
 
     <div class="adm-card">
-      <h3>Saved scorecards</h3>
-      <div class="adm-sub">History · re-push or delete</div>
-      <div id="gscHistoryList"><div style="padding:20px;text-align:center;color:var(--mute);font-size:12px;">No matches saved yet.</div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0;">Saved scorecards</h3>
+          <div class="adm-sub">History · re-push or delete</div>
+        </div>
+        <button class="adm-btn adm-btn-ghost" onclick="window.cdResyncAllRooms && window.cdResyncAllRooms()" title="Re-fan-out every saved scorecard to every room you own or joined. Safe to retry after a network drop." style="font-size:11px;">↻ Resync all rooms</button>
+      </div>
+      <div id="gscResyncStatus" class="adm-status ai-status" style="margin-top:10px;display:none;"></div>
+      <div id="gscHistoryList" style="margin-top:14px;"><div style="padding:20px;text-align:center;color:var(--mute);font-size:12px;">No matches saved yet.</div></div>
     </div>
   `;
 
@@ -821,8 +893,8 @@
           <select id="saMultRoomSelect" class="adm-sel"><option value="">— Click Load Rooms first —</option></select>
         </div>
         <div class="adm-sm">
-          <label class="adm-lbl">XI Multiplier</label>
-          <input type="number" id="saMultValue" class="adm-inp" min="0.5" max="5" step="0.1" value="1">
+          <label class="adm-lbl" title="Changing the multiplier re-applies retroactively across the season.">XI Multiplier <span style="color:var(--mute);font-weight:500;font-size:10px;cursor:help;" title="Changing the multiplier re-applies retroactively across the season.">(?)</span></label>
+          <input type="number" id="saMultValue" class="adm-inp" min="0.5" max="5" step="0.1" value="1" title="Changing the multiplier re-applies retroactively across the season.">
         </div>
       </div>
       <div class="adm-row">
@@ -1323,7 +1395,7 @@
                       ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 28})}
                       <div style="flex:1;min-width:0;overflow:hidden;">
                         <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(pName)}${isOs ? ' <span style="color:var(--gold);font-size:9px;">★</span>' : ''}</div>
-                        <div style="font-size:10px;color:var(--mute);letter-spacing:0.04em;">${esc(pCode)} · ${esc(p.role || p.r || '')}</div>
+                        <div style="font-size:10px;color:var(--mute);letter-spacing:0.04em;">${pCode ? esc(pCode) : '<span style="color:rgba(255,255,255,0.3);">—</span>'} · ${esc(p.role || p.r || '')}</div>
                       </div>
                       <div style="font-family:var(--mono);font-size:11px;color:var(--lime);font-weight:700;">₹${(p.soldPrice||0).toFixed(2)}</div>
                       ${canRelease ? `<button data-team="${esc(t.name)}" data-idx="${idx}" data-name="${esc(pName)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" title="Release player" style="padding:4px 6px;border-radius:8px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:9px;font-weight:600;cursor:pointer;">${I('x',10)}</button>` : ''}
@@ -1506,6 +1578,18 @@
     const reserveNames = rosterNames.filter(n => !xiNames.includes(n) && !benchNames.includes(n));
     const canEdit = !squadLocked || isAdmin;
 
+    // squadValid: XI must have 11 and roster must have 11+ to field a side.
+    const squadValid = roster.length >= 11 && xiNames.length >= 11;
+    const squadIncompleteBanner = (!squadValid && canEdit) ? `
+      <div style="margin-bottom:${CD.state.isMobile ? 12 : 16}px;padding:${CD.state.isMobile ? '10px 12px' : '14px 18px'};border-radius:14px;background:rgba(255,59,59,0.08);border:1px solid rgba(255,59,59,0.55);display:flex;align-items:center;gap:${CD.state.isMobile ? 8 : 14}px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-family:var(--display);font-weight:800;font-size:${CD.state.isMobile ? 12 : 14}px;color:#FF8B8B;letter-spacing:0.02em;">Your XI is incomplete (${xiNames.length}/11)</div>
+          <div style="font-size:${CD.state.isMobile ? 10.5 : 11.5}px;color:var(--ink-2);margin-top:3px;">Rebuild your squad to field a full Playing XI. Reserves stay out of scoring.</div>
+        </div>
+        <button onclick="CD.startEditSquad()" style="padding:${CD.state.isMobile ? '6px 12px' : '8px 16px'};border-radius:9999px;background:linear-gradient(180deg,rgba(255,80,80,0.9),rgba(220,40,40,0.9));color:#fff;border:1px solid rgba(255,120,120,0.55);font-weight:700;font-size:${CD.state.isMobile ? 10.5 : 12}px;cursor:pointer;letter-spacing:0.04em;">Rebuild squad →</button>
+      </div>
+    ` : '';
+
     const findP = (name) => roster.find(p => (p.name||p.n||'') === name) || null;
     const xiPlayers = xiNames.map(findP).filter(Boolean);
     const benchPlayers = benchNames.map(findP).filter(Boolean);
@@ -1598,6 +1682,7 @@
       </div>`;
 
     return `
+      ${squadIncompleteBanner}
       <!-- Stats banner -->
       <div style="display:grid;grid-template-columns:${mob ? 'repeat(3,1fr)' : 'repeat(auto-fit,minmax(160px,1fr))'};gap:${mob ? 7 : 14}px;margin-bottom:${mob ? 12 : 18}px;">
         ${mob ? miniStat(xiPlayers.length + '+' + benchPlayers.length, 'XI+Bench', 'var(--electric)') : CD.Stat({val: xiPlayers.length + '+' + benchPlayers.length, lbl: 'XI + Bench', accent:'var(--electric)'})}
@@ -1703,7 +1788,7 @@
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:12.5px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(name)}</div>
           <div style="display:flex;gap:3px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-            ${CD.Pill({style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: esc(code)})}
+            ${CD.TeamCodePill(p.iplTeam || p.t)}
             ${CD.Pill({tone:roleTone, style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: roleShort})}
             ${isOs ? CD.Pill({tone:'gold', style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: '★ OS'}) : ''}
           </div>
@@ -1969,7 +2054,7 @@
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;font-size:13px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(name)}</div>
             <div style="display:flex;gap:3px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-              ${CD.Pill({style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: esc(code)})}
+              ${CD.TeamCodePill(p.iplTeam || p.t)}
               ${CD.Pill({tone: rTone, style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: rShort})}
               ${isOs ? CD.Pill({tone:'gold', style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: '★ OS'}) : ''}
             </div>
@@ -3653,6 +3738,7 @@
     else if(CD.state.view === 'admin') html = CD.renderAdmin();
     r.innerHTML = html;
     if(CD.state.view === 'dashboard') CD.injectRoomCards();
+    try { CD._paintRosterStaleBanner && CD._paintRosterStaleBanner(); } catch(e){ console.warn('paintRosterStaleBanner:', e); }
   };
 
   // ── ROOM CARDS INJECTION ───────────────────────────────────────

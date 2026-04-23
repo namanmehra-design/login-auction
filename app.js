@@ -286,7 +286,32 @@ onAuthStateChanged(auth,u=>{
  setTimeout(()=>{ const s=document.getElementById('dt-superadmin'); if(s) s.style.display=isSuperAdminEmail(u.email)?'block':'none'; },200);
  if(rp)loadRoom(rp);else if(dp)loadDraftRoom(dp);else loadDash();
  }
- else { window.roomId=null; window.roomState=null; window.myTeamName=''; window.isAdmin=false; showAuth(); }
+ else {
+  // Signed out mid-room: detach room listener, clear state, and let CD render
+  // the auth screen. Guarded with a dedupe flag so this doesn't double-call.
+  if(!window._cdSignOutCleanupInFlight){
+   window._cdSignOutCleanupInFlight=true;
+   try{ if(roomListener){roomListener();roomListener=null;} }catch(e){ console.warn('detach roomListener:', e); }
+   try{ if(window._dashListenerA1){window._dashListenerA1();window._dashListenerA1=null;} }catch(e){ console.warn('detach _dashListenerA1:', e); }
+   try{ if(window._dashListenerA2){window._dashListenerA2();window._dashListenerA2=null;} }catch(e){ console.warn('detach _dashListenerA2:', e); }
+   roomState=null; myTeamName=''; isAdmin=false;
+   window.roomId=null; window.roomState=null; window.myTeamName=''; window.isAdmin=false;
+   // Clear CD-side super admin / edit state so it can't leak into the next session.
+   try{
+    if(window.CD && window.CD.state){
+     window.CD.state.view='auth';
+     window.CD.state.adminSub='scorecards';
+     window.CD.state.editingSquad=false;
+     window.CD.state.squadDraft=null;
+     window.CD.state.rosterStale=false;
+     window.CD.state.rosterStaleTeams=[];
+    }
+    if(window.CD){ window.CD._replaceA=null; }
+   }catch(e){ console.warn('clear CD.state on signout:', e); }
+   setTimeout(()=>{ window._cdSignOutCleanupInFlight=false; }, 300);
+  }
+  showAuth();
+ }
 });
 
 window.handleAuth=function(){
@@ -665,6 +690,8 @@ window.confirmRelease=function(){
  window.showAlert(`${releasePlayerName} released. \u20b9${actualPrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
  // Auto-heal stored leaderboardTotals so future reads can't drift.
  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); }
+ // Notify CD: any open match-entry form should surface a soft Resync banner.
+ try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:releaseTeam}})); }catch(e){ console.warn('dispatch _cdRosterChanged:', e); }
  }).catch(e=>window.showAlert('Release failed: '+e.message));
  }).catch(e=>window.showAlert('Could not read room data: '+e.message));
 };
@@ -3432,32 +3459,33 @@ window.saveGlobalScorecard=async function(){
  const allAuctionRids=new Set([...Object.keys(aRooms),...Object.keys(jRooms)]);
  const allDraftRids=new Set([...Object.keys(dRooms),...Object.keys(jdRooms)]);
 
- // Duplicate detection: check if a match with the same label already exists in any room
- // If found, delete old match entries to prevent double-counting
+ // Duplicate detection: case+whitespace-normalised label match. Latest push wins —
+ // no confirm, always overwrite. Track overwrite counts for the toast.
  const dupCleanPromises=[];
  const matchLabel=data.label.toLowerCase().trim();
+ var _gscOverwriteCount=0; var _gscRoomsTouched=0;
  allAuctionRids.forEach(rid=>{
   dupCleanPromises.push(get(ref(db,`auctions/${rid}/matches`)).then(mSnap=>{
    var matches=mSnap.val()||{};
-   var delWrites={};
+   var delWrites={}; var n=0;
    Object.entries(matches).forEach(function(me){
     if((me[1].label||'').toLowerCase().trim()===matchLabel){
-     delWrites[`auctions/${rid}/matches/${me[0]}`]=null; // delete old duplicate
+     delWrites[`auctions/${rid}/matches/${me[0]}`]=null; n++;
     }
    });
-   if(Object.keys(delWrites).length>0) return update(ref(db),delWrites);
+   if(n>0){ _gscOverwriteCount+=n; _gscRoomsTouched++; return update(ref(db),delWrites); }
   }).catch(()=>{}));
  });
  allDraftRids.forEach(rid=>{
   dupCleanPromises.push(get(ref(db,`drafts/${rid}/matches`)).then(mSnap=>{
    var matches=mSnap.val()||{};
-   var delWrites={};
+   var delWrites={}; var n=0;
    Object.entries(matches).forEach(function(me){
     if((me[1].label||'').toLowerCase().trim()===matchLabel){
-     delWrites[`drafts/${rid}/matches/${me[0]}`]=null; // delete old duplicate
+     delWrites[`drafts/${rid}/matches/${me[0]}`]=null; n++;
     }
    });
-   if(Object.keys(delWrites).length>0) return update(ref(db),delWrites);
+   if(n>0){ _gscOverwriteCount+=n; _gscRoomsTouched++; return update(ref(db),delWrites); }
   }).catch(()=>{}));
  });
  await Promise.all(dupCleanPromises);
@@ -3613,7 +3641,11 @@ window.saveGlobalScorecard=async function(){
  }
 
  statusEl.className='ai-status done';
- statusEl.textContent=`"${data.label}" saved and pushed to ${totalRooms} room${totalRooms===1?'':'s'} (${allAuctionRids.size} auction · ${allDraftRids.size} draft).`;
+ var _baseMsg=`"${data.label}" saved and pushed to ${totalRooms} room${totalRooms===1?'':'s'} (${allAuctionRids.size} auction · ${allDraftRids.size} draft).`;
+ if(_gscOverwriteCount>0){
+  _baseMsg += ` '${data.label}' replaced — ${_gscOverwriteCount} old record${_gscOverwriteCount===1?'':'s'} overwritten across ${_gscRoomsTouched} room${_gscRoomsTouched===1?'':'s'}.`;
+ }
+ statusEl.textContent=_baseMsg;
 
  // Reset form
  document.getElementById('gscBattingRows').innerHTML='';
@@ -3661,6 +3693,7 @@ function renderGlobalScorecardHistory(){
 }
 
 // -- Re-push a previously saved scorecard to all rooms --
+// Per user: latest push wins, no confirm — always overwrite per-room edits.
 window.repushScorecard=async function(mid){
  if(!user) return;
  try{
@@ -3678,6 +3711,56 @@ window.repushScorecard=async function(mid){
  const total=Object.keys(aSnap.val()||{}).length+Object.keys(dSnap.val()||{}).length;
  window.showAlert(`Re-pushed "${matchRecord.label}" to ${total} room${total===1?'':'s'}.`,'ok');
  }catch(e){ window.showAlert('Re-push failed: '+e.message); }
+};
+
+// -- Resync all rooms: iterate every saved scorecard and re-fan-out to every
+// auction + draft room the user owns or joins. Super admin only.
+window.cdResyncAllRooms=async function(){
+ if(!user) return;
+ if(!isSuperAdminEmail(user?.email)){
+  window.showAlert('Only the super admin can resync all rooms.','error');
+  return;
+ }
+ const statusEl=document.getElementById('gscResyncStatus');
+ const setStatus=(cls,txt)=>{ if(!statusEl) return; statusEl.style.display='block'; statusEl.className='adm-status ai-status '+cls; statusEl.textContent=txt; };
+ try{
+  setStatus('parsing','Loading scorecards…');
+  const [scSnap,aSnap,dSnap,jSnap,jdSnap]=await Promise.all([
+   get(ref(db,`users/${user.uid}/scorecards`)),
+   get(ref(db,`users/${user.uid}/auctions`)),
+   get(ref(db,`users/${user.uid}/drafts`)),
+   get(ref(db,`users/${user.uid}/joined`)),
+   get(ref(db,`users/${user.uid}/joinedDrafts`))
+  ]);
+  const scorecards=scSnap.val()||{};
+  const mids=Object.keys(scorecards);
+  if(mids.length===0){ setStatus('done','No saved scorecards to resync.'); return; }
+  const aRids=Array.from(new Set([...Object.keys(aSnap.val()||{}),...Object.keys(jSnap.val()||{})]));
+  const dRids=Array.from(new Set([...Object.keys(dSnap.val()||{}),...Object.keys(jdSnap.val()||{})]));
+  const totalRooms=aRids.length+dRids.length;
+  const failures=[];
+  let done=0;
+  for(const mid of mids){
+   const matchRecord=scorecards[mid];
+   setStatus('parsing',`Resyncing match ${done+1} of ${mids.length} — "${matchRecord.label||mid}"…`);
+   const fanOut={};
+   aRids.forEach(rid=>{ fanOut[`auctions/${rid}/matches/${mid}`]=matchRecord; });
+   dRids.forEach(rid=>{ fanOut[`drafts/${rid}/matches/${mid}`]=matchRecord; });
+   try{
+    if(Object.keys(fanOut).length>0) await update(ref(db),fanOut);
+   }catch(e){
+    failures.push(`"${matchRecord.label||mid}": ${e.message}`);
+   }
+   done++;
+  }
+  if(failures.length){
+   setStatus('fail',`Resynced ${done-failures.length}/${mids.length} matches to ${totalRooms} rooms. Failures: ${failures.slice(0,3).join(' | ')}${failures.length>3?` (+${failures.length-3} more)`:''}`);
+  }else{
+   setStatus('done',`Resynced ${done} match${done===1?'':'es'} to ${totalRooms} room${totalRooms===1?'':'s'}.`);
+  }
+ }catch(e){
+  setStatus('fail','Resync failed: '+(e.message||e));
+ }
 };
 
 // -- Delete a global scorecard --
@@ -5885,5 +5968,6 @@ window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
   await update(ref(db),upd);
   // Auto-heal stored leaderboardTotals so future reads can't drift.
   try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); }
+  try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:teamName}})); }catch(e){ console.warn('dispatch _cdRosterChanged:', e); }
   window.showAlert(`${oldName} replaced with ${newPlayer.name}. Points history preserved.`,'ok');
 };
