@@ -369,6 +369,49 @@ function loadDash(){
  const _entries=Object.entries(rooms).sort((a,b)=>(b[1].joinedAt||0)-(a[1].joinedAt||0));
  c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r,false)).join('');
  });
+
+ // DEEP SCAN: Find rooms where the user is a member but NOT in their /users path (data sync issue)
+ // Self-heals by adding to /users/{uid}/joined so they show up next time
+ setTimeout(async () => {
+   try {
+     const uid = user?.uid; if(!uid) return;
+     const allSnap = await get(ref(db, 'auctions'));
+     const all = allSnap.val() || {};
+     const myKnownRooms = new Set();
+     // Collect rooms already in user's /users path
+     try {
+       const ownedSnap = await get(ref(db, `users/${uid}/auctions`));
+       Object.keys(ownedSnap.val() || {}).forEach(k => myKnownRooms.add(k));
+       const joinedSnap = await get(ref(db, `users/${uid}/joined`));
+       Object.keys(joinedSnap.val() || {}).forEach(k => myKnownRooms.add(k));
+     } catch(e){}
+     // Scan all rooms for membership
+     const recoveredRooms = [];
+     const heal = {};
+     Object.entries(all).forEach(([rid, room]) => {
+       if(!room || typeof room !== 'object') return;
+       const isMember = room.members && room.members[uid];
+       const isAdmin = room.adminUid === uid;
+       if((isMember || isAdmin) && !myKnownRooms.has(rid)) {
+         // Self-heal: add to user's path
+         const target = isAdmin ? `users/${uid}/auctions/${rid}` : `users/${uid}/joined/${rid}`;
+         heal[target] = {
+           name: room.roomName || room.setup?.name || 'Auction Room',
+           budget: room.budget || room.setup?.budget || 100,
+           maxTeams: room.maxTeams || room.setup?.maxTeams || 7,
+           maxPlayers: room.maxPlayers || room.setup?.maxPlayers || 21,
+           maxOverseas: room.maxOverseas || room.setup?.maxOverseas || 8,
+           [isAdmin ? 'createdAt' : 'joinedAt']: Date.now()
+         };
+         recoveredRooms.push({ rid, name: room.roomName || 'Room' });
+       }
+     });
+     if(Object.keys(heal).length > 0) {
+       await update(ref(db), heal);
+       console.log('[CD recovery] Healed', recoveredRooms.length, 'rooms:', recoveredRooms.map(r=>r.name).join(', '));
+     }
+   } catch(e){ console.error('Deep scan failed:', e); }
+ }, 1500);
 }
 
 window.leaveAuctionRoom=function(rid,name){
