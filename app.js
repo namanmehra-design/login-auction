@@ -5715,3 +5715,11 @@ window.validateSquadCD = function(xiNames, benchNames){
   if(xiNames.length === xiTarget && xiWk < 1) errs.push('XI needs at least 1 wicketkeeper (has ' + xiWk + ')');
   return { ok: errs.length === 0, errors: errs };
 };
+
+
+// ─── CD Super Admin Console bridge ──────────────────────────────
+// Expose module-scope helpers that the CD admin console calls into.
+window.renderSuperAdminPanel       = renderSuperAdminPanel;
+window.renderGlobalScorecardHistory = renderGlobalScorecardHistory;
+window.refreshGlobalScorecardList  = renderGlobalScorecardHistory; // alias
+window.populateScorecardSelect     = renderSuperAdminPanel;        // select is a side-effect of panel render
