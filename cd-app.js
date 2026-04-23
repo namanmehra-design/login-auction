@@ -1526,15 +1526,15 @@
         </div>
 
         <!-- Cricket pitch — role-sorted rows (WK → BAT → AR → BOWL) -->
-        <div style="position:relative;min-height:${mob ? 480 : 560}px;background:
+        <div style="position:relative;min-height:${mob ? 600 : 680}px;background:
           radial-gradient(ellipse 80% 100% at 50% 50%, #0d6638 0%, #052918 65%, #0A0B12 100%),
           #052918;
-          overflow:hidden;">
+          overflow:visible;">
 
           <!-- Field ring (boundary) -->
           <div style="position:absolute;inset:${mob ? 14 : 22}px;border-radius:50%;border:${mob?1:2}px dashed rgba(255,255,255,0.18);pointer-events:none;"></div>
           <!-- Inner circle (30-yard) -->
-          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? 76 : 70}%;height:${mob ? 70 : 74}%;border-radius:50%;border:1px solid rgba(255,255,255,0.10);pointer-events:none;"></div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? 82 : 74}%;height:${mob ? 74 : 80}%;border-radius:50%;border:1px solid rgba(255,255,255,0.10);pointer-events:none;"></div>
 
           <!-- Players organized in 4 horizontal role rows -->
           ${xiPlayers.length === 0 ? '' : (() => {
@@ -1549,7 +1549,7 @@
               </div>`;
             };
             return `
-              <div style="position:absolute;inset:${mob?'30px 6px':'40px 22px'};display:flex;flex-direction:column;justify-content:space-around;gap:${mob?10:14}px;">
+              <div style="position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:${mob?14:20}px;padding:${mob?'28px 6px 36px':'38px 22px 48px'};min-height:${mob?600:680}px;box-sizing:border-box;">
                 ${roleRow2('Wicketkeeper', 'rgba(255,215,125,0.92)', byRole.wk)}
                 ${roleRow2('Batsmen',      'rgba(120,180,255,0.95)', byRole.bat)}
                 ${roleRow2('All-rounders', 'rgba(182,255,60,0.92)',  byRole.ar)}
