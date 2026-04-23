@@ -282,7 +282,7 @@
   // ── DASHBOARD ───────────────────────────────────────────────────
   CD.renderDashboard = () => {
     const u = window.user || {};
-    const isSuperAdmin = u.email && u.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const isSuperAdmin = u.email && (typeof window.isSuperAdminEmail === 'function' ? window.isSuperAdminEmail(u.email) : u.email.toLowerCase().trim() === 'namanmehra@gmail.com');
     return `
       <div style="position:relative;min-height:100vh;display:flex;flex-direction:column;">
         ${CD.renderTicker()}
@@ -861,7 +861,7 @@
     const xiMult = parseFloat(rs.xiMultiplier) || 1;
     const releaseLocked = !!rs.releaseLocked;
     const squadLocked = !!rs.squadLocked;
-    const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const isSuper = window.user?.email && (typeof window.isSuperAdminEmail === 'function' ? window.isSuperAdminEmail(window.user.email) : window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com');
     const inviteUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(window.roomId || '');
     const myRegistered = window.myTeamName && members.find(m => m.uid === window.user?.uid);
 
@@ -1105,7 +1105,7 @@
     const teams = rs.teams || {};
     const initial = rs.budget || rs.setup?.budget || 100;
     const isAdmin = window.isAdmin || false;
-    const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const isSuper = window.user?.email && (typeof window.isSuperAdminEmail === 'function' ? window.isSuperAdminEmail(window.user.email) : window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com');
     const releaseLocked = !!rs.releaseLocked;
     const maxPlayers = rs.maxPlayers || rs.setup?.maxPlayers || 21;
     const arr = Object.values(teams);
@@ -1332,7 +1332,7 @@
     const releaseLocked = !!rs.releaseLocked;
     const squadLocked = !!rs.squadLocked;
     const isAdmin = !!window.isAdmin;
-    const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const isSuper = window.user?.email && (typeof window.isSuperAdminEmail === 'function' ? window.isSuperAdminEmail(window.user.email) : window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com');
     const xiMult = parseFloat(rs.xiMultiplier) || 1;
 
     // If user is in edit mode, render the edit UI instead of the view UI.
