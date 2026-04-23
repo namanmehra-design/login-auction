@@ -2402,22 +2402,105 @@
 
   CD.renderTrades = () => {
     const rs = window.roomState || {};
-    const trades = rs.trades ? Object.values(rs.trades) : [];
-    return `
-      <div class="cd-glass-2" style="padding:24px;border-radius:22px;background:var(--glass-2);border:1px solid var(--line-2);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-          <div class="ed" style="font-size:24px;">Trade <span class="ed-i" style="color:var(--mute);">proposals</span></div>
-          <button onclick="window.switchTab('trades');" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;border:none;font-weight:600;font-size:12px;cursor:pointer;">${I('plus',12)} New trade</button>
-        </div>
-        ${trades.length ? `
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            ${trades.slice(0, 12).map(t => `<div style="padding:14px;border-radius:14px;background:var(--glass);border:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;">
-              <div style="font-size:13px;font-weight:600;">${esc(t.from || '?')} → ${esc(t.to || '?')}</div>
-              ${CD.Pill({tone: t.status === 'accepted' ? 'lime' : t.status === 'rejected' ? 'red' : 'electric', children: (t.status || 'pending').toUpperCase()})}
-            </div>`).join('')}
+    const trades = rs.trades ? Object.entries(rs.trades).map(([id, t]) => ({id, ...t})) : [];
+    const myTeam = window.myTeamName || '';
+    const teams = rs.teams || {};
+
+    // Separate pending / completed for current user
+    const received = trades.filter(t => t.to === myTeam && t.status === 'pending');
+    const sentP = trades.filter(t => t.from === myTeam && t.status === 'pending');
+    const history = trades.filter(t => t.status === 'accepted' || t.status === 'rejected' || t.status === 'cancelled');
+
+    const renderTradeCard = (t, kind) => {
+      const fromRoster = teams[t.from]?.roster || [];
+      const toRoster = teams[t.to]?.roster || [];
+      const sendNames = t.sending || [];
+      const recvNames = t.receiving || [];
+      const cSend = teamCode(t.from);
+      const cRecv = teamCode(t.to);
+      const [c1a, c2a] = TEAM_COLORS[cSend] || ['#444','#222'];
+      const [c1b, c2b] = TEAM_COLORS[cRecv] || ['#444','#222'];
+      const statusTone = t.status === 'accepted' ? 'lime' : t.status === 'rejected' || t.status === 'cancelled' ? 'red' : 'electric';
+      const when = t.timestamp ? new Date(t.timestamp).toLocaleDateString() : '';
+      return `
+        <div style="border-radius:16px;background:var(--glass);border:1px solid var(--line);overflow:hidden;backdrop-filter:blur(20px);">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:6px;">${CD.Avatar({name: t.from, size: 28})}<span style="font-weight:600;font-size:13px;">${esc(t.from)}</span></div>
+              <span style="color:var(--mute);font-style:italic;font-family:var(--serif);">⇌</span>
+              <div style="display:flex;align-items:center;gap:6px;">${CD.Avatar({name: t.to, size: 28})}<span style="font-weight:600;font-size:13px;">${esc(t.to)}</span></div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              ${CD.Pill({tone: statusTone, children: (t.status||'pending').toUpperCase()})}
+              ${when ? `<span style="font-size:10px;color:var(--mute);">${esc(when)}</span>` : ''}
+            </div>
           </div>
-        ` : `<div style="padding:30px;text-align:center;color:var(--mute);">No trades yet.</div>`}
+          <div style="padding:14px 18px;display:grid;grid-template-columns:${CD.state.isMobile ? '1fr' : '1fr 40px 1fr'};gap:12px;align-items:center;">
+            <div>
+              <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">${esc(t.from)} sends</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                ${sendNames.length ? sendNames.map(n => `<div style="padding:6px 8px;border-radius:10px;background:linear-gradient(135deg,${c1a}25,${c2a}10);border:1px solid var(--line);display:flex;align-items:center;gap:8px;">${CD.Avatar({name: n, size: 22})}<span style="font-size:12px;font-weight:600;">${esc(n)}</span></div>`).join('') : `<div style="color:var(--mute);font-size:12px;padding:6px;">Nothing</div>`}
+              </div>
+            </div>
+            <div style="text-align:center;color:var(--mute);font-size:24px;${CD.state.isMobile ? 'display:none;' : ''}">→</div>
+            <div>
+              <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">${esc(t.to)} sends</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                ${recvNames.length ? recvNames.map(n => `<div style="padding:6px 8px;border-radius:10px;background:linear-gradient(135deg,${c1b}25,${c2b}10);border:1px solid var(--line);display:flex;align-items:center;gap:8px;">${CD.Avatar({name: n, size: 22})}<span style="font-size:12px;font-weight:600;">${esc(n)}</span></div>`).join('') : `<div style="color:var(--mute);font-size:12px;padding:6px;">Nothing</div>`}
+              </div>
+            </div>
+          </div>
+          ${kind === 'received' ? `
+            <div style="padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;">
+              <button onclick="window.acceptTrade && window.acceptTrade('${esc(t.id)}')" style="padding:9px 16px;border-radius:9999px;background:linear-gradient(180deg,var(--lime-2),var(--lime));color:#000;border:none;font-size:12px;font-weight:700;cursor:pointer;">${I('check',12)} Accept</button>
+              <button onclick="window.rejectTrade && window.rejectTrade('${esc(t.id)}')" style="padding:9px 16px;border-radius:9999px;background:rgba(255,59,59,0.15);color:var(--red);border:1px solid rgba(255,59,59,0.4);font-size:12px;font-weight:600;cursor:pointer;">${I('x',12)} Reject</button>
+            </div>
+          ` : ''}
+          ${kind === 'sentP' ? `
+            <div style="padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;">
+              <button onclick="window.cancelTrade && window.cancelTrade('${esc(t.id)}')" style="padding:9px 16px;border-radius:9999px;background:var(--glass);border:1px solid var(--line);color:var(--mute);font-size:12px;font-weight:600;cursor:pointer;">Cancel proposal</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    };
+
+    if(!myTeam) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;">Register your team first to propose trades.</div>`;
+
+    return `
+      <!-- New trade proposer -->
+      <div style="padding:20px;border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <div class="ed" style="font-size:24px;">Propose a <span class="ed-i" style="color:var(--pink);">trade</span></div>
+          <button onclick="window.switchTab && window.switchTab('trades');setTimeout(()=>{document.getElementById('trades-tab')?.scrollIntoView({behavior:'smooth'});},200);" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">${I('swap',12)} Open proposer</button>
+        </div>
+        <div style="font-size:13px;color:var(--ink-2);line-height:1.5;">
+          The full trade proposer (multi-player, partner selector) is in the classic Trades tab. Click "Open proposer" above to compose a trade.
+        </div>
       </div>
+
+      <!-- Received (pending) -->
+      ${received.length ? `
+      <section style="margin-bottom:18px;">
+        <div style="font-size:11px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;">${CD.LiveDot()} Pending · Awaiting your response · ${received.length}</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">${received.map(t => renderTradeCard(t, 'received')).join('')}</div>
+      </section>` : ''}
+
+      <!-- Sent pending -->
+      ${sentP.length ? `
+      <section style="margin-bottom:18px;">
+        <div style="font-size:11px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-bottom:10px;">Sent · Awaiting reply · ${sentP.length}</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">${sentP.map(t => renderTradeCard(t, 'sentP')).join('')}</div>
+      </section>` : ''}
+
+      <!-- History -->
+      ${history.length ? `
+      <section>
+        <div style="font-size:11px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-bottom:10px;">History · ${history.length}</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">${history.slice(0, 12).map(t => renderTradeCard(t, 'history')).join('')}</div>
+      </section>` : ''}
+
+      ${!received.length && !sentP.length && !history.length ? `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;"><div class="ed" style="font-size:22px;margin-bottom:6px;">No trades <span class="ed-i" style="color:var(--pink);">yet</span></div><div style="font-size:13px;">Propose a trade via the Open proposer button above.</div></div>` : ''}
     `;
   };
 
