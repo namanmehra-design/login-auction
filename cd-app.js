@@ -759,34 +759,103 @@
   CD.renderLedger = () => {
     const rs = window.roomState || {};
     const players = rs.players ? (Array.isArray(rs.players) ? rs.players : Object.values(rs.players)) : [];
-    const sold = players.filter(p => p.status === 'sold').sort((a,b) => (b.soldPrice||0) - (a.soldPrice||0));
-    if(!sold.length) return `<div class="cd-glass" style="padding:30px;border-radius:14px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;">No players sold yet.</div>`;
+    const sold = players.filter(p => p.status === 'sold');
+    const sortBy = window._cdLedgerSort || 'price-desc';
+    const search = (window._cdLedgerSearch || '').toLowerCase().trim();
+    const buyerFilter = window._cdLedgerBuyer || '';
+
+    let filtered = sold.slice();
+    if(search) filtered = filtered.filter(p => (p.name||p.n||'').toLowerCase().includes(search) || (p.soldTo||'').toLowerCase().includes(search));
+    if(buyerFilter) filtered = filtered.filter(p => p.soldTo === buyerFilter);
+
+    filtered.sort((a,b) => {
+      if(sortBy === 'price-desc') return (b.soldPrice||0) - (a.soldPrice||0);
+      if(sortBy === 'price-asc') return (a.soldPrice||0) - (b.soldPrice||0);
+      if(sortBy === 'name') return (a.name||a.n||'').localeCompare(b.name||b.n||'');
+      if(sortBy === 'team') return (a.iplTeam||a.t||'').localeCompare(b.iplTeam||b.t||'');
+      return 0;
+    });
+
+    const totalSpend = sold.reduce((s,p) => s + (p.soldPrice || 0), 0);
+    const avgPrice = sold.length ? totalSpend / sold.length : 0;
+    const topSale = sold.length ? Math.max(...sold.map(p => p.soldPrice || 0)) : 0;
+    const buyers = [...new Set(sold.map(p => p.soldTo).filter(Boolean))].sort();
+
+    if(!sold.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div style="margin:0 auto 12px;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;color:var(--mute);">${I('gavel',24)}</div><div class="ed" style="font-size:22px;margin-bottom:4px;">No players sold <span class="ed-i" style="color:var(--pink);">yet</span></div><div style="font-size:13px;">Sold players will appear in this ledger once bidding starts.</div></div>`;
+
     return `
-      <div class="cd-glass-2" style="border-radius:22px;background:var(--glass-2);border:1px solid var(--line-2);overflow:hidden;">
-        <div style="padding:20px 24px;display:flex;justify-content:space-between;align-items:center;">
-          <div class="ed" style="font-size:24px;">Bid <span class="ed-i" style="color:var(--mute);">ledger</span></div>
-          <div style="font-size:12px;color:var(--mute);">${sold.length} sold</div>
+      <!-- Ledger stats -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px;">
+        ${CD.Stat({val: sold.length, lbl:'Sold', accent:'var(--electric)'})}
+        ${CD.Stat({val: '₹' + totalSpend.toFixed(1) + 'cr', lbl:'Total spend', accent:'var(--pink)'})}
+        ${CD.Stat({val: '₹' + avgPrice.toFixed(2) + 'cr', lbl:'Avg price', accent:'var(--lime)'})}
+        ${CD.Stat({val: '₹' + topSale.toFixed(1) + 'cr', lbl:'Top sale', accent:'var(--gold)'})}
+      </div>
+
+      <!-- Filter + search + CSV -->
+      <div style="padding:12px 16px;border-radius:14px;background:var(--glass);border:1px solid var(--line);margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input id="cdLedgerSearch" placeholder="Search player or buyer…" value="${esc(search)}" oninput="window._cdLedgerSearch=this.value;clearTimeout(window._cdLedgerDb);window._cdLedgerDb=setTimeout(()=>{CD.render();document.getElementById('cdLedgerSearch')?.focus();},150);" style="flex:1;min-width:200px;padding:9px 14px;font-size:13px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--sans);" />
+        <select onchange="window._cdLedgerBuyer=this.value;CD.render();" style="padding:9px 12px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;min-width:140px;">
+          <option value=""${buyerFilter === '' ? ' selected' : ''}>All buyers</option>
+          ${buyers.map(b => `<option value="${esc(b)}"${buyerFilter === b ? ' selected' : ''}>${esc(b)}</option>`).join('')}
+        </select>
+        <select onchange="window._cdLedgerSort=this.value;CD.render();" style="padding:9px 12px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;">
+          <option value="price-desc"${sortBy==='price-desc'?' selected':''}>Price: high → low</option>
+          <option value="price-asc"${sortBy==='price-asc'?' selected':''}>Price: low → high</option>
+          <option value="name"${sortBy==='name'?' selected':''}>Name A-Z</option>
+          <option value="team"${sortBy==='team'?' selected':''}>IPL Team</option>
+        </select>
+        <button onclick="CD.downloadLedgerCSV()" style="padding:9px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--lime-2),var(--lime));color:#000;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(182,255,60,0.25);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
+      </div>
+
+      <!-- Ledger table -->
+      <div style="border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);overflow:hidden;">
+        <div style="padding:16px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);">
+          <div class="ed" style="font-size:22px;">Bid <span class="ed-i" style="color:var(--mute);">ledger</span></div>
+          <div style="font-size:11px;color:var(--mute);">${filtered.length}${filtered.length !== sold.length ? ' of ' + sold.length : ''} sold</div>
         </div>
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
               <tr style="background:rgba(0,0,0,0.2);">
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">#</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Player</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">IPL Team</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Role</th>
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Base</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Bought by</th>
                 <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Price</th>
               </tr>
             </thead>
             <tbody>
-              ${sold.map(p => {
+              ${filtered.map((p, i) => {
                 const name = p.name || p.n || '';
-                return `<tr style="border-top:1px solid var(--line);">
-                  <td style="padding:12px 14px;display:flex;align-items:center;gap:10px;">${CD.Avatar({team: p.iplTeam || p.t, name, size: 32})}<div><div style="font-weight:600;">${esc(name)}</div>${(p.isOverseas || p.o) ? `<div style="font-size:10px;color:var(--gold);">OVERSEAS</div>` : ''}</div></td>
-                  <td style="padding:12px 14px;">${CD.TeamChip({code: p.iplTeam || p.t})}</td>
-                  <td style="padding:12px 14px;color:var(--ink-2);">${esc(p.role || p.r || '')}</td>
-                  <td style="padding:12px 14px;">${esc(p.soldTo || '—')}</td>
-                  <td style="padding:12px 14px;text-align:right;font-family:var(--mono);color:var(--lime);font-weight:700;">₹${(p.soldPrice||0).toFixed(2)}cr</td>
+                const isOs = !!(p.isOverseas || p.o);
+                const markup = p.basePrice ? ((p.soldPrice||0) / p.basePrice) : 0;
+                return `<tr style="border-top:1px solid var(--line);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                  <td style="padding:11px 14px;font-family:var(--display);font-size:15px;color:var(--mute);">${(i+1).toString().padStart(3,'0')}</td>
+                  <td style="padding:11px 14px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      ${CD.Avatar({team: p.iplTeam || p.t, name, size: 30})}
+                      <div>
+                        <div style="font-weight:600;">${esc(name)}${isOs ? ' <span style="color:var(--gold);font-size:10px;">★</span>' : ''}</div>
+                        ${markup > 1.1 ? `<div style="font-size:10px;color:var(--pink);font-family:var(--mono);">${markup.toFixed(1)}× base</div>` : ''}
+                      </div>
+                    </div>
+                  </td>
+                  <td style="padding:11px 14px;">${CD.TeamChip({code: p.iplTeam || p.t})}</td>
+                  <td style="padding:11px 14px;color:var(--ink-2);font-size:12px;">${esc(p.role || p.r || '—')}</td>
+                  <td style="padding:11px 14px;text-align:right;font-family:var(--mono);color:var(--mute);">₹${(p.basePrice||0).toFixed(2)}</td>
+                  <td style="padding:11px 14px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      ${p.soldTo ? CD.Avatar({name: p.soldTo, size: 22}) : ''}
+                      <span style="font-size:12px;">${esc(p.soldTo || '—')}</span>
+                    </div>
+                  </td>
+                  <td style="padding:11px 14px;text-align:right;font-family:var(--display);font-size:18px;color:var(--lime);font-weight:800;">₹${(p.soldPrice||0).toFixed(1)}<span style="font-size:11px;color:var(--mute);margin-left:2px;">cr</span></td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -794,6 +863,28 @@
         </div>
       </div>
     `;
+  };
+
+  CD.downloadLedgerCSV = () => {
+    const rs = window.roomState || {};
+    const players = rs.players ? (Array.isArray(rs.players) ? rs.players : Object.values(rs.players)) : [];
+    const sold = players.filter(p => p.status === 'sold').sort((a,b) => (b.soldPrice||0) - (a.soldPrice||0));
+    if(!sold.length){ window.showAlert?.('No sold players yet.','err'); return; }
+    const csvEscape = (v) => { const s = String(v == null ? '' : v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const rows = [['#','Player','IPL Team','Role','Overseas','Base Price (Cr)','Sold Price (Cr)','Markup','Bought By']];
+    sold.forEach((p, i) => {
+      const name = p.name || p.n || '';
+      const markup = p.basePrice ? ((p.soldPrice||0) / p.basePrice).toFixed(2) + 'x' : '—';
+      rows.push([i+1, name, p.iplTeam||p.t||'', p.role||p.r||'', (p.isOverseas||p.o)?'Yes':'No', (p.basePrice||0).toFixed(2), (p.soldPrice||0).toFixed(2), markup, p.soldTo||'']);
+    });
+    const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'bid-ledger.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if(typeof window.showAlert === 'function') window.showAlert('Ledger CSV downloaded', 'ok');
   };
 
   CD.renderMyTeam = () => {
@@ -1392,83 +1483,539 @@
   CD.renderPlayersPool = () => {
     const rs = window.roomState || {};
     const players = rs.players ? (Array.isArray(rs.players) ? rs.players : Object.values(rs.players)) : [];
-    if(!players.length) return `<div class="cd-glass" style="padding:30px;border-radius:14px;color:var(--mute);text-align:center;">Auction not initialized yet.</div>`;
-    const filter = window._cdPlayerFilter || 'all';
-    let filtered = players;
-    if(filter === 'available') filtered = players.filter(p => p.status === 'available');
-    else if(filter === 'sold') filtered = players.filter(p => p.status === 'sold');
-    else if(filter === 'unsold') filtered = players.filter(p => p.status === 'unsold');
+    if(!players.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div class="ed" style="font-size:22px;margin-bottom:6px;">Player pool <span class="ed-i" style="color:var(--mute);">empty</span></div><div style="font-size:13px;">Ask the admin to initialize the auction.</div></div>`;
+
+    const search = (window._cdPoolSearch || '').toLowerCase().trim();
+    const statusF = window._cdPoolStatus || 'all';
+    const roleF = window._cdPoolRole || '';
+    const teamF = window._cdPoolTeam || '';
+    const originF = window._cdPoolOrigin || '';
+    const advOpen = window._cdPoolAdvanced || false;
+
+    let filtered = players.slice();
+    if(search) filtered = filtered.filter(p => (p.name||p.n||'').toLowerCase().includes(search) || (p.iplTeam||p.t||'').toLowerCase().includes(search));
+    if(statusF !== 'all') filtered = filtered.filter(p => p.status === statusF);
+    if(roleF) filtered = filtered.filter(p => (p.role||p.r||'').toLowerCase().includes(roleF.toLowerCase().split('-')[0]));
+    if(teamF) filtered = filtered.filter(p => (p.iplTeam||p.t||'') === teamF);
+    if(originF === 'Indian') filtered = filtered.filter(p => !(p.isOverseas||p.o));
+    else if(originF === 'Overseas') filtered = filtered.filter(p => !!(p.isOverseas||p.o));
+    filtered.sort((a,b) => (a.name||a.n||'').localeCompare(b.name||b.n||''));
+
+    const teams = [...new Set(players.map(p => p.iplTeam||p.t).filter(Boolean))].sort();
+    const activeFilters = (statusF !== 'all' ? 1 : 0) + (roleF ? 1 : 0) + (teamF ? 1 : 0) + (originF ? 1 : 0);
+
     return `
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        ${[['all','All'],['available','Available'],['sold','Sold'],['unsold','Unsold']].map(([k,l]) => `
-          <button onclick="window._cdPlayerFilter='${k}';CD.render();" style="padding:6px 14px;border-radius:9999px;background:${filter===k?'linear-gradient(180deg,var(--electric-2),var(--electric))':'var(--glass)'};border:1px solid ${filter===k?'transparent':'var(--line)'};color:${filter===k?'#fff':'var(--ink-2)'};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">${l}</button>
-        `).join('')}
-        <div style="flex:1"></div>
-        <div style="font-size:11px;color:var(--mute);align-self:center;">${filtered.length} players</div>
+      <!-- Sticky filter header -->
+      <div style="position:sticky;top:0;z-index:10;background:var(--bg,#07070C);padding:12px 0;margin:0 0 14px;">
+        <div style="padding:10px 14px;border-radius:14px;background:var(--glass-2,rgba(22,24,38,0.8));backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--line-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:var(--sh-1);">
+          <input id="cdPoolSearch" placeholder="Search player or IPL team…" value="${esc(search)}" oninput="window._cdPoolSearch=this.value;clearTimeout(window._cdPoolDb);window._cdPoolDb=setTimeout(()=>{CD.render();document.getElementById('cdPoolSearch')?.focus();},150);" style="flex:1;min-width:200px;padding:9px 16px;font-size:13px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--sans);" />
+
+          <!-- Status pills -->
+          <div style="display:flex;gap:4px;">
+            ${[['all','All'],['available','Available'],['sold','Sold'],['unsold','Unsold']].map(([k,l]) => `
+              <button onclick="window._cdPoolStatus='${k}';CD.render();" style="padding:7px 13px;border-radius:9999px;background:${statusF===k?'linear-gradient(180deg,var(--electric-2),var(--electric))':'var(--glass)'};border:1px solid ${statusF===k?'transparent':'var(--line)'};color:${statusF===k?'#fff':'var(--ink-2)'};font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;">${l}</button>
+            `).join('')}
+          </div>
+
+          <button onclick="window._cdPoolAdvanced=${!advOpen};CD.render();" style="padding:7px 13px;border-radius:9999px;background:${activeFilters?'rgba(46,91,255,0.18)':'var(--glass)'};border:1px solid ${activeFilters?'rgba(46,91,255,0.4)':'var(--line)'};color:${activeFilters?'#8EA9FF':'var(--ink-2)'};font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+            ${I('cog',12)} Advanced${activeFilters ? ' · ' + activeFilters : ''}
+          </button>
+
+          ${(activeFilters || search) ? `<button onclick="window._cdPoolStatus='all';window._cdPoolRole='';window._cdPoolTeam='';window._cdPoolOrigin='';window._cdPoolSearch='';CD.render();" style="padding:7px 11px;border-radius:9999px;background:transparent;border:1px solid var(--line);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;">Clear</button>` : ''}
+          <span style="font-size:11px;color:var(--mute);margin-left:auto;white-space:nowrap;">${filtered.length} of ${players.length}</span>
+        </div>
+
+        ${advOpen ? `
+        <div style="margin-top:8px;padding:12px 14px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(16px);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;">Role</span>
+            <select onchange="window._cdPoolRole=this.value;CD.render();" style="padding:7px 11px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;">
+              <option value=""${!roleF?' selected':''}>All roles</option>
+              <option value="Batter"${roleF==='Batter'?' selected':''}>Batter</option>
+              <option value="Bowler"${roleF==='Bowler'?' selected':''}>Bowler</option>
+              <option value="All-rounder"${roleF==='All-rounder'?' selected':''}>All-rounder</option>
+              <option value="Wicketkeeper"${roleF==='Wicketkeeper'?' selected':''}>Wicketkeeper</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;">IPL team</span>
+            <select onchange="window._cdPoolTeam=this.value;CD.render();" style="padding:7px 11px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;">
+              <option value=""${!teamF?' selected':''}>All teams</option>
+              ${teams.map(t => `<option value="${esc(t)}"${teamF===t?' selected':''}>${esc(t)}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;">Origin</span>
+            <select onchange="window._cdPoolOrigin=this.value;CD.render();" style="padding:7px 11px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;">
+              <option value=""${!originF?' selected':''}>All</option>
+              <option value="Indian"${originF==='Indian'?' selected':''}>Indian</option>
+              <option value="Overseas"${originF==='Overseas'?' selected':''}>Overseas</option>
+            </select>
+          </div>
+          <button onclick="CD.downloadPoolCSV()" style="margin-left:auto;padding:7px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--lime-2),var(--lime));color:#000;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        </div>` : ''}
       </div>
-      <div class="cd-glass-2" style="border-radius:22px;background:var(--glass-2);border:1px solid var(--line-2);overflow:hidden;">
+
+      <!-- Player table -->
+      <div style="border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);overflow:hidden;">
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="background:rgba(0,0,0,0.2);"><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Player</th><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Team</th><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Role</th><th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Base</th><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Status</th><th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Sold for</th></tr></thead>
+            <thead>
+              <tr style="background:rgba(0,0,0,0.2);">
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Player</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Team</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Role</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Type</th>
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Base</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Status</th>
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Sold for</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Buyer</th>
+              </tr>
+            </thead>
             <tbody>
-              ${filtered.slice(0, 100).map(p => {
+              ${filtered.slice(0, 150).map(p => {
                 const name = p.name || p.n || '';
                 const status = p.status || 'available';
                 const tone = status === 'sold' ? 'lime' : status === 'unsold' ? 'red' : 'electric';
-                return `<tr style="border-top:1px solid var(--line);">
-                  <td style="padding:12px 14px;display:flex;align-items:center;gap:10px;">${CD.Avatar({team: p.iplTeam || p.t, name, size: 28})}<span style="font-weight:600;">${esc(name)}${(p.isOverseas||p.o) ? ` <span style="font-size:9px;color:var(--gold);">★</span>` : ''}</span></td>
-                  <td style="padding:12px 14px;">${CD.TeamChip({code: p.iplTeam || p.t})}</td>
-                  <td style="padding:12px 14px;color:var(--ink-2);">${esc(p.role || p.r || '')}</td>
-                  <td style="padding:12px 14px;text-align:right;font-family:var(--mono);color:var(--mute);">₹${(p.basePrice||0).toFixed(2)}cr</td>
-                  <td style="padding:12px 14px;">${CD.Pill({tone, children: status.toUpperCase()})}</td>
-                  <td style="padding:12px 14px;text-align:right;font-family:var(--mono);color:${status==='sold'?'var(--lime)':'var(--mute)'};font-weight:${status==='sold'?700:400};">${p.soldPrice ? '₹'+p.soldPrice.toFixed(2)+'cr' : '—'}</td>
+                const isOs = !!(p.isOverseas||p.o);
+                return `<tr style="border-top:1px solid var(--line);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                  <td style="padding:11px 14px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      ${CD.Avatar({team: p.iplTeam || p.t, name, size: 28})}
+                      <span style="font-weight:600;">${esc(name)}</span>
+                    </div>
+                  </td>
+                  <td style="padding:11px 14px;">${CD.TeamChip({code: p.iplTeam || p.t})}</td>
+                  <td style="padding:11px 14px;color:var(--ink-2);font-size:12px;">${esc(p.role || p.r || '')}</td>
+                  <td style="padding:11px 14px;">${isOs ? CD.Pill({tone:'gold', style:'font-size:9px;padding:2px 7px;', children:'★ OS'}) : CD.Pill({style:'font-size:9px;padding:2px 7px;', children:'IND'})}</td>
+                  <td style="padding:11px 14px;text-align:right;font-family:var(--mono);color:var(--mute);">₹${(p.basePrice||0).toFixed(2)}</td>
+                  <td style="padding:11px 14px;">${CD.Pill({tone, style:'font-size:9px;padding:2px 7px;', children: status.toUpperCase()})}</td>
+                  <td style="padding:11px 14px;text-align:right;font-family:var(--mono);color:${status==='sold'?'var(--lime)':'var(--mute)'};font-weight:${status==='sold'?700:400};">${p.soldPrice ? '₹'+p.soldPrice.toFixed(2) : '—'}</td>
+                  <td style="padding:11px 14px;color:var(--ink-2);font-size:12px;">${esc(p.soldTo || '—')}</td>
                 </tr>`;
               }).join('')}
             </tbody>
           </table>
         </div>
+        ${filtered.length > 150 ? `<div style="padding:14px;text-align:center;color:var(--mute);font-size:12px;border-top:1px solid var(--line);">Showing first 150 · ${filtered.length - 150} more — narrow filters to see</div>` : ''}
       </div>
-      ${filtered.length > 100 ? `<div style="text-align:center;color:var(--mute);font-size:12px;padding:14px;">Showing first 100 · ${filtered.length - 100} more not shown</div>` : ''}
     `;
   };
 
-  CD.renderAnalytics = () => {
-    return `<div class="cd-glass-2" style="padding:32px;border-radius:22px;background:var(--glass-2);border:1px solid var(--line-2);text-align:center;">
-      <div style="margin:0 auto 12px;width:56px;height:56px;border-radius:50%;background:rgba(46,91,255,0.15);display:flex;align-items:center;justify-content:center;color:var(--electric);">${I('chart',28)}</div>
-      <div class="ed" style="font-size:32px;">Player <span class="ed-i" style="color:var(--electric);">analytics</span></div>
-      <p style="margin-top:8px;color:var(--ink-2);">Detailed batting, bowling, fielding and value analytics.</p>
-      <button onclick="window.switchTab('analytics');setTimeout(function(){var el=document.getElementById('analytics-tab');if(el){el.scrollIntoView();window._cdShowClassic=true;CD.render();}}, 100);" style="margin-top:14px;padding:10px 22px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-weight:600;font-size:13px;cursor:pointer;">Open analytics dashboard</button>
-    </div>`;
+  CD.downloadPoolCSV = () => {
+    const rs = window.roomState || {};
+    const players = rs.players ? (Array.isArray(rs.players) ? rs.players : Object.values(rs.players)) : [];
+    if(!players.length){ window.showAlert?.('No players to export.','err'); return; }
+    const csvEscape = (v) => { const s = String(v == null ? '' : v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const rows = [['Player','IPL Team','Role','Overseas','Base (Cr)','Status','Sold For (Cr)','Buyer']];
+    players.slice().sort((a,b) => (a.name||a.n||'').localeCompare(b.name||b.n||'')).forEach(p => {
+      rows.push([p.name||p.n||'', p.iplTeam||p.t||'', p.role||p.r||'', (p.isOverseas||p.o)?'Yes':'No', (p.basePrice||0).toFixed(2), p.status||'available', p.soldPrice ? p.soldPrice.toFixed(2) : '', p.soldTo||'']);
+    });
+    const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'player-pool.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    if(typeof window.showAlert === 'function') window.showAlert('Pool CSV downloaded','ok');
   };
 
+  // Analytics — category sidebar + stat tables
+  CD.renderAnalytics = () => {
+    const rs = window.roomState || {};
+    const matches = rs.matches || {};
+    const teams = rs.teams || {};
+    const matchKeys = Object.keys(matches);
+    if(!matchKeys.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div class="ed" style="font-size:22px;margin-bottom:6px;">Analytics <span class="ed-i" style="color:var(--electric);">awaiting data</span></div><div style="font-size:13px;">Detailed player analytics will appear once matches are played.</div></div>`;
+
+    // Build per-player aggregate stats from breakdown strings
+    const ownerMap = {};
+    Object.values(teams).forEach(t => {
+      const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
+      roster.forEach(p => { ownerMap[(p.name||p.n||'').toLowerCase().trim()] = { team: t.name, price: p.soldPrice || 0, iplTeam: p.iplTeam || p.t || '', role: p.role || p.r || '', isOs: !!(p.isOverseas || p.o) }; });
+    });
+    const agg = {};
+    Object.values(matches).forEach(m => {
+      if(!m.players) return;
+      Object.values(m.players).forEach(p => {
+        const k = (p.name||'').toLowerCase().trim();
+        if(!k) return;
+        if(!agg[k]) agg[k] = { name: p.name, pts:0, mc:0, runs:0, balls:0, fours:0, sixes:0, hs:0, h50:0, h100:0, wkts:0, overs:0, runsConc:0, c5w:0, c3w:0, catches:0, stumps:0, runouts:0, inns:0, bowlInns:0 };
+        const s = agg[k]; s.pts += (p.pts || 0); s.mc++;
+        const bd = p.breakdown || '';
+        const batM = bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x×]4)?(?:\s+(\d+)[x×]6)?/);
+        if(batM){ const r=+batM[1]; s.runs+=r; s.balls+=+batM[2]; s.fours+=+(batM[3]||0); s.sixes+=+(batM[4]||0); s.inns++; if(r>s.hs)s.hs=r; if(r>=100)s.h100++; else if(r>=50)s.h50++; }
+        const bowM = bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
+        if(bowM){ const w=+bowM[1]; s.wkts+=w; s.overs+=+bowM[2]; s.runsConc+=+(bowM[3]||0); s.bowlInns++; if(w>=5)s.c5w++; if(w>=3)s.c3w++; }
+        const fldM = bd.match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
+        if(fldM){ s.catches+=+fldM[1]; s.stumps+=+fldM[2]; s.runouts+=+fldM[3]; }
+      });
+    });
+    // Enrich
+    Object.entries(agg).forEach(([k,v]) => { const o = ownerMap[k] || {}; v.owner = o.team || ''; v.iplTeam = o.iplTeam || ''; v.role = o.role || ''; v.price = o.price || 0; });
+
+    const all = Object.values(agg);
+    const cat = window._cdAnCat || 'points';
+    const sub = window._cdAnSub || 'overall';
+    const search = (window._cdAnSearch || '').toLowerCase().trim();
+    const ownerF = window._cdAnOwner || 'all';
+
+    const CATS = {
+      points: { label:'⭐ Points', subs: {
+        overall: { label:'Overall', sort:(a,b)=>b.pts-a.pts, cols:['Player','Owner','Inns','Runs','Wkts','Pts'], row:p=>[p.name,p.owner||'—',p.mc,p.runs,p.wkts,p.pts], fmt:[null,null,null,null,null,v=>`<span style="color:${v>0?'var(--lime)':v<0?'var(--red)':'var(--mute)'};font-family:var(--display);font-weight:800;">${v>=0?'+':''}${Math.round(v)}</span>`] },
+        batters: { label:'Top Batters', filter:p=>/batter|keep/i.test(p.role), sort:(a,b)=>b.pts-a.pts, cols:['Player','Owner','Runs','4s','6s','Pts'], row:p=>[p.name,p.owner||'—',p.runs,p.fours,p.sixes,p.pts], fmt:[null,null,null,null,null,v=>`<span style="color:${v>0?'var(--lime)':'var(--mute)'};font-family:var(--display);font-weight:800;">${v>=0?'+':''}${Math.round(v)}</span>`] },
+        bowlers: { label:'Top Bowlers', filter:p=>/bowl|all/i.test(p.role), sort:(a,b)=>b.pts-a.pts, cols:['Player','Owner','Wkts','Overs','Eco','Pts'], row:p=>[p.name,p.owner||'—',p.wkts,p.overs.toFixed(1),p.overs?(p.runsConc/p.overs).toFixed(2):'—',p.pts], fmt:[null,null,null,null,null,v=>`<span style="color:${v>0?'var(--lime)':'var(--mute)'};font-family:var(--display);font-weight:800;">${v>=0?'+':''}${Math.round(v)}</span>`] },
+        value: { label:'Best Value', filter:p=>p.price>0 && p.pts>0, sort:(a,b)=>(b.pts/b.price)-(a.pts/a.price), cols:['Player','Owner','Pts','Price','Pts/Cr'], row:p=>[p.name,p.owner||'—',p.pts,'₹'+p.price.toFixed(1)+'cr',p.price?(p.pts/p.price).toFixed(1):'—'] }
+      }},
+      batting: { label:'🏏 Batting', subs: {
+        runs: { label:'Most Runs', filter:p=>p.runs>0, sort:(a,b)=>b.runs-a.runs, cols:['Player','Owner','Runs','Balls','SR','HS'], row:p=>[p.name,p.owner||'—',p.runs,p.balls,p.balls?((p.runs/p.balls)*100).toFixed(1):'—',p.hs] },
+        hs: { label:'Highest Score', filter:p=>p.hs>0, sort:(a,b)=>b.hs-a.hs, cols:['Player','Owner','HS','Runs','Inns'], row:p=>[p.name,p.owner||'—',p.hs,p.runs,p.inns] },
+        sr: { label:'Best Strike Rate', filter:p=>p.balls>=30, sort:(a,b)=>(b.runs/b.balls)-(a.runs/a.balls), cols:['Player','Owner','SR','Runs','Balls'], row:p=>[p.name,p.owner||'—',((p.runs/p.balls)*100).toFixed(1),p.runs,p.balls] },
+        h100: { label:'Centuries', filter:p=>p.h100>0, sort:(a,b)=>b.h100-a.h100, cols:['Player','Owner','100s','Runs','HS'], row:p=>[p.name,p.owner||'—',p.h100,p.runs,p.hs] },
+        h50: { label:'Fifties', filter:p=>p.h50>0, sort:(a,b)=>b.h50-a.h50, cols:['Player','Owner','50s','Runs','Inns'], row:p=>[p.name,p.owner||'—',p.h50,p.runs,p.inns] },
+        sixes: { label:'Most Sixes', filter:p=>p.sixes>0, sort:(a,b)=>b.sixes-a.sixes, cols:['Player','Owner','6s','Runs','Balls'], row:p=>[p.name,p.owner||'—',p.sixes,p.runs,p.balls] },
+        fours: { label:'Most Fours', filter:p=>p.fours>0, sort:(a,b)=>b.fours-a.fours, cols:['Player','Owner','4s','Runs','Inns'], row:p=>[p.name,p.owner||'—',p.fours,p.runs,p.inns] }
+      }},
+      bowling: { label:'🎯 Bowling', subs: {
+        wkts: { label:'Most Wickets', filter:p=>p.wkts>0, sort:(a,b)=>b.wkts-a.wkts, cols:['Player','Owner','Wkts','Overs','5W'], row:p=>[p.name,p.owner||'—',p.wkts,p.overs.toFixed(1),p.c5w] },
+        eco: { label:'Best Economy (≥6 ov)', filter:p=>p.overs>=6, sort:(a,b)=>(a.runsConc/a.overs)-(b.runsConc/b.overs), cols:['Player','Owner','Eco','Wkts','Overs'], row:p=>[p.name,p.owner||'—',(p.runsConc/p.overs).toFixed(2),p.wkts,p.overs.toFixed(1)] },
+        c5w: { label:'5-Wkt Hauls', filter:p=>p.c5w>0, sort:(a,b)=>b.c5w-a.c5w, cols:['Player','Owner','5W','Wkts','Overs'], row:p=>[p.name,p.owner||'—',p.c5w,p.wkts,p.overs.toFixed(1)] },
+        c3w: { label:'3-Wkt Hauls', filter:p=>p.c3w>0, sort:(a,b)=>b.c3w-a.c3w, cols:['Player','Owner','3W','Wkts','Overs'], row:p=>[p.name,p.owner||'—',p.c3w,p.wkts,p.overs.toFixed(1)] }
+      }},
+      fielding: { label:'🧤 Fielding', subs: {
+        dism: { label:'Most Dismissals', filter:p=>(p.catches+p.stumps+p.runouts)>0, sort:(a,b)=>(b.catches+b.stumps+b.runouts)-(a.catches+a.stumps+a.runouts), cols:['Player','Owner','Dis','C','St','RO'], row:p=>[p.name,p.owner||'—',p.catches+p.stumps+p.runouts,p.catches,p.stumps,p.runouts] },
+        catches: { label:'Most Catches', filter:p=>p.catches>0, sort:(a,b)=>b.catches-a.catches, cols:['Player','Owner','Catches','Pts'], row:p=>[p.name,p.owner||'—',p.catches,p.pts] },
+        runouts: { label:'Most Run-outs', filter:p=>p.runouts>0, sort:(a,b)=>b.runouts-a.runouts, cols:['Player','Owner','RO','Pts'], row:p=>[p.name,p.owner||'—',p.runouts,p.pts] }
+      }}
+    };
+
+    const activeCat = CATS[cat] || CATS.points;
+    const subKeys = Object.keys(activeCat.subs);
+    const activeSub = activeCat.subs[sub] || activeCat.subs[subKeys[0]];
+    let rows = all.slice();
+    if(activeSub.filter) rows = rows.filter(activeSub.filter);
+    if(search) rows = rows.filter(p => p.name.toLowerCase().includes(search));
+    if(ownerF === 'owned') rows = rows.filter(p => p.owner);
+    else if(ownerF === 'unowned') rows = rows.filter(p => !p.owner);
+    if(activeSub.sort) rows.sort(activeSub.sort);
+
+    const sidebarW = CD.state.isMobile ? '100%' : '220px';
+    return `
+      <div style="display:${CD.state.isMobile ? 'block' : 'grid'};grid-template-columns:${sidebarW} 1fr;gap:16px;">
+        <!-- Sidebar -->
+        <aside style="padding:14px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);${CD.state.isMobile ? 'margin-bottom:14px;' : 'position:sticky;top:12px;align-self:start;'}">
+          ${Object.entries(CATS).map(([ck, cv]) => `
+            <div style="margin-bottom:10px;">
+              <button onclick="window._cdAnCat='${ck}';window._cdAnSub='';CD.render();" style="width:100%;padding:10px 12px;border-radius:10px;background:${cat===ck?'rgba(46,91,255,0.18)':'transparent'};border:1px solid ${cat===ck?'rgba(46,91,255,0.4)':'transparent'};color:${cat===ck?'#fff':'var(--ink-2)'};font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;text-align:left;">${cv.label}</button>
+              ${cat===ck ? `<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;padding-left:8px;">
+                ${Object.entries(cv.subs).map(([sk, sv]) => `<button onclick="window._cdAnSub='${sk}';CD.render();" style="padding:6px 10px;border-radius:8px;background:${sub===sk?'rgba(255,255,255,0.06)':'transparent'};border:none;color:${sub===sk?'var(--ink)':'var(--mute)'};font-size:12px;cursor:pointer;text-align:left;">${sv.label}</button>`).join('')}
+              </div>` : ''}
+            </div>
+          `).join('')}
+        </aside>
+
+        <!-- Main -->
+        <div>
+          <div style="padding:12px 14px;border-radius:14px;background:var(--glass);border:1px solid var(--line);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input id="cdAnSearch" placeholder="Search players…" value="${esc(search)}" oninput="window._cdAnSearch=this.value;clearTimeout(window._cdAnDb);window._cdAnDb=setTimeout(()=>{CD.render();document.getElementById('cdAnSearch')?.focus();},150);" style="flex:1;min-width:180px;padding:9px 14px;font-size:13px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--sans);" />
+            <div style="display:flex;gap:4px;">
+              ${[['all','All'],['owned','Owned'],['unowned','Unowned']].map(([k,l]) => `<button onclick="window._cdAnOwner='${k}';CD.render();" style="padding:7px 12px;border-radius:9999px;background:${ownerF===k?'linear-gradient(180deg,var(--electric-2),var(--electric))':'var(--glass)'};border:1px solid ${ownerF===k?'transparent':'var(--line)'};color:${ownerF===k?'#fff':'var(--ink-2)'};font-size:11px;font-weight:700;cursor:pointer;">${l}</button>`).join('')}
+            </div>
+          </div>
+          <div style="border-radius:14px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(24px);border:1px solid var(--line-2);overflow:hidden;">
+            <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+              <div class="ed" style="font-size:20px;">${activeSub.label}</div>
+              <div style="font-size:11px;color:var(--mute);">${rows.length} players</div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="background:rgba(0,0,0,0.2);"><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">#</th>${activeSub.cols.map((c,i) => `<th style="padding:10px 14px;text-align:${i>=2?'right':'left'};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">${c}</th>`).join('')}</tr></thead>
+                <tbody>
+                  ${rows.slice(0, 50).map((p, i) => {
+                    const rowVals = activeSub.row(p);
+                    return `<tr style="border-top:1px solid var(--line);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                      <td style="padding:11px 14px;font-family:var(--display);font-size:15px;color:var(--mute);">${(i+1).toString().padStart(2,'0')}</td>
+                      ${rowVals.map((v, j) => {
+                        const fmt = (activeSub.fmt && activeSub.fmt[j]) ? activeSub.fmt[j](v) : null;
+                        if(j === 0) return `<td style="padding:11px 14px;"><div style="display:flex;align-items:center;gap:10px;">${CD.Avatar({team:p.iplTeam, name:v, size:26})}<span style="font-weight:600;">${esc(v)}</span></div></td>`;
+                        const align = j >= 2 ? 'right' : 'left';
+                        return `<td style="padding:11px 14px;text-align:${align};color:var(--ink-2);${j>=2?'font-family:var(--mono);':''}">${fmt != null ? fmt : esc(String(v))}</td>`;
+                      }).join('')}
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+              ${rows.length === 0 ? `<div style="padding:30px;text-align:center;color:var(--mute);font-size:12px;">No data matches this filter.</div>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // Match Data — master-detail layout (list left, tables right)
   CD.renderMatches = () => {
     const rs = window.roomState || {};
     const matches = rs.matches || {};
+    const teams = rs.teams || {};
+    const isAdmin = window.isAdmin || false;
     const list = Object.entries(matches).sort((a,b) => (b[1].timestamp||0) - (a[1].timestamp||0));
-    if(!list.length) return `<div class="cd-glass" style="padding:30px;border-radius:14px;color:var(--mute);text-align:center;">No matches recorded yet.</div>`;
+
+    if(!list.length) return `
+      <div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);">
+        <div style="margin:0 auto 12px;width:48px;height:48px;border-radius:50%;background:rgba(46,91,255,0.15);display:flex;align-items:center;justify-content:center;color:var(--electric);">${I('cal',24)}</div>
+        <div class="ed" style="font-size:22px;margin-bottom:4px;">No matches <span class="ed-i" style="color:var(--pink);">recorded</span></div>
+        <div style="font-size:13px;">${isAdmin ? 'Submit a scorecard from the Points tab to populate this view.' : 'Match scorecards will appear here once submitted.'}</div>
+      </div>`;
+
+    const selected = window._cdMatchId || list[0][0];
+    const selectedMatch = matches[selected] || list[0][1];
+    const selectedTab = window._cdMatchTab || 'batting';
+
+    const parseBd = (bd) => bd || '';
+    const getMatchPlayers = (m) => m.players ? Object.values(m.players) : [];
+
+    // Classify players by what they did
+    const players = getMatchPlayers(selectedMatch);
+    const batters = players.filter(p => /Bat/.test(p.breakdown || '')).sort((a,b) => (b.pts||0) - (a.pts||0));
+    const bowlers = players.filter(p => /Bowl/.test(p.breakdown || '')).sort((a,b) => (b.pts||0) - (a.pts||0));
+    const fielders = players.filter(p => /Field/.test(p.breakdown || '')).sort((a,b) => (b.pts||0) - (a.pts||0));
+
+    const ownerMap = {};
+    Object.values(teams).forEach(t => {
+      const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
+      roster.forEach(p => { ownerMap[(p.name||p.n||'').toLowerCase().trim()] = t.name; });
+    });
+
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;">
-        ${list.map(([id, m]) => {
-          const playerCount = m.players ? Object.keys(m.players).length : 0;
-          return `<div class="cd-glass" style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <div class="ed" style="font-size:18px;">${esc(m.label || id)}</div>
-              ${m.winner ? CD.Pill({tone:'lime', children: 'W: ' + esc(m.winner)}) : CD.Pill({children:'No result'})}
+      <div style="display:${CD.state.isMobile ? 'block' : 'grid'};grid-template-columns:320px 1fr;gap:16px;">
+        <!-- Match list (left) -->
+        <aside style="padding:14px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);${CD.state.isMobile ? 'margin-bottom:14px;' : 'max-height:calc(100vh - 200px);overflow-y:auto;'}">
+          <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:10px;">Matches · ${list.length}</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${list.map(([id, m]) => {
+              const active = id === selected;
+              const pc = m.players ? Object.keys(m.players).length : 0;
+              return `<div onclick="window._cdMatchId='${esc(id)}';CD.render();" style="padding:12px;border-radius:10px;background:${active?'rgba(46,91,255,0.18)':'rgba(255,255,255,0.02)'};border:1px solid ${active?'rgba(46,91,255,0.4)':'var(--line)'};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
+                  <div class="ed" style="font-size:15px;line-height:1.1;">${esc(m.label || id)}</div>
+                  ${m.winner ? CD.Pill({tone:'lime', style:'font-size:9px;padding:2px 7px;', children: esc(m.winner)}) : ''}
+                </div>
+                <div style="font-size:10px;color:var(--mute);">${m.motm ? 'MOTM: ' + esc(m.motm) + ' · ' : ''}${pc} scores</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </aside>
+
+        <!-- Match detail (right) -->
+        <section>
+          <!-- Hero -->
+          <div style="padding:20px 24px;border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:14px;position:relative;overflow:hidden;">
+            <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 20% 20%,rgba(46,91,255,0.15),transparent 60%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(255,45,135,0.12),transparent 60%);pointer-events:none;"></div>
+            <div style="position:relative;">
+              <div style="font-size:10px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Match</div>
+              <h2 class="ed" style="font-size:32px;line-height:1.05;margin-top:2px;">${esc(selectedMatch.label || '')}</h2>
+              <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+                ${selectedMatch.winner ? CD.Pill({tone:'lime', children:'Winner · ' + esc(selectedMatch.winner)}) : CD.Pill({children:'No result'})}
+                ${selectedMatch.motm ? CD.Pill({tone:'gold', children:'MOTM · ' + esc(selectedMatch.motm)}) : ''}
+                ${CD.Pill({children: players.length + ' scores'})}
+              </div>
+              ${isAdmin ? `<button onclick="window.switchTab && window.switchTab('matches');setTimeout(()=>{var b=document.querySelector('[onclick*=\\'deleteMatch\\'][onclick*=\\'${esc(selected)}\\']');if(b)b.click();}, 100);" style="margin-top:12px;padding:7px 14px;border-radius:9999px;background:rgba(255,59,59,0.15);border:1px solid rgba(255,59,59,0.4);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;">Delete match</button>` : ''}
             </div>
-            <div style="font-size:12px;color:var(--ink-2);">MOTM: <strong>${esc(m.motm || '—')}</strong></div>
-            <div style="font-size:11px;color:var(--mute);margin-top:6px;">${playerCount} player scores</div>
-          </div>`;
-        }).join('')}
+          </div>
+
+          <!-- Tabs -->
+          <div style="display:flex;gap:4px;padding:4px;border-radius:9999px;background:var(--glass);border:1px solid var(--line);margin-bottom:14px;width:fit-content;">
+            ${[['batting','Batting',batters.length],['bowling','Bowling',bowlers.length],['fielding','Fielding',fielders.length]].map(([k,l,n]) => `
+              <button onclick="window._cdMatchTab='${k}';CD.render();" style="padding:7px 14px;border-radius:9999px;background:${selectedTab===k?'linear-gradient(180deg,var(--pink-2),var(--pink))':'transparent'};border:none;color:${selectedTab===k?'#fff':'var(--mute)'};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">${l} · ${n}</button>
+            `).join('')}
+          </div>
+
+          <!-- Stat table -->
+          <div style="border-radius:14px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(24px);border:1px solid var(--line-2);overflow:hidden;">
+            ${selectedTab === 'batting' ? CD._matchBattingTable(batters, ownerMap) :
+              selectedTab === 'bowling' ? CD._matchBowlingTable(bowlers, ownerMap) :
+              CD._matchFieldingTable(fielders, ownerMap)}
+          </div>
+        </section>
       </div>
     `;
   };
 
+  CD._matchBattingTable = (batters, ownerMap) => {
+    if(!batters.length) return `<div style="padding:40px;text-align:center;color:var(--mute);">No batting performances recorded.</div>`;
+    return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:rgba(0,0,0,0.2);">
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Player</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Owner</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">R</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">B</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">4s</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">6s</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">SR</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Pts</th>
+      </tr></thead><tbody>
+      ${batters.map(p => {
+        const m = (p.breakdown||'').match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x×]4)?(?:\s+(\d+)[x×]6)?/);
+        const r = m?+m[1]:0, b = m?+m[2]:0, f = m?(+(m[3]||0)):0, s = m?(+(m[4]||0)):0;
+        const sr = b>0 ? ((r/b)*100).toFixed(1) : '—';
+        const owner = ownerMap[(p.name||'').toLowerCase().trim()] || '';
+        return `<tr style="border-top:1px solid var(--line);">
+          <td style="padding:10px 14px;"><div style="display:flex;align-items:center;gap:8px;">${CD.Avatar({name:p.name,size:24})}<span style="font-weight:600;">${esc(p.name)}</span>${p.duck?' <span style="color:var(--red);font-size:10px;font-weight:700;">DUCK</span>':''}</div></td>
+          <td style="padding:10px 14px;color:${owner?'var(--ink-2)':'var(--mute)'};font-size:12px;">${esc(owner||'—')}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);font-weight:700;">${r}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);color:var(--mute);">${b}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);">${f}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);">${s}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);color:var(--ink-2);">${sr}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--display);font-size:17px;font-weight:800;color:${(p.pts||0)>0?'var(--lime)':(p.pts||0)<0?'var(--red)':'var(--mute)'};">${(p.pts||0)>=0?'+':''}${Math.round(p.pts||0)}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+  };
+  CD._matchBowlingTable = (bowlers, ownerMap) => {
+    if(!bowlers.length) return `<div style="padding:40px;text-align:center;color:var(--mute);">No bowling performances recorded.</div>`;
+    return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:rgba(0,0,0,0.2);">
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Player</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Owner</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Ov</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">R</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">W</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Eco</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Pts</th>
+      </tr></thead><tbody>
+      ${bowlers.map(p => {
+        const m = (p.breakdown||'').match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
+        const w = m?+m[1]:0, ov = m?+m[2]:0, r = m?(+(m[3]||0)):0;
+        const eco = ov>0 ? (r/ov).toFixed(2) : '—';
+        const owner = ownerMap[(p.name||'').toLowerCase().trim()] || '';
+        return `<tr style="border-top:1px solid var(--line);">
+          <td style="padding:10px 14px;"><div style="display:flex;align-items:center;gap:8px;">${CD.Avatar({name:p.name,size:24})}<span style="font-weight:600;">${esc(p.name)}</span></div></td>
+          <td style="padding:10px 14px;color:${owner?'var(--ink-2)':'var(--mute)'};font-size:12px;">${esc(owner||'—')}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);">${ov.toFixed(1)}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);color:var(--mute);">${r}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);font-weight:700;">${w}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);color:var(--ink-2);">${eco}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--display);font-size:17px;font-weight:800;color:${(p.pts||0)>0?'var(--lime)':(p.pts||0)<0?'var(--red)':'var(--mute)'};">${(p.pts||0)>=0?'+':''}${Math.round(p.pts||0)}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+  };
+  CD._matchFieldingTable = (fielders, ownerMap) => {
+    if(!fielders.length) return `<div style="padding:40px;text-align:center;color:var(--mute);">No fielding contributions recorded.</div>`;
+    return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:rgba(0,0,0,0.2);">
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Player</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Owner</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">C</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">St</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">RO</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Pts</th>
+      </tr></thead><tbody>
+      ${fielders.map(p => {
+        const m = (p.breakdown||'').match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
+        const c = m?+m[1]:0, s = m?+m[2]:0, ro = m?+m[3]:0;
+        const owner = ownerMap[(p.name||'').toLowerCase().trim()] || '';
+        return `<tr style="border-top:1px solid var(--line);">
+          <td style="padding:10px 14px;"><div style="display:flex;align-items:center;gap:8px;">${CD.Avatar({name:p.name,size:24})}<span style="font-weight:600;">${esc(p.name)}</span></div></td>
+          <td style="padding:10px 14px;color:${owner?'var(--ink-2)':'var(--mute)'};font-size:12px;">${esc(owner||'—')}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);font-weight:${c>0?700:400};">${c}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);font-weight:${s>0?700:400};">${s}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--mono);font-weight:${ro>0?700:400};">${ro}</td>
+          <td style="padding:10px 14px;text-align:right;font-family:var(--display);font-size:17px;font-weight:800;color:${(p.pts||0)>0?'var(--lime)':'var(--mute)'};">${(p.pts||0)>=0?'+':''}${Math.round(p.pts||0)}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+  };
+
+  // Schedule — IPL 2026 70-match fixture list
   CD.renderSchedule = () => {
-    return `<div class="cd-glass-2" style="padding:32px;border-radius:22px;background:var(--glass-2);border:1px solid var(--line-2);text-align:center;">
-      <div style="margin:0 auto 12px;width:56px;height:56px;border-radius:50%;background:rgba(255,200,61,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);">${I('cal',28)}</div>
-      <div class="ed" style="font-size:32px;">IPL <span class="ed-i" style="color:var(--gold);">schedule</span></div>
-      <p style="margin-top:8px;color:var(--ink-2);">View upcoming and completed IPL fixtures.</p>
-    </div>`;
+    const schedule = window.IPL_SCHEDULE || [];
+    const rs = window.roomState || {};
+    const matches = rs.matches || {};
+    if(!schedule.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div class="ed" style="font-size:22px;">Schedule loading…</div></div>`;
+
+    // Today's date (Apr 23, 2026 format)
+    const today = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const todayStr = (String(today.getDate()).padStart(2,'0')) + ' ' + months[today.getMonth()];
+
+    // Group by date
+    const byDate = {};
+    schedule.forEach(m => { if(!byDate[m.date]) byDate[m.date] = []; byDate[m.date].push(m); });
+
+    // Build played-match lookup (fuzzy match label)
+    const played = {};
+    Object.values(matches).forEach(m => {
+      const lab = (m.label||'').toLowerCase();
+      // Extract team pairs like "csk vs mi"
+      const match = lab.match(/([A-Z]{2,4})\s*vs?\s*([A-Z]{2,4})/i);
+      if(match) played[(match[1]+':'+match[2]).toUpperCase()] = m;
+    });
+
+    const parseDateForSort = (dStr) => {
+      const [day, mon] = dStr.split(' ');
+      const monIdx = months.indexOf(mon);
+      return (monIdx * 100) + (+day);
+    };
+
+    const sortedDates = Object.keys(byDate).sort((a,b) => parseDateForSort(a) - parseDateForSort(b));
+
+    return `
+      <div style="padding:16px 20px;border-radius:14px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:18px;">
+        <div style="font-size:10px;color:var(--mute);letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">IPL 2026</div>
+        <h2 class="ed" style="font-size:32px;margin-top:2px;">Season <span class="ed-i" style="color:var(--gold);">schedule</span></h2>
+        <div style="font-size:12px;color:var(--mute);margin-top:6px;">${schedule.length} matches · 10 teams</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        ${sortedDates.map(d => {
+          const isToday = d === todayStr;
+          const dayMatches = byDate[d];
+          return `
+            <div style="border-radius:14px;background:${isToday?'linear-gradient(135deg,rgba(255,45,135,0.12),rgba(46,91,255,0.10))':'var(--glass)'};border:1px solid ${isToday?'rgba(255,45,135,0.35)':'var(--line)'};backdrop-filter:blur(20px);overflow:hidden;">
+              <div style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="font-family:var(--display);font-size:20px;font-weight:800;color:${isToday?'var(--pink)':'var(--ink)'};letter-spacing:0.02em;">${esc(d)}</div>
+                  ${isToday ? CD.Pill({tone:'pink', children: CD.LiveDot() + ' TODAY'}) : ''}
+                </div>
+                <div style="font-size:11px;color:var(--mute);">${dayMatches.length} match${dayMatches.length>1?'es':''}</div>
+              </div>
+              <div style="padding:12px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
+                ${dayMatches.map(m => {
+                  const playedKey = (m.t1+':'+m.t2).toUpperCase();
+                  const playedKey2 = (m.t2+':'+m.t1).toUpperCase();
+                  const result = played[playedKey] || played[playedKey2];
+                  const [c1a, c2a] = TEAM_COLORS[m.t1] || ['#444','#222'];
+                  const [c1b, c2b] = TEAM_COLORS[m.t2] || ['#444','#222'];
+                  return `<div style="padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--line);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,${c1a},${c2a});box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);"></div>
+                        <span style="font-family:var(--display);font-weight:800;font-size:13px;">${esc(m.t1)}</span>
+                      </div>
+                      <span style="font-size:10px;color:var(--mute);font-style:italic;">vs</span>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-family:var(--display);font-weight:800;font-size:13px;">${esc(m.t2)}</span>
+                        <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,${c1b},${c2b});box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);"></div>
+                      </div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mute);margin-top:6px;">
+                      <span>Match ${m.sr}</span>
+                      <span>${esc(m.time||'')} · ${esc(m.city||'')}</span>
+                    </div>
+                    ${result ? `<div style="margin-top:6px;font-size:10px;">${CD.Pill({tone:'lime', style:'font-size:9px;padding:2px 7px;', children:'W: ' + esc(result.winner||'?')})}</div>` : ''}
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
   };
 
   CD.renderTrades = () => {
