@@ -3893,6 +3893,11 @@
     </div>`;
   let _lastRenderedView = null;
   let _lastRenderedSub = null;
+  // Room-nav / sub tracker for conditional sub-tab transitions (CSS-only).
+  // These only trigger a sub-enter class when the user actively switches tabs —
+  // passive re-renders (Firebase syncs, resize) do not re-animate.
+  let _lastRoomNav = null;
+  let _lastRoomSub = null;
   CD.render = () => {
     const r = document.getElementById('cd-root');
     if(!r) return;
@@ -3943,6 +3948,23 @@
       _viewCls += ' cd-enter-admin-sub';
     }
     r.innerHTML = `<div class="${_viewCls}">${html}</div>`;
+    // Tasteful per-sub-tab transition: only mark `.cd-sub-enter` on the
+    // tab-content wrapper when the user actively switched nav/sub — this
+    // keeps passive re-renders quiet. Uses rAF so the class lands after
+    // the browser commits the innerHTML, letting the animation fire fresh.
+    const _curNav = CD.state.activeNav;
+    const _curSub = CD.state.activeSub;
+    const _subOrNavChanged = (viewKey === 'room') && (viewChangedFromRender || _curNav !== _lastRoomNav || _curSub !== _lastRoomSub);
+    _lastRoomNav = _curNav;
+    _lastRoomSub = _curSub;
+    if(_subOrNavChanged){
+      try {
+        requestAnimationFrame(() => {
+          const tc = document.getElementById('cd-tab-content');
+          if(tc) tc.classList.add('cd-sub-enter');
+        });
+      } catch(e){ /* rAF unavailable — silently skip, baseline fade still runs */ }
+    }
     // Restore captured form state (values + focus + selection).
     CD._restoreFormState(_formSnap);
     // (Re-)wire the delegate listeners; cheap no-op if already wired.
@@ -4178,25 +4200,226 @@
   }
 })();
 
-/* Animations */
+/* Animations — tab-specialised transitions. CSS-only, scoped to #cd-root. */
 (function(){
   const css = `
+    /* ── Legacy / shared keyframes ─────────────────────────────── */
     @keyframes cd-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,45,135,0.7); } 70% { box-shadow: 0 0 0 8px rgba(255,45,135,0); } }
     @keyframes cd-ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
     @keyframes cd-fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
     @keyframes cd-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     @keyframes cd-shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
     @keyframes cd-splash-pulse { 0%,100%{opacity:0.55;transform:scale(1);} 50%{opacity:1;transform:scale(1.04);} }
-    @keyframes cd-view-in { 0%{opacity:0;} 100%{opacity:1;} }
-    @keyframes cd-sub-in  { 0%{opacity:0;transform:translateY(4px);} 100%{opacity:1;transform:translateY(0);} }
-    @keyframes cd-modal-in { 0%{opacity:0;transform:scale(0.97);} 100%{opacity:1;transform:scale(1);} }
     .cd-splash-logo { animation: cd-splash-pulse 1.2s ease-in-out infinite; will-change: opacity, transform; }
-    .cd-view-enter { animation: cd-view-in 180ms ease-out both; }
+
+    /* ── View-level transitions ────────────────────────────────── */
+    @keyframes cd-view-in { 0%{opacity:0;} 100%{opacity:1;} }
+    /* Dashboard → Room: "stepping into the stadium" */
+    @keyframes cd-enter-room {
+      0%   { opacity: 0; transform: scale(0.97) translateY(8px); }
+      60%  { opacity: 1; }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    /* Auth → Dashboard: "doors opening" with blur unblur */
+    @keyframes cd-enter-dashboard {
+      0%   { opacity: 0; transform: translateY(-6px) scale(1.01); filter: blur(6px); }
+      55%  { filter: blur(0); }
+      100% { opacity: 1; transform: none; filter: blur(0); }
+    }
+    /* Room → Dashboard: faster reverse */
+    @keyframes cd-enter-dashboard-back {
+      0%   { opacity: 0; transform: scale(1.02); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes cd-enter-admin { 0%{opacity:0;} 100%{opacity:1;} }
+    @keyframes cd-enter-auth  { 0%{opacity:0;transform:translateY(6px);} 100%{opacity:1;transform:translateY(0);} }
+
+    .cd-view { will-change: opacity, transform, filter; }
+    .cd-view-enter                { animation: cd-view-in          180ms ease-out both; }
+    /* Variant classes — these override .cd-view-enter via the combined-class selectors below. */
+    .cd-enter-room                { animation: cd-enter-room       220ms cubic-bezier(0.34, 1.28, 0.64, 1) both; transform-origin: center 40%; }
+    .cd-enter-dashboard           { animation: cd-enter-dashboard  260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .cd-enter-dashboard-back      { animation: cd-enter-dashboard-back 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .cd-enter-admin               { animation: cd-enter-admin      140ms ease-out both; }
+    .cd-enter-admin-sub           { animation: cd-enter-admin      140ms ease-out both; }
+    .cd-enter-auth                { animation: cd-enter-auth       220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    /* Explicit override when the generic class is also present. */
+    .cd-view-enter.cd-enter-room            { animation: cd-enter-room            220ms cubic-bezier(0.34, 1.28, 0.64, 1) both; }
+    .cd-view-enter.cd-enter-dashboard       { animation: cd-enter-dashboard       260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .cd-view-enter.cd-enter-dashboard-back  { animation: cd-enter-dashboard-back  180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .cd-view-enter.cd-enter-admin           { animation: cd-enter-admin           140ms ease-out both; }
+    .cd-view-enter.cd-enter-auth            { animation: cd-enter-auth            220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    /* ── Sub-tab transitions (scoped to #cd-tab-content) ───────── */
+    @keyframes cd-sub-in          { 0%{opacity:0;transform:translateY(4px);} 100%{opacity:1;transform:translateY(0);} }
+    @keyframes cd-sub-slide-right { 0%{opacity:0;transform:translateX(22px);} 100%{opacity:1;transform:translateX(0);} }
+    @keyframes cd-sub-slide-left  { 0%{opacity:0;transform:translateX(-22px);} 100%{opacity:1;transform:translateX(0);} }
+    @keyframes cd-sub-fade-rise   { 0%{opacity:0;transform:translateY(8px) scale(0.995);} 100%{opacity:1;transform:translateY(0) scale(1);} }
+    @keyframes cd-sub-flip {
+      0%   { opacity: 0; transform: perspective(1000px) rotateX(-8deg) translateY(6px); }
+      100% { opacity: 1; transform: perspective(1000px) rotateX(0) translateY(0); }
+    }
+
+    /* Default: restrained fade on every render (matches prior behavior). */
+    #cd-root #cd-tab-content                                                 { animation: cd-sub-in 140ms ease-out both; will-change: opacity, transform; transform-origin: top center; }
+    /* Variant sub-tab transitions ONLY fire on actual sub/nav switches — gated by .cd-sub-enter. */
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="setup"]                            { animation: cd-sub-in 140ms ease-out both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="auction"]                          { animation: cd-sub-fade-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="squad"]                            { animation: cd-sub-slide-right 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"]                           { animation: cd-sub-in 180ms ease-out both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"]      { animation: cd-sub-in 180ms ease-out both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] { animation: cd-sub-slide-left 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="matches"]                          { animation: cd-sub-flip 240ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top center; }
+
+    /* ── Stagger / waterfall keyframes & targets ────────────────── */
+    @keyframes cd-stagger-fade  { 0%{opacity:0;transform:translateY(6px);} 100%{opacity:1;transform:translateY(0);} }
+    @keyframes cd-stagger-scale { 0%{opacity:0;transform:scale(0.95);} 100%{opacity:1;transform:scale(1);} }
+    @keyframes cd-stagger-left  { 0%{opacity:0;transform:translateX(-12px);} 100%{opacity:1;transform:translateX(0);} }
+
+    /* League → Leaderboard: waterfall team rows. 20ms per row, capped ~400ms.
+       Only fires on actual nav/sub change (gated by .cd-sub-enter). */
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div {
+      animation: cd-stagger-fade 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(1)  { animation-delay:   0ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(2)  { animation-delay:  20ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(3)  { animation-delay:  40ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(4)  { animation-delay:  60ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(5)  { animation-delay:  80ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(6)  { animation-delay: 100ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(7)  { animation-delay: 120ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(8)  { animation-delay: 140ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(9)  { animation-delay: 160ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(10) { animation-delay: 180ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(n+11) { animation-delay: 200ms; }
+
+    /* Players → Pool: grid/table items fade+scale, 8ms per row, cap ~320ms.
+       Gated so the stagger only plays on an actual Pool tab switch, not on every re-render. */
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr {
+      animation: cd-stagger-scale 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      transform-origin: center left;
+    }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(1)  { animation-delay:   0ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(2)  { animation-delay:   8ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(3)  { animation-delay:  16ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(4)  { animation-delay:  24ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(5)  { animation-delay:  32ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(6)  { animation-delay:  40ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(7)  { animation-delay:  48ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(8)  { animation-delay:  56ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(9)  { animation-delay:  64ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(10) { animation-delay:  72ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(11) { animation-delay:  80ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(12) { animation-delay:  88ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(13) { animation-delay:  96ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(14) { animation-delay: 104ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(15) { animation-delay: 112ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(16) { animation-delay: 120ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(17) { animation-delay: 128ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(18) { animation-delay: 136ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(19) { animation-delay: 144ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(20) { animation-delay: 152ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+21) { animation-delay: 200ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+31) { animation-delay: 260ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+41) { animation-delay: 320ms; }
+
+    /* Players → Analytics: rows slide in from the left with stagger (on tab switch only). */
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr {
+      animation: cd-stagger-left 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(1)  { animation-delay:   0ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(2)  { animation-delay:  14ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(3)  { animation-delay:  28ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(4)  { animation-delay:  42ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(5)  { animation-delay:  56ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(6)  { animation-delay:  70ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(7)  { animation-delay:  84ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(8)  { animation-delay:  98ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(9)  { animation-delay: 112ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(10) { animation-delay: 126ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(n+11) { animation-delay: 140ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(n+21) { animation-delay: 220ms; }
+
+    /* ── Pill / sub-tab underline indicator ─────────────────────── */
+    @keyframes cd-subtab-underline {
+      0%   { transform: scaleX(0); opacity: 0.55; }
+      100% { transform: scaleX(1); opacity: 1; }
+    }
+    #cd-root .cd-subtab-bar { position: relative; }
+    #cd-root .cd-subtab-bar button { transition: color 160ms ease-out; }
+    #cd-root .cd-subtab-bar button[data-sub-active="1"]::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -1px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--pink, #ff2d87), var(--electric, #2e5bff));
+      transform-origin: left center;
+      animation: cd-subtab-underline 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    /* ── Modal transitions (backdrop + box) ─────────────────────── */
+    @keyframes cd-modal-in {
+      0%   { opacity: 0; transform: scale(0.94) translateY(8px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes cd-modal-backdrop-in { 0%{opacity:0;} 100%{opacity:1;} }
+    .cd-modal-enter { animation: cd-modal-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .modal-bg.open, .modal-bg.active { animation: cd-modal-backdrop-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .modal-bg.open > .modal,
+    .modal-bg.active > .modal {
+      animation: cd-modal-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+      will-change: transform, opacity;
+    }
+
+    /* ── Room card 3D tilt hover (dashboard) ────────────────────── */
+    #cd-root #cd-my-rooms-grid .rc,
+    #cd-root #cd-joined-rooms-grid .rc {
+      transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms ease-out, border-color 200ms ease-out;
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    #cd-root #cd-my-rooms-grid .rc:hover,
+    #cd-root #cd-joined-rooms-grid .rc:hover {
+      transform: perspective(800px) rotateX(4deg) translateY(-3px);
+    }
+
+    /* ── Ticker edge fade-mask ──────────────────────────────────── */
+    #cd-root .cd-ticker-viewport {
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 48px), transparent 100%);
+              mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 48px), transparent 100%);
+    }
+
+    /* Keep legacy helpers around for callers elsewhere. */
     .cd-sub-enter  { animation: cd-sub-in 140ms ease-out both; }
-    .cd-modal-enter{ animation: cd-modal-in 180ms ease-out both; }
-    #cd-tab-content { animation: cd-sub-in 140ms ease-out both; }
+
+    /* ── Reduced-motion: collapse every motion to a single-frame fade ── */
     @media (prefers-reduced-motion: reduce) {
-      .cd-splash-logo, .cd-view-enter, .cd-sub-enter, .cd-modal-enter, #cd-tab-content { animation: none !important; }
+      .cd-splash-logo,
+      .cd-view-enter, .cd-sub-enter, .cd-modal-enter,
+      .cd-enter-room, .cd-enter-dashboard, .cd-enter-dashboard-back,
+      .cd-enter-admin, .cd-enter-admin-sub, .cd-enter-auth, .cd-enter-splash,
+      #cd-root #cd-tab-content,
+      #cd-root #cd-tab-content[data-cd-nav="setup"],
+      #cd-root #cd-tab-content[data-cd-nav="auction"],
+      #cd-root #cd-tab-content[data-cd-nav="squad"],
+      #cd-root #cd-tab-content[data-cd-nav="league"],
+      #cd-root #cd-tab-content[data-cd-nav="matches"],
+      #cd-root #cd-tab-content[data-cd-nav="players"][data-cd-sub="pool"],
+      #cd-root #cd-tab-content[data-cd-nav="players"][data-cd-sub="analytics"],
+      #cd-root #cd-tab-content[data-cd-nav="league"] .cd-league-list > div,
+      #cd-root #cd-tab-content[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr,
+      #cd-root #cd-tab-content[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr,
+      #cd-root .cd-subtab-bar button[data-sub-active="1"]::after,
+      .modal-bg.open, .modal-bg.active,
+      .modal-bg.open > .modal, .modal-bg.active > .modal {
+        animation: cd-view-in 1ms linear both !important;
+      }
+      #cd-root #cd-my-rooms-grid .rc,
+      #cd-root #cd-joined-rooms-grid .rc { transition: none !important; }
+      #cd-root #cd-my-rooms-grid .rc:hover,
+      #cd-root #cd-joined-rooms-grid .rc:hover { transform: none !important; }
     }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
