@@ -5633,3 +5633,85 @@ window.cbzGetImg = cbzGetImg;
 window.cbzPlayerImgId = cbzPlayerImgId;
 window.IPL_TEAM_META = typeof IPL_TEAM_META !== 'undefined' ? IPL_TEAM_META : {};
 window.IPL_SCHEDULE = typeof IPL_SCHEDULE !== 'undefined' ? IPL_SCHEDULE : [];
+
+// ─────────────────────────────────────────────────────────
+// Squad save (used by the CD My Team edit mode).
+// Validates XI/Bench composition and writes to Firebase.
+// Returns { ok: true } on success, or { ok: false, error: "..." }.
+// ─────────────────────────────────────────────────────────
+window.saveSquadCD = async function(xiNames, benchNames){
+  if(!user || !user.uid) return { ok:false, error:'Not signed in' };
+  if(!roomId) return { ok:false, error:'No active room' };
+  if(!myTeamName) return { ok:false, error:'No team registered' };
+  if(roomState && roomState.squadLocked && !isAdmin){
+    return { ok:false, error:'Squad changes are locked by admin' };
+  }
+  const team = roomState?.teams?.[myTeamName];
+  if(!team) return { ok:false, error:'Team not found' };
+  const roster = Array.isArray(team.roster) ? team.roster : (team.roster ? Object.values(team.roster) : []);
+  const allNames = roster.map(function(p){ return p.name || p.n || ''; });
+  // Validate every entry is in the roster
+  const bad = xiNames.concat(benchNames).filter(function(n){ return allNames.indexOf(n) < 0; });
+  if(bad.length) return { ok:false, error:'Unknown player: ' + bad[0] };
+  // Uniqueness across XI + Bench
+  const combined = xiNames.concat(benchNames);
+  if(new Set(combined).size !== combined.length){
+    return { ok:false, error:'A player appears twice in XI/Bench' };
+  }
+  // Targets
+  const xiTarget = Math.min(11, roster.length);
+  const needBench = roster.length > 11;
+  const benchTarget = needBench ? Math.min(5, roster.length - 11) : 0;
+  const msgs = [];
+  if(xiNames.length !== xiTarget) msgs.push('XI needs ' + xiTarget + ' (has ' + xiNames.length + ')');
+  if(needBench && benchNames.length !== benchTarget) msgs.push('Bench needs ' + benchTarget + ' (has ' + benchNames.length + ')');
+  function _pd(n){ return roster.find(function(x){ return (x.name||x.n||'') === n; }) || {}; }
+  function _pr(n){ return (_pd(n).role || _pd(n).r || '').toLowerCase(); }
+  function _po(n){ return !!(_pd(n).isOverseas || _pd(n).o); }
+  function _cb(n){ const r = _pr(n); return r.indexOf('bowler') >= 0 || r.indexOf('all-rounder') >= 0 || r.indexOf('all rounder') >= 0; }
+  function _wk(n){ const r = _pr(n); return r.indexOf('wicketkeeper') >= 0 || r.indexOf('keeper') >= 0; }
+  const xiOs = xiNames.filter(_po).length;
+  const benchOs = benchNames.filter(_po).length;
+  const xiBowl = xiNames.filter(_cb).length;
+  const xiWk = xiNames.filter(_wk).length;
+  const p16Os = xiOs + benchOs;
+  if(p16Os > 6) msgs.push('Playing 16 has ' + p16Os + ' overseas (max 6)');
+  if(xiNames.length === xiTarget && xiTarget >= 5 && xiBowl < 5) msgs.push('XI needs 5+ bowlers/all-rounders (has ' + xiBowl + ')');
+  if(xiNames.length === xiTarget && xiWk < 1) msgs.push('XI needs at least 1 wicketkeeper (has ' + xiWk + ')');
+  if(msgs.length) return { ok:false, error: msgs.join(' · ') };
+  try{
+    await set(ref(db, 'users/' + user.uid + '/squads/auctions/' + roomId), { xi: xiNames, bench: benchNames, savedAt: Date.now() });
+    await update(ref(db, 'auctions/' + roomId + '/teams/' + myTeamName), { squadValid: true, activeSquad: xiNames.concat(benchNames) });
+    return { ok:true };
+  }catch(e){
+    return { ok:false, error: e.message || String(e) };
+  }
+};
+
+// Live validation (no write) — returns the same error messages array so the UI
+// can show inline warnings as players are being moved around.
+window.validateSquadCD = function(xiNames, benchNames){
+  const team = roomState?.teams?.[myTeamName];
+  if(!team) return { ok:false, errors:['No team registered'] };
+  const roster = Array.isArray(team.roster) ? team.roster : (team.roster ? Object.values(team.roster) : []);
+  const xiTarget = Math.min(11, roster.length);
+  const needBench = roster.length > 11;
+  const benchTarget = needBench ? Math.min(5, roster.length - 11) : 0;
+  const errs = [];
+  function _pd(n){ return roster.find(function(x){ return (x.name||x.n||'') === n; }) || {}; }
+  function _pr(n){ return (_pd(n).role || _pd(n).r || '').toLowerCase(); }
+  function _po(n){ return !!(_pd(n).isOverseas || _pd(n).o); }
+  function _cb(n){ const r = _pr(n); return r.indexOf('bowler') >= 0 || r.indexOf('all-rounder') >= 0 || r.indexOf('all rounder') >= 0; }
+  function _wk(n){ const r = _pr(n); return r.indexOf('wicketkeeper') >= 0 || r.indexOf('keeper') >= 0; }
+  if(xiNames.length !== xiTarget) errs.push('XI needs ' + xiTarget + ' (has ' + xiNames.length + ')');
+  if(needBench && benchNames.length !== benchTarget) errs.push('Bench needs ' + benchTarget + ' (has ' + benchNames.length + ')');
+  const xiOs = xiNames.filter(_po).length;
+  const benchOs = benchNames.filter(_po).length;
+  const xiBowl = xiNames.filter(_cb).length;
+  const xiWk = xiNames.filter(_wk).length;
+  const p16Os = xiOs + benchOs;
+  if(p16Os > 6) errs.push('Playing 16 has ' + p16Os + ' overseas (max 6)');
+  if(xiNames.length === xiTarget && xiTarget >= 5 && xiBowl < 5) errs.push('XI needs 5+ bowlers/all-rounders (has ' + xiBowl + ')');
+  if(xiNames.length === xiTarget && xiWk < 1) errs.push('XI needs at least 1 wicketkeeper (has ' + xiWk + ')');
+  return { ok: errs.length === 0, errors: errs };
+};

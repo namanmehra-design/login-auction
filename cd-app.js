@@ -124,7 +124,9 @@
     swap: '<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>',
     chart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
-    coins: '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/>'
+    coins: '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/>',
+    edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>',
+    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>'
   };
   CD.Icon = (name, size = 16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
   const I = CD.Icon;
@@ -156,7 +158,10 @@
     activeSub: 'live',      // current sub-tab
     isMobile: window.innerWidth < 900,
     showCreate: false,
-    cbzMatches: []          // live ticker data
+    cbzMatches: [],         // live ticker data
+    editingSquad: false,    // My Team — edit mode on/off
+    squadDraft: null,       // { xi: [names], bench: [names], reserves: [names] }
+    squadSaving: false      // Save-in-flight flag
   };
   window.addEventListener('resize', () => {
     const wasMobile = CD.state.isMobile;
@@ -966,8 +971,15 @@
     const spent = roster.reduce((s,p) => s + (p.soldPrice || 0), 0);
     const overseas = roster.filter(p => p.isOverseas || p.o).length;
     const releaseLocked = !!rs.releaseLocked;
+    const squadLocked = !!rs.squadLocked;
+    const isAdmin = !!window.isAdmin;
     const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
     const xiMult = parseFloat(rs.xiMultiplier) || 1;
+
+    // If user is in edit mode, render the edit UI instead of the view UI.
+    if(CD.state.editingSquad && CD.state.squadDraft){
+      return CD._renderMyTeamEdit(t, roster, xiMult);
+    }
 
     // Split roster into XI (first 11 or activeSquad) / Bench (next 5) / Reserves
     const activeSq = Array.isArray(t.activeSquad) ? t.activeSquad : null;
@@ -981,6 +993,7 @@
       benchNames = rosterNames.slice(11, 16);
     }
     const reserveNames = rosterNames.filter(n => !xiNames.includes(n) && !benchNames.includes(n));
+    const canEdit = !squadLocked || isAdmin;
 
     const findP = (name) => roster.find(p => (p.name||p.n||'') === name) || null;
     const xiPlayers = xiNames.map(findP).filter(Boolean);
@@ -1060,9 +1073,11 @@
             <div style="font-size:10px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Playing XI${xiMult !== 1 ? ' · ' + xiMult + '× multiplier' : ''}</div>
             <div class="ed" style="font-size:32px;line-height:1;margin-top:3px;">${esc(t.name)}</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             ${releaseLocked && !isSuper ? CD.Pill({tone:'red', children:'Releases locked'}) : ''}
+            ${squadLocked && !isAdmin ? CD.Pill({tone:'pink', children:'Squad locked'}) : ''}
             ${CD.Pill({tone:'lime', children: CD.LiveDot() + ' XI ' + (xiTotal>=0?'+':'') + Math.round(xiTotal)})}
+            ${canEdit && roster.length > 0 ? `<button onclick="CD.startEditSquad()" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(46,91,255,0.35);">${I('edit',12)} Edit squad</button>` : ''}
           </div>
         </div>
 
@@ -1171,6 +1186,257 @@
         ${(!releaseLocked || isSuper) ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
       </div>
     </div>`;
+  };
+
+  // ───────────────────────────────────────────────────────────────
+  // MY TEAM — Edit squad mode (click-to-move between XI/Bench/Reserves)
+  // ───────────────────────────────────────────────────────────────
+  CD.startEditSquad = () => {
+    const rs = window.roomState || {};
+    const myTeam = window.myTeamName || '';
+    const t = rs.teams?.[myTeam];
+    if(!t){ window.showAlert?.('No team registered.'); return; }
+    if(rs.squadLocked && !window.isAdmin){
+      window.showAlert?.('Squad changes are locked by admin.');
+      return;
+    }
+    const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
+    const allNames = roster.map(p => p.name || p.n || '').filter(Boolean);
+    const activeSq = Array.isArray(t.activeSquad) ? t.activeSquad : null;
+    // Seed draft from activeSquad if present, otherwise from roster order.
+    const xi = (activeSq && activeSq.length
+      ? activeSq.slice(0, 11)
+      : allNames.slice(0, Math.min(11, allNames.length))
+    ).filter(n => allNames.indexOf(n) >= 0);
+    const bench = (activeSq && activeSq.length
+      ? activeSq.slice(11, 16)
+      : allNames.slice(11, 16)
+    ).filter(n => allNames.indexOf(n) >= 0 && xi.indexOf(n) < 0);
+    const assigned = new Set(xi.concat(bench));
+    const reserves = allNames.filter(n => !assigned.has(n));
+    CD.state.squadDraft = { xi, bench, reserves };
+    CD.state.editingSquad = true;
+    CD.render();
+  };
+
+  CD.cancelEditSquad = () => {
+    CD.state.editingSquad = false;
+    CD.state.squadDraft = null;
+    CD.render();
+  };
+
+  // Delegated click handler — reads data attrs so player names with
+  // apostrophes don't break the inline onclick string context.
+  CD.squadMoveFromEl = (el) => {
+    if(!el) return;
+    const name = el.getAttribute('data-name');
+    const dest = el.getAttribute('data-dest');
+    if(name && dest) CD.squadMove(name, dest);
+  };
+
+  // Move a player to a destination section in the working draft.
+  // Respects target-size caps: tapping "XI" when XI is full (11) shows
+  // a shake-flash; user has to drop someone first.
+  CD.squadMove = (name, dest) => {
+    const d = CD.state.squadDraft;
+    if(!d) return;
+    const XI_MAX = 11, BENCH_MAX = 5;
+    const current = d.xi.includes(name) ? 'xi' : d.bench.includes(name) ? 'bench' : 'reserves';
+    if(current === dest) return;
+    if(dest === 'xi' && d.xi.length >= XI_MAX){
+      CD._flashSection('xi');
+      return;
+    }
+    if(dest === 'bench' && d.bench.length >= BENCH_MAX){
+      CD._flashSection('bench');
+      return;
+    }
+    // Remove from current
+    d.xi = d.xi.filter(n => n !== name);
+    d.bench = d.bench.filter(n => n !== name);
+    d.reserves = d.reserves.filter(n => n !== name);
+    // Add to destination (append to keep user ordering stable)
+    if(dest === 'xi') d.xi.push(name);
+    else if(dest === 'bench') d.bench.push(name);
+    else d.reserves.push(name);
+    CD.render();
+  };
+
+  // Flash a section banner red when at-capacity
+  CD._flashSection = (which) => {
+    const el = document.getElementById('cd-squad-cap-' + which);
+    if(!el) return;
+    el.style.animation = 'none';
+    // Force reflow so the animation restarts
+    void el.offsetWidth;
+    el.style.animation = 'cd-shake 0.4s';
+  };
+
+  CD.saveEditSquad = async () => {
+    if(!CD.state.squadDraft) return;
+    if(CD.state.squadSaving) return;
+    if(typeof window.saveSquadCD !== 'function'){
+      window.showAlert?.('Save not available — reload the page.');
+      return;
+    }
+    CD.state.squadSaving = true;
+    CD.render();
+    const { xi, bench } = CD.state.squadDraft;
+    const result = await window.saveSquadCD(xi, bench);
+    CD.state.squadSaving = false;
+    if(result?.ok){
+      CD.state.editingSquad = false;
+      CD.state.squadDraft = null;
+      window.showAlert?.('Squad saved!', 'ok');
+    } else {
+      window.showAlert?.('Save failed: ' + (result?.error || 'Unknown error'));
+    }
+    CD.render();
+  };
+
+  CD._renderMyTeamEdit = (t, roster, xiMult) => {
+    const d = CD.state.squadDraft;
+    const saving = !!CD.state.squadSaving;
+    const validate = typeof window.validateSquadCD === 'function'
+      ? window.validateSquadCD(d.xi, d.bench)
+      : { ok: true, errors: [] };
+    const XI_MAX = Math.min(11, roster.length);
+    const BENCH_MAX = roster.length > 11 ? Math.min(5, roster.length - 11) : 0;
+
+    const findP = (name) => roster.find(p => (p.name || p.n || '') === name) || null;
+
+    // Role/OS helpers for the live counter chips
+    const roleOf = (p) => {
+      const r = (p.role || p.r || '').toLowerCase();
+      if(r.includes('wicket') || r.includes('keep')) return 'WK';
+      if(r.includes('bowl')) return 'BOWL';
+      if(r.includes('all')) return 'AR';
+      return 'BAT';
+    };
+    const xiByRole = { WK:0, BAT:0, AR:0, BOWL:0 };
+    d.xi.forEach(n => { const p = findP(n); if(p) xiByRole[roleOf(p)]++; });
+    const xiOs = d.xi.filter(n => { const p = findP(n); return p && (p.isOverseas || p.o); }).length;
+    const benchOs = d.bench.filter(n => { const p = findP(n); return p && (p.isOverseas || p.o); }).length;
+    const totalOs = xiOs + benchOs;
+
+    const counterChip = (label, count, max, tone) => {
+      const ok = count === max || (max === 0 && count >= 0);
+      return `<div style="padding:8px 14px;border-radius:9999px;background:${ok ? 'rgba(182,255,60,0.16)' : 'rgba(255,255,255,0.06)'};border:1px solid ${ok ? 'rgba(182,255,60,0.4)' : 'var(--line)'};display:inline-flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${ok ? 'var(--lime)' : 'var(--mute)'};">${label}</span>
+        <span style="font-family:var(--display);font-size:15px;font-weight:800;color:${ok ? 'var(--lime)' : 'var(--ink)'};">${count}${max ? '/' + max : ''}</span>
+      </div>`;
+    };
+
+    const renderEditableCard = (name) => {
+      const p = findP(name);
+      if(!p) return '';
+      const code = teamCode(p.iplTeam || p.t);
+      const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
+      const isOs = !!(p.isOverseas || p.o);
+      const rShort = roleOf(p);
+      const rTone = rShort === 'BOWL' ? 'pink' : rShort === 'WK' ? 'gold' : rShort === 'AR' ? 'lime' : 'electric';
+      const current = d.xi.includes(name) ? 'xi' : d.bench.includes(name) ? 'bench' : 'reserves';
+      const btn = (dest, label) => {
+        const active = current === dest;
+        const disabled = dest === 'bench' && BENCH_MAX === 0;
+        const bg = active
+          ? (dest === 'xi' ? 'linear-gradient(180deg,var(--electric-2),var(--electric))'
+             : dest === 'bench' ? 'linear-gradient(180deg,var(--lime-2,var(--lime)),var(--lime))'
+             : 'var(--glass-2,rgba(255,255,255,0.1))')
+          : 'rgba(255,255,255,0.04)';
+        const color = active
+          ? (dest === 'bench' ? '#000' : dest === 'xi' ? '#fff' : 'var(--ink-2)')
+          : (disabled ? 'rgba(255,255,255,0.2)' : 'var(--mute)');
+        const border = active
+          ? (dest === 'xi' ? 'rgba(46,91,255,0.6)' : dest === 'bench' ? 'rgba(182,255,60,0.6)' : 'var(--line-2)')
+          : 'var(--line)';
+        return `<button data-name="${esc(name)}" data-dest="${dest}" onclick="CD.squadMoveFromEl(this)" ${disabled ? 'disabled' : ''} style="flex:1;padding:6px 0;border-radius:9999px;background:${bg};border:1px solid ${border};color:${color};font-size:10.5px;font-weight:700;cursor:${disabled ? 'not-allowed' : 'pointer'};opacity:${disabled ? 0.45 : 1};letter-spacing:0.04em;">${label}</button>`;
+      };
+
+      return `<div style="padding:12px;border-radius:14px;background:linear-gradient(135deg,${c1}22,${c2}10);border:1px solid var(--line);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          ${CD.Avatar({team: p.iplTeam || p.t, name, size: 38})}
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:13px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(name)}</div>
+            <div style="display:flex;gap:3px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              ${CD.Pill({style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: esc(code)})}
+              ${CD.Pill({tone: rTone, style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: rShort})}
+              ${isOs ? CD.Pill({tone:'gold', style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: '★ OS'}) : ''}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4px;">
+          ${btn('xi','XI')}
+          ${btn('bench','Bench')}
+          ${btn('reserves','Reserve')}
+        </div>
+      </div>`;
+    };
+
+    const section = (title, names, badge, capId, maxCap) => {
+      const count = names.length;
+      const full = maxCap > 0 && count >= maxCap;
+      return `
+        <div id="cd-squad-cap-${capId}" style="border-radius:18px;background:var(--glass);border:1px solid ${full ? 'rgba(182,255,60,0.35)' : 'var(--line)'};backdrop-filter:blur(20px);margin-bottom:16px;overflow:hidden;">
+          <div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="ed" style="font-size:20px;">${title}</div>
+              ${badge}
+            </div>
+            <div style="font-family:var(--display);font-weight:800;font-size:15px;color:${full ? 'var(--lime)' : 'var(--mute)'};">${count}${maxCap ? '/' + maxCap : ''}</div>
+          </div>
+          <div style="padding:14px 18px;">
+            ${names.length
+              ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">${names.map(renderEditableCard).join('')}</div>`
+              : `<div style="padding:18px;text-align:center;font-size:12px;color:var(--mute);border:1px dashed var(--line-2);border-radius:12px;">Empty — move players here by tapping the section button on any card.</div>`}
+          </div>
+        </div>
+      `;
+    };
+
+    const xiMultBadge = xiMult !== 1 ? CD.Pill({tone:'gold', children: xiMult + '× multiplier'}) : '';
+    const benchMultBadge = CD.Pill({style:'font-size:10px;', children:'1× multiplier'});
+    const resBadge = CD.Pill({style:'font-size:10px;', children:'0× · no points'});
+
+    const xiOk = d.xi.length === XI_MAX;
+    const benchOk = (BENCH_MAX === 0) || (d.bench.length === BENCH_MAX);
+
+    const errs = validate.errors || [];
+
+    return `
+      <!-- Sticky edit header -->
+      <div style="position:sticky;top:0;z-index:20;padding:14px 16px;border-radius:16px;background:var(--glass-2,rgba(22,24,38,0.92));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:16px;box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <div>
+            <div style="font-size:10px;color:var(--pink);letter-spacing:0.2em;text-transform:uppercase;font-weight:800;">Edit squad</div>
+            <div class="ed" style="font-size:24px;margin-top:2px;">${esc(t.name)}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="CD.cancelEditSquad()" ${saving ? 'disabled' : ''} style="padding:9px 16px;border-radius:9999px;background:transparent;border:1px solid var(--line-2);color:var(--ink-2);font-size:12px;font-weight:600;cursor:${saving ? 'not-allowed' : 'pointer'};opacity:${saving ? 0.5 : 1};">Cancel</button>
+            <button onclick="CD.saveEditSquad()" ${saving || !validate.ok ? 'disabled' : ''} style="padding:9px 18px;border-radius:9999px;background:${validate.ok ? 'linear-gradient(180deg,var(--lime-2,var(--lime)),var(--lime))' : 'rgba(255,255,255,0.08)'};border:none;color:${validate.ok ? '#000' : 'var(--mute)'};font-size:12px;font-weight:800;cursor:${(saving || !validate.ok) ? 'not-allowed' : 'pointer'};display:inline-flex;align-items:center;gap:6px;opacity:${saving ? 0.7 : 1};">${I('save',12)} ${saving ? 'Saving…' : 'Save squad'}</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${counterChip('XI', d.xi.length, XI_MAX, 'electric')}
+          ${BENCH_MAX ? counterChip('Bench', d.bench.length, BENCH_MAX, 'lime') : ''}
+          ${counterChip('Reserves', d.reserves.length, 0, 'mute')}
+          ${counterChip('OS', totalOs, 6, 'gold')}
+          ${xiByRole.WK ? CD.Pill({tone:'gold', children: 'WK ' + xiByRole.WK}) : CD.Pill({tone:'red', children:'Need WK'})}
+          ${xiByRole.BOWL + xiByRole.AR >= 5 ? CD.Pill({tone:'lime', children: 'BOWL+AR ' + (xiByRole.BOWL + xiByRole.AR)}) : CD.Pill({tone:'red', children:'Need 5+ BOWL/AR'})}
+        </div>
+        ${errs.length ? `
+          <div style="margin-top:10px;padding:10px 14px;border-radius:10px;background:rgba(255,59,59,0.1);border:1px solid rgba(255,59,59,0.3);font-size:12px;color:#FF8080;">
+            <strong style="font-weight:800;letter-spacing:0.08em;text-transform:uppercase;font-size:10px;">Needs fixing</strong><br/>
+            ${errs.map(e => '• ' + esc(e)).join('<br/>')}
+          </div>
+        ` : `<div style="margin-top:10px;padding:8px 14px;border-radius:10px;background:rgba(182,255,60,0.08);border:1px solid rgba(182,255,60,0.25);font-size:12px;color:var(--lime);">${I('check',12)} Squad is valid — tap Save to lock it in.</div>`}
+        <div style="margin-top:8px;font-size:11px;color:var(--mute);">Tap <strong style="color:var(--ink-2);">XI / Bench / Reserve</strong> on any card to move the player.</div>
+      </div>
+
+      ${section('Playing XI', d.xi, xiMultBadge, 'xi', XI_MAX)}
+      ${BENCH_MAX ? section('Bench', d.bench, benchMultBadge, 'bench', BENCH_MAX) : ''}
+      ${section('Reserves', d.reserves, resBadge, 'reserves', 0)}
+    `;
   };
 
   // NEW: Player Points by Match — table showing every player's points for every match incl. multiplier
@@ -2907,6 +3173,7 @@
     @keyframes cd-ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
     @keyframes cd-fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
     @keyframes cd-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes cd-shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
