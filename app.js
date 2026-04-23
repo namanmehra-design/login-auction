@@ -3851,11 +3851,23 @@ async function renderSuperAdminPanel(){
  totalMatches=Object.keys(scorecards).length;
 
  // Count matches across all rooms (sample first 5 auction rooms)
- // Update stats
- document.getElementById('sa-total-users').textContent=totalUsers;
- document.getElementById('sa-total-auctions').textContent=Object.keys(allAuctions).length;
- document.getElementById('sa-total-drafts').textContent=Object.keys(allDrafts).length;
- document.getElementById('sa-total-matches').textContent=totalMatches;
+ // Update stats — use the CD stats-only updater when available so it never
+ // touches the scorecard form. Falls back to direct setter for safety.
+ const _saStats = {
+  totalUsers,
+  totalAuctions: Object.keys(allAuctions).length,
+  totalDrafts: Object.keys(allDrafts).length,
+  totalMatches
+ };
+ if(window.CD && typeof window.CD._updateAdminStatsOnly === 'function'){
+  window.CD._updateAdminStatsOnly(_saStats);
+ } else {
+  const _setStat=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v);};
+  _setStat('sa-total-users',    _saStats.totalUsers);
+  _setStat('sa-total-auctions', _saStats.totalAuctions);
+  _setStat('sa-total-drafts',   _saStats.totalDrafts);
+  _setStat('sa-total-matches',  _saStats.totalMatches);
+ }
 
  // Populate scorecard select
  const sel=document.getElementById('saScorecardSelect');

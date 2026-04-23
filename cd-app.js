@@ -328,7 +328,7 @@
   window.addEventListener('resize', () => {
     const wasMobile = CD.state.isMobile;
     CD.state.isMobile = window.innerWidth < 900;
-    if(wasMobile !== CD.state.isMobile) CD.render();
+    if(wasMobile !== CD.state.isMobile) CD.scheduleRender();
   });
 
   // ── PAGE-LEVEL: TICKER ─────────────────────────────────────────
@@ -3729,16 +3729,55 @@
   // Track when the user is actively typing in any CD form so that
   // automatic re-renders (Firebase snapshot storms, poll-diff, ticker
   // updates) defer until the user pauses typing.
+  //
+  // Grace window is a generous 4 seconds — scorecard entry involves
+  // click-tab-type-tab-click patterns where focus leaves briefly.
   CD._userEditingUntil = 0;
-  CD._markUserEditing = () => { CD._userEditingUntil = Date.now() + 2000; };
+  CD._markUserEditing = () => { CD._userEditingUntil = Date.now() + 4000; };
+  // The scorecard form is populated with dynamically-appended row DOMs
+  // (window.addGscBattingRow / addGscBowlingRow / addGscFieldingRow).
+  // Those rows live inside #gscBattingRows / #gscBowlingRows /
+  // #gscFieldingRows containers. An innerHTML wipe of #cd-root destroys
+  // every row — and the static template does NOT re-populate them —
+  // so _captureFormState cannot restore them. Only prevention works.
+  CD._isScorecardFormActive = () => {
+    try {
+      const form = document.getElementById('gscFormBody');
+      if(!form) return false;
+      if(form.style.display === 'none') return false;
+      const bRows = document.getElementById('gscBattingRows');
+      const bwRows = document.getElementById('gscBowlingRows');
+      const fRows = document.getElementById('gscFieldingRows');
+      const hasRows = !!(
+        (bRows && bRows.children.length > 0) ||
+        (bwRows && bwRows.children.length > 0) ||
+        (fRows && fRows.children.length > 0)
+      );
+      return hasRows;
+    } catch(e){ return false; }
+  };
   CD._isUserEditing = () => {
-    if(Date.now() >= CD._userEditingUntil) return false;
+    // Path A: recent input event — grace window still open
+    if(Date.now() < CD._userEditingUntil) return true;
+    // Path B: focus currently inside a cd-root input
     const ae = document.activeElement;
-    if(!ae) return false;
-    const tag = ae.tagName;
-    if(tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return false;
-    const root = document.getElementById('cd-root');
-    if(!root || !root.contains(ae)) return false;
+    if(ae){
+      const tag = ae.tagName;
+      if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'){
+        const root = document.getElementById('cd-root');
+        if(root && root.contains(ae)) return true;
+      }
+    }
+    return false;
+  };
+  // Harder guard for destructive renders: used by CD.render to decide
+  // whether to BLOCK a render entirely (not just defer). Triggers when
+  // the scorecard form has rows on screen — because restoring state
+  // after a wipe is impossible for dynamically-appended row DOMs.
+  CD._shouldBlockRender = () => {
+    if(CD.state.view !== 'admin') return false;
+    if(CD.state.adminSub !== 'scorecards') return false;
+    if(!CD._isScorecardFormActive()) return false;
     return true;
   };
   CD._wireEditGuard = () => {
@@ -3746,9 +3785,10 @@
     const root = document.getElementById('cd-root');
     if(!root) return;
     CD._editGuardWired = true;
-    root.addEventListener('input',   CD._markUserEditing, true);
-    root.addEventListener('keydown', CD._markUserEditing, true);
-    root.addEventListener('focusin', CD._markUserEditing, true);
+    const evts = ['input','keydown','keyup','change','paste','cut','focusin','select'];
+    evts.forEach(ev => root.addEventListener(ev, CD._markUserEditing, true));
+    // Document-level fallback for native controls that swallow events.
+    document.addEventListener('keydown', CD._markUserEditing, true);
   };
 
   // ── FORM-STATE PRESERVATION ────────────────────────────────────
@@ -3809,15 +3849,22 @@
   let _renderRaf = null;
   let _deferredRenderTimer = null;
   CD.scheduleRender = () => {
+    // If the admin scorecard form is active (has rows visible), block
+    // absolutely — don't even schedule. The auto-refreshers that call
+    // scheduleRender (room-data poll, ticker, resize) have no business
+    // destroying the scorecard form.
+    if(CD._shouldBlockRender()){
+      return;
+    }
     // If the user is actively typing in a form, defer. A single follow-up
-    // render is queued to run ~2.5s after last input.
+    // render is queued to run ~3.5s after last input.
     if(CD._isUserEditing()){
       if(!_deferredRenderTimer){
         _deferredRenderTimer = setTimeout(() => {
           _deferredRenderTimer = null;
-          if(CD._isUserEditing()){ CD.scheduleRender(); return; }
+          if(CD._isUserEditing() || CD._shouldBlockRender()){ CD.scheduleRender(); return; }
           try { CD.render(); } catch(e){ console.error('CD deferred render:', e); }
-        }, 2500);
+        }, 3500);
       }
       return;
     }
@@ -3827,6 +3874,9 @@
       if(_renderRaf) cancelAnimationFrame(_renderRaf);
       _renderRaf = requestAnimationFrame(() => {
         _renderRaf = null;
+        // Final guard before DOM write — a lot can happen between
+        // setTimeout scheduling and the rAF callback.
+        if(CD._shouldBlockRender()) return;
         try { CD.render(); } catch(e){ console.error('CD render:', e); }
       });
     }, 60);
@@ -3842,12 +3892,24 @@
       <div style="font-size:10px;color:var(--mute);letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">Loading…</div>
     </div>`;
   let _lastRenderedView = null;
+  let _lastRenderedSub = null;
   CD.render = () => {
     const r = document.getElementById('cd-root');
     if(!r) return;
-    // Guard: if user is typing in a form, defer to scheduleRender. Always
-    // render on view transitions — otherwise splash/auth can't recover.
-    if(!CD.state.authPending && CD.state.view === _lastRenderedView && CD._isUserEditing()){
+    // HARD GUARD: scorecard form rows are dynamically-appended DOM —
+    // an innerHTML wipe destroys them and the static template does NOT
+    // recreate them. Only safe time to render while a scorecard form is
+    // live is when the user EXPLICITLY switches tab/view.
+    const sub = CD.state.adminSub;
+    const isOnScorecards = (CD.state.view === 'admin' && sub === 'scorecards');
+    const subChanged = sub !== _lastRenderedSub;
+    const viewChanged = _lastRenderedView !== CD.state.view;
+    const isNavTransition = viewChanged || subChanged || CD.state.authPending;
+    if(!isNavTransition && isOnScorecards && CD._isScorecardFormActive()){
+      return;
+    }
+    // Soft guard: user typing + same view/sub → defer.
+    if(!isNavTransition && CD._isUserEditing()){
       CD.scheduleRender();
       return;
     }
@@ -3861,15 +3923,33 @@
     else if(CD.state.view === 'room') html = CD.renderRoom();
     else if(CD.state.view === 'admin') html = CD.renderAdmin();
     // Page-level fade when the top-level view changes
-    const viewChanged = _lastRenderedView !== viewKey;
+    const viewChangedFromRender = _lastRenderedView !== viewKey;
     _lastRenderedView = viewKey;
-    r.innerHTML = `<div class="cd-view${viewChanged ? ' cd-view-enter' : ''}">${html}</div>`;
+    _lastRenderedSub = CD.state.adminSub;
+    r.innerHTML = `<div class="cd-view${viewChangedFromRender ? ' cd-view-enter' : ''}">${html}</div>`;
     // Restore captured form state (values + focus + selection).
     CD._restoreFormState(_formSnap);
     // (Re-)wire the delegate listeners; cheap no-op if already wired.
     CD._wireEditGuard();
     if(!CD.state.authPending && CD.state.view === 'dashboard') CD.injectRoomCards();
     try { CD._paintRosterStaleBanner && CD._paintRosterStaleBanner(); } catch(e){ console.warn('paintRosterStaleBanner:', e); }
+  };
+
+  // Direct-DOM updater for the admin stats banner. Call this instead
+  // of a full re-render when only stats need refreshing. Safe while
+  // scorecard form is open — never touches #gscFormBody.
+  CD._updateAdminStatsOnly = (stats) => {
+    try {
+      if(!stats || typeof stats !== 'object') return;
+      const set = (id, v) => {
+        const el = document.getElementById(id);
+        if(el && v != null) el.textContent = String(v);
+      };
+      set('sa-total-users',    stats.totalUsers);
+      set('sa-total-auctions', stats.totalAuctions);
+      set('sa-total-drafts',   stats.totalDrafts);
+      set('sa-total-matches',  stats.totalMatches);
+    } catch(e){ console.warn('CD._updateAdminStatsOnly:', e); }
   };
 
   // ── ROOM CARDS INJECTION ───────────────────────────────────────
