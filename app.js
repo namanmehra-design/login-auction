@@ -276,6 +276,7 @@ getRedirectResult(auth).then(r=>{
 
 onAuthStateChanged(auth,u=>{
  user=u;
+ window.user=u; // expose for cd-app.js bridge
  const params=new URLSearchParams(window.location.search);
  const rp=params.get('room'),dp=params.get('draft');
  if(u){
@@ -283,7 +284,7 @@ onAuthStateChanged(auth,u=>{
  setTimeout(()=>{ const s=document.getElementById('dt-superadmin'); if(s) s.style.display=isSuperAdminEmail(u.email)?'block':'none'; },200);
  if(rp)loadRoom(rp);else if(dp)loadDraftRoom(dp);else loadDash();
  }
- else showAuth();
+ else { window.roomId=null; window.roomState=null; window.myTeamName=''; window.isAdmin=false; showAuth(); }
 });
 
 window.handleAuth=function(){
@@ -466,6 +467,7 @@ window.confirmTeamName=function(){
  // Already registered -- update in memory, close modal, refresh UI (no page reload)
  if(data.members?.[user.uid]){
  myTeamName=data.members[user.uid].teamName||'';
+ window.myTeamName=myTeamName; // expose for cd-app.js bridge
  pendingJoinRoomId='';
  document.getElementById('teamNameModal').classList.remove('open');
  updateMyTeamUI();
@@ -489,6 +491,7 @@ window.confirmTeamName=function(){
  if(amAdmin) upd[`users/${user.uid}/auctions/${rid}/teamName`]=tn;
  return update(ref(db),upd).then(()=>{
  myTeamName=tn;
+ window.myTeamName=tn; // expose for cd-app.js bridge
  pendingJoinRoomId='';
  document.getElementById('teamNameModal').classList.remove('open');
  updateMyTeamUI();
@@ -628,6 +631,7 @@ function loadRoom(rid){
  showInner('auction-view');
  window.setSidebarMode&&window.setSidebarMode('room');
  roomId=rid; isAdmin=false; myTeamName='';
+ window.roomId=rid; window.isAdmin=false; window.myTeamName=''; // expose for cd-app.js bridge
 
  // Resolve admin status and team name
  Promise.all([
@@ -635,9 +639,11 @@ function loadRoom(rid){
  get(ref(db,`auctions/${rid}/members/${user.uid}`))
  ]).then(([adminSnap,memberSnap])=>{
  isAdmin=adminSnap.exists();
+ window.isAdmin=isAdmin; // expose
 
  if(memberSnap.exists()){
  myTeamName=memberSnap.val().teamName||'';
+ window.myTeamName=myTeamName; // expose
  }
 
  document.getElementById('roomRoleBadge').textContent=isAdmin?' Admin':' '+(myTeamName||'Member');
@@ -698,6 +704,7 @@ function loadRoom(rid){
  const data=snap.val();
  if(!data)return;
  roomState=data;
+ window.roomState=data; // expose for cd-app.js bridge
  migrateOverseasFlags(rid,data);
  migrateSquadSnapshots(rid,data);
  migrateDuckPoints(rid,data);
