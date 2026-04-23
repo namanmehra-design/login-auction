@@ -2619,9 +2619,25 @@
         <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Pts</th>
       </tr></thead><tbody>
       ${bowlers.map(p => {
-        const m = (p.breakdown||'').match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
-        const w = m?+m[1]:0, ov = m?+m[2]:0, r = m?(+(m[3]||0)):0;
-        const eco = ov>0 ? (r/ov).toFixed(2) : '—';
+        const bd = p.breakdown || '';
+        const m = bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
+        const w = m ? +m[1] : 0;
+        const ov = m ? +m[2] : 0;
+        // Runs conceded: prefer explicit "Nr" in the breakdown; otherwise
+        // derive from "eco:X" × overs so global-scorecard entries
+        // (Bowl(2w 4ov eco:5.00)) don't collapse to 0.
+        let r = m && m[3] !== undefined ? +m[3] : null;
+        const ecoM = bd.match(/eco:([\d.]+)/);
+        const ecoRaw = ecoM ? +ecoM[1] : null;
+        if(r === null){
+          r = (ecoRaw != null && ov > 0) ? Math.round(ecoRaw * ov) : 0;
+        }
+        // Economy display: prefer the stored eco value verbatim,
+        // otherwise compute from runs/overs.
+        let eco;
+        if(ecoRaw != null && ecoRaw > 0) eco = ecoRaw.toFixed(2);
+        else if(ov > 0 && r > 0) eco = (r / ov).toFixed(2);
+        else eco = '—';
         const owner = ownerMap[(p.name||'').toLowerCase().trim()] || '';
         return `<tr style="border-top:1px solid var(--line);">
           <td style="padding:10px 14px;"><div style="display:flex;align-items:center;gap:8px;">${CD.Avatar({name:p.name,size:24})}<span style="font-weight:600;">${esc(p.name)}</span></div></td>
