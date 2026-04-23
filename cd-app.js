@@ -161,7 +161,8 @@
     cbzMatches: [],         // live ticker data
     editingSquad: false,    // My Team — edit mode on/off
     squadDraft: null,       // { xi: [names], bench: [names], reserves: [names] }
-    squadSaving: false      // Save-in-flight flag
+    squadSaving: false,     // Save-in-flight flag
+    adminSub: 'scorecards'  // Super Admin sub-tab
   };
   window.addEventListener('resize', () => {
     const wasMobile = CD.state.isMobile;
@@ -298,6 +299,7 @@
               <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--electric),var(--pink));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;">${esc((u.email[0] || '?').toUpperCase())}</div>
               <div style="font-size:12px;font-weight:600;">${esc(u.email.split('@')[0])}</div>
             </div>` : ''}
+            ${isSuperAdmin ? `<button onclick="CD.openAdmin()" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,rgba(255,200,61,0.2),rgba(255,200,61,0.1));color:#FFD97D;border:1px solid rgba(255,200,61,0.5);font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;letter-spacing:0.04em;text-transform:uppercase;">★ Admin Console</button>` : ''}
             <button onclick="if(confirm('Log out?'))window.logoutUser()" style="padding:8px 14px;border-radius:9999px;background:rgba(255,59,59,0.15);color:#FF8080;border:1px solid rgba(255,59,59,0.35);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">${I('logout',14)} Log out</button>
           </div>
         </header>
@@ -334,20 +336,341 @@
             </div>
           </section>
 
-          ${isSuperAdmin ? `
-          <section>
-            <div style="font-size:11px;color:var(--gold);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-bottom:14px;">Super Admin</div>
-            <div class="cd-glass" style="padding:24px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);">
-              <div style="font-family:var(--serif);font-size:24px;font-weight:800;margin-bottom:8px;">Global Scorecard Push</div>
-              <p style="font-size:13px;color:var(--ink-2);margin-bottom:16px;">Push match scorecards to all rooms in one click. Use the classic super-admin panel for now.</p>
-              <button onclick="alert('Super Admin tools available in classic view. Contact admin to migrate.');" style="padding:10px 18px;border-radius:9999px;background:rgba(255,200,61,0.16);border:1px solid rgba(255,200,61,0.4);color:#FFD97D;font-size:13px;font-weight:600;cursor:pointer;">Open Super Admin</button>
-            </div>
-          </section>
-          ` : ''}
         </main>
         <input id="cdJoinRoomHidden" type="hidden" />
       </div>`;
   };
+
+  // ── ADMIN CONSOLE (Super Admin) ────────────────────────────────
+  // Full CD rebuild in neon broadcast glass. Entry: dashboard header "Admin Console"
+  // Wires every form in CD HTML while re-using the SAME DOM ids the classic
+  // handlers in app.js read from (gsc*, saOs*, saMult*, saScorecardSelect,
+  // cbz*, saRoomsList, etc.), so existing window.sa*/window.cbz*/
+  // window.parseGlobalScorecard/window.saveGlobalScorecard handlers light up
+  // unchanged.
+
+  CD.openAdmin = () => {
+    CD.state.view = 'admin';
+    CD.state.adminSub = CD.state.adminSub || 'scorecards';
+    CD.render();
+    // Populate dynamic bits after DOM is in place
+    setTimeout(() => {
+      try { if(typeof window.renderSuperAdminPanel === 'function') window.renderSuperAdminPanel(); } catch(e){}
+      try { if(typeof window.refreshGlobalScorecardList === 'function') window.refreshGlobalScorecardList(); } catch(e){}
+      try { if(typeof window.populateScorecardSelect === 'function') window.populateScorecardSelect(); } catch(e){}
+    }, 60);
+  };
+  CD.closeAdmin = () => {
+    CD.state.view = 'dashboard';
+    CD.render();
+  };
+  CD.setAdminSub = (sub) => {
+    CD.state.adminSub = sub;
+    CD.render();
+    // Re-trigger data loads that depend on sub-tab DOM being present
+    setTimeout(() => {
+      try {
+        if(sub === 'rooms'   && typeof window.renderSuperAdminPanel === 'function') window.renderSuperAdminPanel();
+        if(sub === 'push'    && typeof window.populateScorecardSelect === 'function') window.populateScorecardSelect();
+        if(sub === 'scorecards' && typeof window.refreshGlobalScorecardList === 'function') window.refreshGlobalScorecardList();
+      } catch(e){}
+    }, 40);
+  };
+
+  CD.renderAdmin = () => {
+    const sub = CD.state.adminSub || 'scorecards';
+    const subs = [
+      { id:'scorecards', label:'Scorecards',      hint:'Paste · parse · save'       },
+      { id:'push',       label:'Push & Fan-out',  hint:'Send to every room'         },
+      { id:'cricbuzz',   label:'Cricbuzz',        hint:'Live import'                },
+      { id:'tools',      label:'Room Tools',      hint:'Overseas · XI multiplier'   },
+      { id:'rooms',      label:'All Rooms',       hint:'View · delete'              }
+    ];
+    const tabBtn = (s) => {
+      const active = s.id === sub;
+      return `<button onclick="CD.setAdminSub('${s.id}')" style="padding:10px 18px;border-radius:9999px;border:1px solid ${active?'rgba(255,200,61,0.55)':'var(--line-2)'};background:${active?'linear-gradient(180deg,rgba(255,200,61,0.22),rgba(255,200,61,0.08))':'var(--glass)'};color:${active?'#FFE49A':'var(--ink-2)'};font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;letter-spacing:0.04em;min-width:150px;">
+        <span style="text-transform:uppercase;font-size:11px;">${s.label}</span>
+        <span style="font-size:10px;font-weight:500;color:${active?'rgba(255,228,154,0.85)':'var(--mute)'};letter-spacing:0.02em;text-transform:none;">${s.hint}</span>
+      </button>`;
+    };
+
+    let body = '';
+    if(sub === 'scorecards') body = CD._renderAdminScorecards();
+    else if(sub === 'push')  body = CD._renderAdminPush();
+    else if(sub === 'cricbuzz') body = CD._renderAdminCricbuzz();
+    else if(sub === 'tools') body = CD._renderAdminTools();
+    else if(sub === 'rooms') body = CD._renderAdminRooms();
+
+    return `
+      <div style="position:relative;min-height:100vh;display:flex;flex-direction:column;">
+        ${CD.renderTicker()}
+        <header style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;border-bottom:1px solid var(--line);">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <button onclick="CD.closeAdmin()" style="padding:8px 14px;border-radius:9999px;background:var(--glass);color:var(--ink-2);border:1px solid var(--line-2);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">← Dashboard</button>
+            ${CD.Brand(28)}
+            <div>
+              <div class="ed" style="font-size:22px;line-height:0.95;">Admin <span class="ed-i" style="color:var(--gold);">console</span></div>
+              <div style="font-size:10px;color:var(--gold);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Super admin · platform wide</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;">${esc(window.user?.email||'')}</span>
+          </div>
+        </header>
+
+        <!-- Stats banner (populated by window.renderSuperAdminPanel) -->
+        <div style="padding:20px 32px 0;max-width:1400px;margin:0 auto;width:100%;">
+          <div id="saStatsRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px;">
+            ${CD.Stat({val: '<span id="sa-total-users">—</span>', lbl:'Total Users',        accent:'var(--electric)'})}
+            ${CD.Stat({val: '<span id="sa-total-auctions">—</span>', lbl:'Auction Rooms',   accent:'var(--pink)'})}
+            ${CD.Stat({val: '<span id="sa-total-drafts">—</span>', lbl:'Draft Rooms',       accent:'var(--lime)'})}
+            ${CD.Stat({val: '<span id="sa-total-matches">—</span>', lbl:'Global Scorecards',accent:'var(--gold)'})}
+          </div>
+
+          <!-- Sub-tab nav -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;padding:14px;border-radius:16px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(28px);border:1px solid var(--line-2);">
+            ${subs.map(tabBtn).join('')}
+          </div>
+        </div>
+
+        <main style="padding:0 32px 48px;max-width:1400px;margin:0 auto;width:100%;">
+          ${body}
+        </main>
+      </div>
+
+      <style>
+        /* Admin-scoped glass overrides — forms live inside #cd-root.
+           These give classic inputs/selects/buttons the neon-broadcast feel. */
+        #cd-root .adm-card{padding:24px;border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px) saturate(1.5);-webkit-backdrop-filter:blur(32px) saturate(1.5);border:1px solid var(--line-2);box-shadow:var(--sh-1);margin-bottom:18px;}
+        #cd-root .adm-card h3{font-family:var(--serif);font-weight:800;font-size:22px;margin:0 0 2px;letter-spacing:-0.01em;}
+        #cd-root .adm-card .adm-sub{font-size:11px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:14px;}
+        #cd-root .adm-lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);margin-bottom:6px;}
+        #cd-root .adm-inp, #cd-root .adm-sel, #cd-root .adm-ta{width:100%;padding:11px 14px;font-size:13px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:10px;outline:none;font-family:var(--sans);box-sizing:border-box;}
+        #cd-root .adm-ta{font-family:var(--mono);resize:vertical;min-height:120px;}
+        #cd-root .adm-inp:focus, #cd-root .adm-sel:focus, #cd-root .adm-ta:focus{border-color:rgba(255,200,61,0.6);box-shadow:0 0 0 3px rgba(255,200,61,0.15);}
+        #cd-root .adm-btn{padding:10px 18px;border-radius:9999px;font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;border:none;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:6px;}
+        #cd-root .adm-btn-cta{background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;box-shadow:0 4px 16px rgba(46,91,255,0.35);}
+        #cd-root .adm-btn-gold{background:linear-gradient(180deg,rgba(255,200,61,0.25),rgba(255,200,61,0.12));color:#FFE49A;border:1px solid rgba(255,200,61,0.5);}
+        #cd-root .adm-btn-danger{background:rgba(255,59,59,0.18);color:#FF8B8B;border:1px solid rgba(255,59,59,0.45);}
+        #cd-root .adm-btn-ghost{background:var(--glass);color:var(--ink-2);border:1px solid var(--line-2);}
+        #cd-root .adm-btn-ai{background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;box-shadow:0 4px 16px rgba(255,45,135,0.35);}
+        #cd-root .adm-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+        #cd-root .adm-row>*{flex:1 1 auto;}
+        #cd-root .adm-row>.adm-sm{flex:0 0 140px;}
+        #cd-root .adm-status{margin-top:10px;font-size:12px;color:var(--ink-2);min-height:18px;}
+        #cd-root .adm-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+        #cd-root .adm-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+        @media (max-width:780px){#cd-root .adm-grid-2,#cd-root .adm-grid-3{grid-template-columns:1fr;}}
+        #cd-root .adm-drop{border:2px dashed var(--line-2);border-radius:14px;padding:28px;text-align:center;cursor:pointer;background:var(--glass);transition:border-color .15s,background .15s;}
+        #cd-root .adm-drop:hover{border-color:rgba(255,200,61,0.55);background:rgba(255,200,61,0.05);}
+        #cd-root .adm-drop.drag{border-color:var(--electric);background:rgba(46,91,255,0.08);}
+        #cd-root .thumb-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+        #cd-root .thumb-row>*{width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid var(--line-2);}
+        #cd-root .thumb-row img{width:100%;height:100%;object-fit:cover;}
+        #cd-root .preview-box{margin-top:14px;padding:14px;border-radius:12px;background:rgba(46,91,255,0.06);border:1px solid rgba(46,91,255,0.25);}
+        #cd-root table.adm-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+        #cd-root table.adm-tbl th{padding:10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);border-bottom:1px solid var(--line-2);}
+        #cd-root table.adm-tbl td{padding:10px;border-bottom:1px solid var(--line);}
+        #cd-root .match-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:10px;}
+        #cd-root .adm-info{padding:10px 14px;border-radius:10px;background:rgba(46,91,255,0.08);border:1px solid rgba(46,91,255,0.3);font-size:12px;color:var(--ink-2);margin:10px 0;}
+        #cd-root .adm-warn{padding:10px 14px;border-radius:10px;background:rgba(255,59,59,0.10);border:1px solid rgba(255,59,59,0.35);font-size:12px;color:#FFB0B0;margin:10px 0;}
+        #cd-root .adm-ok{color:var(--lime);} #cd-root .adm-err{color:#FF8B8B;}
+      </style>
+    `;
+  };
+
+  // Sub-tab: Scorecards (Gemini paste → parse → edit rows → save)
+  CD._renderAdminScorecards = () => `
+    <div class="adm-card">
+      <h3>Global Scorecard Entry</h3>
+      <div class="adm-sub">Paste screenshots or text · Gemini parses · save & fan-out</div>
+
+      <div class="drop-zone adm-drop" id="gscDropZone" onclick="document.getElementById('gscFiles').click()"
+           ondragover="event.preventDefault();this.classList.add('drag');"
+           ondragleave="this.classList.remove('drag');"
+           ondrop="event.preventDefault();this.classList.remove('drag');window.handleGscFiles&&window.handleGscFiles(event.dataTransfer.files);">
+        <div style="font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;color:var(--ink-2);">Drop scorecard images or click to upload</div>
+        <div class="drop-zone-hint" id="gscDropHint" style="font-size:11px;color:var(--mute);margin-top:4px;">PNG · JPG · WEBP · up to 4 files</div>
+      </div>
+      <input type="file" id="gscFiles" accept="image/*" multiple style="display:none" onchange="window.handleGscFiles&&window.handleGscFiles(this.files)">
+      <div id="gscThumbRow" class="thumb-row"></div>
+
+      <div class="adm-row" style="margin-top:14px;">
+        <div style="flex:1;">
+          <label class="adm-lbl">Match label</label>
+          <input type="text" id="gscMatchLabel" class="adm-inp parse-input" placeholder="e.g. CSK vs MI – Apr 6 (auto-filled)">
+        </div>
+        <button id="gscParseBtn" class="adm-btn adm-btn-ai" onclick="window.parseGlobalScorecard && window.parseGlobalScorecard()">★ Parse with Gemini</button>
+      </div>
+      <div class="adm-status ai-status" id="gscParseStatus"></div>
+
+      <div id="gscFormBody" style="display:none;margin-top:18px;">
+        <div class="adm-grid-3">
+          <div><label class="adm-lbl">Winning IPL Team</label><input type="text" id="gscWinner" class="adm-inp" placeholder="e.g. CSK"></div>
+          <div><label class="adm-lbl">Man of the Match</label><input type="text" id="gscMotm" class="adm-inp" placeholder="Player name"></div>
+          <div><label class="adm-lbl">Result</label>
+            <select id="gscResult" class="adm-sel">
+              <option value="normal">Normal Result</option>
+              <option value="noresult">No Result</option>
+              <option value="superover">Super Over</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:18px;">
+          <div class="adm-lbl" style="color:var(--electric);margin-bottom:8px;">Batting</div>
+          <div id="gscBattingRows"></div>
+        </div>
+        <div style="margin-top:18px;">
+          <div class="adm-lbl" style="color:var(--pink);margin-bottom:8px;">Bowling</div>
+          <div id="gscBowlingRows"></div>
+        </div>
+        <div style="margin-top:18px;">
+          <div class="adm-lbl" style="color:var(--lime);margin-bottom:8px;">Fielding</div>
+          <div id="gscFieldingRows"></div>
+        </div>
+        <div id="gscPreviewBox" class="preview-box" style="display:none;">
+          <div class="adm-lbl" style="color:var(--electric);">Preview</div>
+          <div id="gscPreviewContent"></div>
+        </div>
+        <div class="adm-row" style="margin-top:14px;">
+          <button class="adm-btn adm-btn-ghost" onclick="window.previewGlobalScorecard && window.previewGlobalScorecard()">Preview</button>
+          <button class="adm-btn adm-btn-cta" onclick="window.saveGlobalScorecard && window.saveGlobalScorecard()">Save &amp; push to all rooms</button>
+          <button class="adm-btn adm-btn-ghost" onclick="window.resetGlobalScorecardForm && window.resetGlobalScorecardForm()">Clear</button>
+        </div>
+        <div class="adm-status ai-status" id="gscSaveStatus"></div>
+      </div>
+    </div>
+
+    <div class="adm-card">
+      <h3>Saved scorecards</h3>
+      <div class="adm-sub">History · re-push or delete</div>
+      <div id="gscHistoryList"><div style="padding:20px;text-align:center;color:var(--mute);font-size:12px;">No matches saved yet.</div></div>
+    </div>
+  `;
+
+  // Sub-tab: Push & Fan-out
+  CD._renderAdminPush = () => `
+    <div class="adm-card">
+      <h3>Push Scorecard to <span style="color:var(--pink);font-style:italic;">every</span> room</h3>
+      <div class="adm-sub">Affects all auctions and drafts on the platform</div>
+
+      <div class="adm-warn">⚠ Pushes to <strong>every room on the entire platform</strong>. Use carefully.</div>
+
+      <div style="margin-bottom:14px;">
+        <label class="adm-lbl">Select a saved scorecard</label>
+        <select id="saScorecardSelect" class="adm-sel" onchange="window.saOnScorecardSelect && window.saOnScorecardSelect()">
+          <option value="">— Select a saved scorecard —</option>
+        </select>
+      </div>
+      <div id="saMatchInfo" class="adm-info" style="display:none;"><span id="saMatchInfoText"></span></div>
+
+      <div class="adm-row" style="margin-top:14px;">
+        <button class="adm-btn adm-btn-cta" onclick="window.saPushToAll && window.saPushToAll()">Push to all rooms</button>
+        <button class="adm-btn adm-btn-gold" onclick="window.saDeleteAndRepush && window.saDeleteAndRepush()">Delete &amp; re-push</button>
+        <button class="adm-btn adm-btn-danger" onclick="window.saDeleteMatchFromAll && window.saDeleteMatchFromAll()">Delete from all rooms</button>
+      </div>
+      <div class="adm-status ai-status" id="saPushStatus"></div>
+    </div>
+  `;
+
+  // Sub-tab: Cricbuzz 4-step wizard
+  CD._renderAdminCricbuzz = () => `
+    <div class="adm-card">
+      <h3>Live Cricbuzz <span style="color:var(--pink);font-style:italic;">import</span></h3>
+      <div class="adm-sub">Fetch live/recent IPL scorecards from Cricbuzz API</div>
+
+      <div style="padding:16px;border-radius:12px;background:var(--glass);border:1px solid var(--line);margin-bottom:14px;">
+        <div class="adm-lbl" style="color:var(--electric);margin-bottom:10px;">Step 1 — Select Match</div>
+        <div class="adm-row">
+          <button class="adm-btn adm-btn-cta" onclick="window.cbzFetchLive && window.cbzFetchLive()">⚡ Live</button>
+          <button class="adm-btn adm-btn-ghost" onclick="window.cbzFetchRecent && window.cbzFetchRecent()">🕐 Recent</button>
+          <button class="adm-btn adm-btn-ghost" onclick="window.cbzFetchUpcoming && window.cbzFetchUpcoming()">📅 Upcoming</button>
+        </div>
+        <div class="adm-status cbz-status" id="cbzMatchStatus">Click a button to load matches.</div>
+        <div class="match-pick-grid" id="cbzMatchList"></div>
+      </div>
+
+      <div id="cbzStep2" style="display:none;padding:16px;border-radius:12px;background:var(--glass);border:1px solid var(--line);margin-bottom:14px;">
+        <div class="adm-lbl" style="color:var(--pink);margin-bottom:10px;">Step 2 — Load Scorecard</div>
+        <div class="adm-row">
+          <div style="flex:1;">
+            <div id="cbzSelectedMatchLabel" style="font-family:var(--display);font-weight:800;font-size:16px;">—</div>
+            <div id="cbzSelectedMatchMeta" style="font-size:11px;color:var(--mute);margin-top:2px;"></div>
+          </div>
+          <button class="adm-btn adm-btn-gold" onclick="window.cbzFetchScorecard && window.cbzFetchScorecard()">Fetch Scorecard</button>
+        </div>
+        <div class="adm-status cbz-status" id="cbzScorecardStatus"></div>
+      </div>
+
+      <div id="cbzStep3" style="display:none;padding:16px;border-radius:12px;background:var(--glass);border:1px solid var(--line);margin-bottom:14px;">
+        <div class="adm-lbl" style="color:var(--lime);margin-bottom:10px;">Step 3 — Preview Innings</div>
+        <div id="cbzInningsButtons" style="display:none;margin-bottom:10px;"></div>
+        <div id="cbzPreview" style="overflow-x:auto;"></div>
+      </div>
+
+      <div id="cbzStep4" style="display:none;padding:16px;border-radius:12px;background:var(--glass);border:1px solid var(--line);">
+        <div class="adm-lbl" style="color:var(--gold);margin-bottom:10px;">Step 4 — Send to Scorecards Tab</div>
+        <div style="font-size:12px;color:var(--ink-2);margin-bottom:12px;">Sends <strong style="color:var(--ink);">both innings combined</strong> to the Scorecards tab, ready for save &amp; fan-out.</div>
+        <button class="adm-btn adm-btn-cta" onclick="window.cbzPushToRoom && window.cbzPushToRoom()">Send to Scorecards Tab →</button>
+        <div class="adm-status cbz-status" id="cbzPushStatus"></div>
+      </div>
+    </div>
+  `;
+
+  // Sub-tab: Room Tools (Overseas limit, XI multiplier)
+  CD._renderAdminTools = () => `
+    <div class="adm-card">
+      <h3>Overseas Player <span style="color:var(--electric);font-style:italic;">limit</span></h3>
+      <div class="adm-sub">Per-room · live bidding rules</div>
+      <div class="adm-row" style="margin-bottom:10px;">
+        <div style="flex:1;">
+          <label class="adm-lbl">Select Room</label>
+          <select id="saOsRoomSelect" class="adm-sel"><option value="">— Click Load Rooms first —</option></select>
+        </div>
+        <div class="adm-sm">
+          <label class="adm-lbl">Max Overseas</label>
+          <input type="number" id="saOsLimit" class="adm-inp" min="1" max="15" value="8">
+        </div>
+      </div>
+      <div class="adm-row">
+        <button class="adm-btn adm-btn-ghost" onclick="window.saPopulateOsRooms && window.saPopulateOsRooms()">Load rooms</button>
+        <button class="adm-btn adm-btn-cta" onclick="window.saSetOverseasLimit && window.saSetOverseasLimit()">Apply limit</button>
+      </div>
+      <div class="adm-status ai-status" id="saOsStatus"></div>
+    </div>
+
+    <div class="adm-card">
+      <h3>XI Points <span style="color:var(--gold);font-style:italic;">multiplier</span></h3>
+      <div class="adm-sub">Playing XI earns multiplied points · Bench = 1× · Reserves = 0</div>
+      <div class="adm-row" style="margin-bottom:10px;">
+        <div style="flex:1;">
+          <label class="adm-lbl">Select Room</label>
+          <select id="saMultRoomSelect" class="adm-sel"><option value="">— Click Load Rooms first —</option></select>
+        </div>
+        <div class="adm-sm">
+          <label class="adm-lbl">XI Multiplier</label>
+          <input type="number" id="saMultValue" class="adm-inp" min="0.5" max="5" step="0.1" value="1">
+        </div>
+      </div>
+      <div class="adm-row">
+        <button class="adm-btn adm-btn-ghost" onclick="window.saPopulateMultRooms && window.saPopulateMultRooms()">Load rooms</button>
+        <button class="adm-btn adm-btn-gold" onclick="window.saSetXIMultiplier && window.saSetXIMultiplier()">Apply multiplier</button>
+      </div>
+      <div class="adm-status ai-status" id="saMultStatus"></div>
+    </div>
+  `;
+
+  // Sub-tab: All Rooms
+  CD._renderAdminRooms = () => `
+    <div class="adm-card">
+      <h3>All rooms on <span style="color:var(--pink);font-style:italic;">platform</span></h3>
+      <div class="adm-sub">View · delete · monitor</div>
+      <div class="adm-row" style="margin-bottom:14px;">
+        <button class="adm-btn adm-btn-ghost" onclick="window.renderSuperAdminPanel && window.renderSuperAdminPanel()">↻ Refresh</button>
+      </div>
+      <div id="saRoomsList"><div style="padding:20px;text-align:center;color:var(--mute);font-size:12px;">Loading…</div></div>
+    </div>
+  `;
 
   CD.renderCreateRoomCard = () => `
     <div class="cd-glass-2" style="padding:24px;margin-bottom:24px;border-radius:22px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);">
@@ -566,14 +889,21 @@
                 <div style="font-size:11px;color:var(--mute);margin-top:2px;">Registered · ₹${(teams[window.myTeamName]?.budget || budget).toFixed(1)}cr purse</div>
               </div>
             </div>
-            ${isSuper ? `<button onclick="window.toggleReleaseLock_A && window.toggleReleaseLock_A()" style="padding:8px 14px;border-radius:9999px;background:${releaseLocked?'rgba(255,59,59,0.18)':'var(--glass-2)'};border:1px solid ${releaseLocked?'rgba(255,59,59,0.4)':'var(--line-2)'};color:${releaseLocked?'var(--red)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;margin-right:6px;">${releaseLocked?'Unlock releases':'Lock releases'}</button>` : ''}
-            ${isAdmin ? `<button onclick="window.toggleSquadLock_A && window.toggleSquadLock_A()" style="padding:8px 14px;border-radius:9999px;background:${squadLocked?'rgba(255,45,135,0.18)':'var(--glass-2)'};border:1px solid ${squadLocked?'rgba(255,45,135,0.4)':'var(--line-2)'};color:${squadLocked?'var(--pink)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${squadLocked?'Unlock squads':'Lock squads'}</button>` : ''}
           ` : `
             <div style="font-size:13px;color:var(--ink-2);margin-bottom:10px;">You haven't registered a team yet. Pick a name to start bidding.</div>
             <button onclick="document.getElementById('teamNameModal')?.classList.add('open')" style="padding:10px 18px;border-radius:9999px;background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">Register my team</button>
           `}
         </div>
       </div>
+
+      ${(isSuper || isAdmin) ? `
+      <!-- Admin controls (always visible to admin/super, regardless of registration) -->
+      <div style="padding:16px 20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div style="font-size:10px;color:var(--gold);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-right:6px;">Admin controls</div>
+        ${isSuper ? `<button onclick="window.toggleReleaseLock_A && window.toggleReleaseLock_A()" style="padding:8px 14px;border-radius:9999px;background:${releaseLocked?'rgba(255,59,59,0.18)':'var(--glass-2)'};border:1px solid ${releaseLocked?'rgba(255,59,59,0.4)':'var(--line-2)'};color:${releaseLocked?'var(--red)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${releaseLocked?'Unlock releases (allow)':'Lock releases (disallow)'}</button>` : ''}
+        ${isAdmin ? `<button onclick="window.toggleSquadLock_A && window.toggleSquadLock_A()" style="padding:8px 14px;border-radius:9999px;background:${squadLocked?'rgba(255,45,135,0.18)':'var(--glass-2)'};border:1px solid ${squadLocked?'rgba(255,45,135,0.4)':'var(--line-2)'};color:${squadLocked?'var(--pink)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${squadLocked?'Unlock squads':'Lock squads'}</button>` : ''}
+      </div>
+      ` : ''}
 
       <!-- Members list -->
       <div style="padding:20px 24px;border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);">
@@ -3064,6 +3394,7 @@
     if(CD.state.view === 'auth') html = CD.renderAuth();
     else if(CD.state.view === 'dashboard') html = CD.renderDashboard();
     else if(CD.state.view === 'room') html = CD.renderRoom();
+    else if(CD.state.view === 'admin') html = CD.renderAdmin();
     r.innerHTML = html;
     if(CD.state.view === 'dashboard') CD.injectRoomCards();
   };
