@@ -40,11 +40,44 @@
   };
 
   // ── PRIMITIVES ──────────────────────────────────────────────────
+  // Player avatar: IPL team logo background → Cricbuzz photo fades in
   CD.Avatar = ({ team, name, size = 40 } = {}) => {
     const code = teamCode(team) || teamCode(name) || 'MI';
     const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
     const init = initialsOf(name);
-    return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--display);font-weight:800;font-size:${Math.round(size*0.36)}px;letter-spacing:0.05em;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2),0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;">${esc(init)}</div>`;
+    const uid = 'cdav_' + Math.random().toString(36).slice(2, 9);
+    // Async-load Cricbuzz photo if helpers available
+    if(name && typeof window.cbzPlayerImgId === 'function' && typeof window.cbzGetImg === 'function'){
+      setTimeout(async () => {
+        try {
+          const imgId = window.cbzPlayerImgId(name);
+          if(!imgId || imgId === 174146) return;
+          const url = await window.cbzGetImg(imgId);
+          if(!url) return;
+          const el = document.getElementById(uid);
+          if(el) el.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;animation:cd-fadein 0.3s ease;">`;
+        } catch(e){}
+      }, 0);
+    }
+    return `<div id="${uid}" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--display);font-weight:800;font-size:${Math.round(size*0.36)}px;letter-spacing:0.05em;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2),0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;overflow:hidden;position:relative;">${esc(init)}</div>`;
+  };
+  // Team logo chip (IPL logo in a small circle)
+  CD.TeamLogo = ({ code, size = 28 } = {}) => {
+    const c = teamCode(code) || (code || '').toUpperCase();
+    const [c1, c2] = TEAM_COLORS[c] || ['#444','#222'];
+    const uid = 'cdlogo_' + Math.random().toString(36).slice(2, 9);
+    const meta = (window.IPL_TEAM_META || {})[c];
+    if(meta && meta.logoImgId && typeof window.cbzGetImg === 'function'){
+      setTimeout(async () => {
+        try {
+          const url = await window.cbzGetImg(meta.logoImgId);
+          if(!url) return;
+          const el = document.getElementById(uid);
+          if(el) el.innerHTML = `<img src="${url}" alt="${c}" style="width:100%;height:100%;object-fit:contain;padding:15%;animation:cd-fadein 0.3s ease;">`;
+        } catch(e){}
+      }, 0);
+    }
+    return `<div id="${uid}" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--display);font-weight:800;font-size:${Math.round(size*0.34)}px;letter-spacing:0.03em;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2),0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;overflow:hidden;position:relative;">${esc(c || '')}</div>`;
   };
   CD.TeamChip = ({ code, label } = {}) => {
     const c = teamCode(code || label) || (code || '').toUpperCase();
@@ -425,71 +458,33 @@
     const nav = CD.state.activeNav;
     const sub = CD.state.activeSub;
     try {
-      // Map nav+sub → legacy classic tab ID — every tab embeds for full feature parity
-      const map = {
-        'setup:setup':         'setup',
-        'auction:live':        'auction',
-        'auction:purses':      'teams',
-        'auction:ledger':      'roster',
-        'squad:myteam':        'myteam',
-        'squad:trades':        'trades',
-        'league:leaderboard':  'leaderboard',
-        'league:points':       'points',
-        'players:pool':        'players-season',
-        'players:analytics':   'analytics',
-        'matches:data':        'matches',
-        'matches:schedule':    'schedule'
-      };
-      const legacyId = map[`${nav}:${sub || ''}`] || (nav === 'setup' ? 'setup' : nav === 'auction' ? 'auction' : nav === 'squad' ? 'myteam' : nav === 'league' ? 'leaderboard' : nav === 'players' ? 'players-season' : nav === 'matches' ? 'matches' : 'setup');
-      requestAnimationFrame(() => CD.embedClassicTab(legacyId));
-      return `<div id="cd-classic-host" style="min-height:280px;"><div style="padding:40px;text-align:center;color:var(--mute);font-size:13px;">Loading…</div></div>`;
+      if(nav === 'setup') return CD.renderSetup();
+      if(nav === 'auction'){
+        if(sub === 'purses') return CD.renderPurses();
+        if(sub === 'ledger') return CD.renderLedger();
+        return CD.renderAuctionLive();
+      }
+      if(nav === 'squad'){
+        if(sub === 'trades') return CD.renderTrades();
+        return CD.renderMyTeam();
+      }
+      if(nav === 'league'){
+        if(sub === 'points') return CD.renderPoints();
+        return CD.renderLeaderboard();
+      }
+      if(nav === 'players'){
+        if(sub === 'analytics') return CD.renderAnalytics();
+        return CD.renderPlayersPool();
+      }
+      if(nav === 'matches'){
+        if(sub === 'schedule') return CD.renderSchedule();
+        return CD.renderMatches();
+      }
     } catch(e){
       console.error('CD tab error:', e);
-      return `<div style="padding:24px;border-radius:14px;background:var(--glass);border:1px solid var(--line);color:var(--ink-2);">Error loading: ${esc(e.message)}</div>`;
+      return `<div style="padding:24px;border-radius:14px;background:var(--glass);border:1px solid var(--line);color:var(--ink-2);">Error: ${esc(e.message)}</div>`;
     }
-  };
-
-  // ── EMBED CLASSIC TAB CONTENT INTO CD SHELL ────────────────────
-  // Moves the classic tab div into #cd-classic-host so all classic features
-  // (search, filters, modals, Cricbuzz photos, scorecard upload) work.
-  // Previously-mounted tabs are stashed off-screen so app.js's switchTab can still find them.
-  CD.embedClassicTab = (legacyId) => {
-    if(!legacyId) return;
-    // Ensure stash exists
-    let stash = document.getElementById('cd-tab-stash');
-    if(!stash){
-      stash = document.createElement('div');
-      stash.id = 'cd-tab-stash';
-      stash.style.cssText = 'position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;overflow:hidden;visibility:hidden;pointer-events:none;';
-      document.body.appendChild(stash);
-    }
-    // Trigger app.js to render this tab (calls renderXxx if needed)
-    if(typeof window.switchTab === 'function'){
-      try { window.switchTab(legacyId); } catch(e){ console.error('switchTab:', e); }
-    }
-    // Move previously-mounted tabs back to stash to free up the host
-    const host = document.getElementById('cd-classic-host');
-    if(!host){ setTimeout(() => CD.embedClassicTab(legacyId), 100); return; }
-    Array.from(host.querySelectorAll('[id$="-tab"]')).forEach(el => {
-      stash.appendChild(el);
-    });
-    host.innerHTML = '';
-    const tabEl = document.getElementById(legacyId + '-tab');
-    if(tabEl){
-      // Reset display + visibility (switchTab uses display:none)
-      tabEl.style.display = 'block';
-      tabEl.style.visibility = 'visible';
-      tabEl.style.position = 'static';
-      tabEl.style.left = 'auto';
-      tabEl.style.top = 'auto';
-      tabEl.style.width = '100%';
-      tabEl.style.height = 'auto';
-      tabEl.style.pointerEvents = 'auto';
-      tabEl.style.opacity = '1';
-      host.appendChild(tabEl);
-    } else {
-      host.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mute);">Tab content not yet loaded. Try clicking again in a moment.</div>';
-    }
+    return '';
   };
 
   // ── INDIVIDUAL TAB RENDERS ──────────────────────────────────────
@@ -677,10 +672,15 @@
     const rs = window.roomState || {};
     const teams = rs.teams || {};
     const initial = rs.budget || rs.setup?.budget || 100;
+    const isAdmin = window.isAdmin || false;
+    const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const releaseLocked = !!rs.releaseLocked;
+    const maxPlayers = rs.maxPlayers || rs.setup?.maxPlayers || 21;
     const arr = Object.values(teams);
-    if(!arr.length) return `<div class="cd-glass" style="padding:24px;border-radius:14px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;">No teams have joined yet.</div>`;
+    if(!arr.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div style="margin:0 auto 12px;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;color:var(--mute);">${I('users',24)}</div><div class="ed" style="font-size:20px;margin-bottom:4px;">No teams yet</div><div style="font-size:13px;color:var(--mute);">Teams will appear here once they join.</div></div>`;
+
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;">
         ${arr.map(t => {
           const code = teamCode(t.name);
           const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
@@ -688,30 +688,65 @@
           const spent = roster.reduce((s,p) => s + (p.soldPrice || 0), 0);
           const left = t.budget || 0;
           const pct = initial > 0 ? Math.min(100, (spent / initial) * 100) : 0;
+          const overseas = roster.filter(p => p.isOverseas || p.o).length;
+          const isMyTeam = t.name === window.myTeamName;
           return `
-            <div class="cd-glass" style="border-radius:18px;overflow:hidden;border:1px solid var(--line-2);background:var(--glass);">
-              <div style="padding:18px;background:linear-gradient(135deg,${c1}50,${c2}30);position:relative;">
-                <div style="display:flex;align-items:center;gap:12px;">
+            <div style="border-radius:20px;overflow:hidden;border:1px solid var(--line-2);background:var(--glass);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:var(--sh-1);position:relative;${isMyTeam ? 'outline:2px solid var(--lime);outline-offset:-2px;' : ''}">
+              <!-- Team color header -->
+              <div style="padding:18px 18px 16px;background:linear-gradient(135deg,${c1}55,${c2}35);position:relative;border-bottom:1px solid var(--line);">
+                <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:16px 16px;mask-image:radial-gradient(ellipse at top right,black 20%,transparent 70%);-webkit-mask-image:radial-gradient(ellipse at top right,black 20%,transparent 70%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:12px;position:relative;">
                   ${CD.Avatar({name: t.name, size: 48})}
                   <div style="flex:1;min-width:0;">
-                    <div class="ed" style="font-size:22px;line-height:1;">${esc(t.name)}</div>
-                    <div style="font-size:10px;color:var(--ink-2);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-top:4px;">${roster.length} players</div>
+                    <div class="ed" style="font-size:20px;line-height:1.05;font-weight:800;letter-spacing:-0.02em;">${esc(t.name)}</div>
+                    <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                      ${CD.Pill({children: roster.length + ' / ' + maxPlayers + ' players'})}
+                      ${overseas ? CD.Pill({tone:'gold', style:'font-size:10px;padding:2px 7px;', children: overseas + ' OS'}) : ''}
+                      ${isMyTeam ? CD.Pill({tone:'lime', style:'font-size:10px;padding:2px 7px;', children:'YOU'}) : ''}
+                    </div>
                   </div>
                 </div>
               </div>
-              <div style="padding:18px;">
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+              <!-- Purse stats -->
+              <div style="padding:16px 18px;border-bottom:1px solid var(--line);">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
                   <span style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;">Purse left</span>
                   <span style="font-family:var(--mono);font-size:11px;color:var(--mute);">of ₹${initial}cr</span>
                 </div>
-                <div style="font-family:var(--display);font-size:36px;font-weight:800;color:var(--lime);line-height:1;">₹${left.toFixed(1)}<span style="font-size:18px;color:var(--mute);">cr</span></div>
-                <div style="margin-top:14px;height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
-                  <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--electric),var(--pink));border-radius:3px;"></div>
+                <div style="font-family:var(--display);font-size:34px;font-weight:800;color:var(--lime);line-height:1;letter-spacing:-0.01em;">₹${left.toFixed(1)}<span style="font-size:16px;color:var(--mute);margin-left:2px;">cr</span></div>
+                <div style="margin-top:12px;height:5px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
+                  <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--electric),var(--pink));border-radius:3px;box-shadow:0 0 8px rgba(46,91,255,0.4);"></div>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-top:6px;">
-                  <span>Spent ₹${spent.toFixed(1)}cr</span>
+                  <span>Spent <span style="color:var(--ink-2);font-family:var(--mono);">₹${spent.toFixed(1)}cr</span></span>
                   <span>${pct.toFixed(0)}% used</span>
                 </div>
+              </div>
+              <!-- Roster -->
+              <div style="padding:14px 18px 18px;">
+                <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+                  <span>Roster</span>
+                  ${roster.length === 0 ? '<span style="color:var(--mute-2);font-size:10px;font-weight:500;letter-spacing:0;text-transform:none;">empty</span>' : ''}
+                </div>
+                ${roster.length ? `
+                <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
+                  ${roster.slice().sort((a,b) => (b.soldPrice||0)-(a.soldPrice||0)).map((p, idx) => {
+                    const pName = p.name || p.n || '';
+                    const pCode = teamCode(p.iplTeam || p.t);
+                    const isOs = !!(p.isOverseas || p.o);
+                    const canRelease = (isAdmin || isMyTeam) && (!releaseLocked || isSuper);
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
+                      ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 28})}
+                      <div style="flex:1;min-width:0;overflow:hidden;">
+                        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(pName)}${isOs ? ' <span style="color:var(--gold);font-size:9px;">★</span>' : ''}</div>
+                        <div style="font-size:10px;color:var(--mute);letter-spacing:0.04em;">${esc(pCode)} · ${esc(p.role || p.r || '')}</div>
+                      </div>
+                      <div style="font-family:var(--mono);font-size:11px;color:var(--lime);font-weight:700;">₹${(p.soldPrice||0).toFixed(2)}</div>
+                      ${canRelease ? `<button data-team="${esc(t.name)}" data-idx="${idx}" data-name="${esc(pName)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" title="Release player" style="padding:4px 6px;border-radius:8px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:9px;font-weight:600;cursor:pointer;">${I('x',10)}</button>` : ''}
+                    </div>`;
+                  }).join('')}
+                </div>
+                ` : `<div style="padding:16px 0;color:var(--mute);font-size:12px;text-align:center;">No players yet</div>`}
               </div>
             </div>
           `;
@@ -1256,6 +1291,8 @@
   const css = `
     @keyframes cd-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,45,135,0.7); } 70% { box-shadow: 0 0 0 8px rgba(255,45,135,0); } }
     @keyframes cd-ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    @keyframes cd-fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
+    @keyframes cd-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();

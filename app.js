@@ -5624,3 +5624,12 @@ window.showSoldFlash=function(teamName, bid, playerName){
     window.setSidebarMode('dash');
   });
 })();
+
+// ─────────────────────────────────────────────────────────
+// Expose helpers to window for cd-app.js (new design layer)
+// ─────────────────────────────────────────────────────────
+window.cbzAvatar = cbzAvatar;
+window.cbzGetImg = cbzGetImg;
+window.cbzPlayerImgId = cbzPlayerImgId;
+window.IPL_TEAM_META = typeof IPL_TEAM_META !== 'undefined' ? IPL_TEAM_META : {};
+window.IPL_SCHEDULE = typeof IPL_SCHEDULE !== 'undefined' ? IPL_SCHEDULE : [];
