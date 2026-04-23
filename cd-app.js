@@ -1039,6 +1039,22 @@
       else byRole.bat.push(p);
     });
 
+    // Responsive pitch-player sizing — mobile gets smaller avatars and
+    // tighter pills so 4-5 players in a row don't overlap or wrap ugly.
+    const mob = !!CD.state.isMobile;
+    const pp = {
+      avatar: mob ? 36 : 48,
+      minW:   mob ? 58 : 80,
+      gap:    mob ? 3 : 5,
+      name:   mob ? 9.5 : 11.5,
+      nameMx: mob ? 64 : 94,
+      pill:   mob ? 10.5 : 13,
+      pillPx: mob ? 7 : 11,
+      pillPy: mob ? 2 : 3,
+      pillMin:mob ? 28 : 38,
+      star:   mob ? 12 : 16,
+      starFs: mob ? 8 : 10
+    };
     const renderPitchPlayer = (p, pos) => {
       const name = p.name || p.n || '';
       const first = name.split(' ')[0];
@@ -1053,13 +1069,13 @@
         : pts < 0 ? 'rgba(70,20,20,0.92)' : 'rgba(0,0,0,0.7)';
       const ptsBorder = pts > 0 ? 'rgba(182,255,60,0.65)' : pts < 0 ? 'rgba(255,120,120,0.45)' : 'rgba(255,255,255,0.3)';
       return `
-        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:80px;cursor:pointer;position:relative;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:${pp.gap}px;min-width:${pp.minW}px;cursor:pointer;position:relative;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
           <div style="position:relative;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7));">
-            ${CD.Avatar({team: p.iplTeam || p.t, name, size: 48})}
-            ${isOs ? '<div style="position:absolute;top:-3px;right:-3px;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;box-shadow:0 0 0 2px #052918;">★</div>' : ''}
+            ${CD.Avatar({team: p.iplTeam || p.t, name, size: pp.avatar})}
+            ${isOs ? `<div style="position:absolute;top:-2px;right:-2px;width:${pp.star}px;height:${pp.star}px;border-radius:50%;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-size:${pp.starFs}px;font-weight:800;box-shadow:0 0 0 2px #052918;">★</div>` : ''}
           </div>
-          <div style="font-size:11.5px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.95),0 0 10px rgba(0,0,0,0.7);max-width:94px;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.01em;">${esc(displayName)}</div>
-          <div style="font-family:var(--display);font-size:13px;font-weight:800;padding:3px 11px;border-radius:9999px;background:${ptsBg};border:1px solid ${ptsBorder};color:${ptsColor};box-shadow:0 3px 10px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.08);min-width:38px;text-align:center;line-height:1;">${pts >= 0 ? '+' : ''}${Math.round(pts)}</div>
+          <div style="font-size:${pp.name}px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.95),0 0 10px rgba(0,0,0,0.7);max-width:${pp.nameMx}px;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.01em;line-height:1.1;">${esc(displayName)}</div>
+          <div style="font-family:var(--display);font-size:${pp.pill}px;font-weight:800;padding:${pp.pillPy}px ${pp.pillPx}px;border-radius:9999px;background:${ptsBg};border:1px solid ${ptsBorder};color:${ptsColor};box-shadow:0 2px 6px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.08);min-width:${pp.pillMin}px;text-align:center;line-height:1;">${pts >= 0 ? '+' : ''}${Math.round(pts)}</div>
         </div>
       `;
     };
@@ -1069,76 +1085,85 @@
       return `<div style="display:flex;justify-content:center;gap:${gap}px;flex-wrap:wrap;">${players.map(p => renderPitchPlayer(p, 'xi')).join('')}</div>`;
     };
 
+    // Mini stat tile for mobile — smaller font + tighter padding so
+    // 3 fit per row on a 375px phone without collapsing to a single column.
+    const miniStat = (val, lbl, accent) => `
+      <div style="padding:8px 10px;border-radius:10px;background:var(--glass);border:1px solid var(--line);position:relative;overflow:hidden;">
+        ${accent ? `<div style="position:absolute;top:0;left:8px;right:8px;height:2px;background:${accent};"></div>` : ''}
+        <div style="font-family:var(--display);font-size:17px;font-weight:800;color:var(--ink);line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${val}</div>
+        <div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--mute);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(lbl)}</div>
+      </div>`;
+
     return `
       <!-- Stats banner -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px;">
-        ${CD.Stat({val: xiPlayers.length + '+' + benchPlayers.length, lbl: 'XI + Bench', accent:'var(--electric)'})}
-        ${CD.Stat({val: '₹' + (t.budget||0).toFixed(1), lbl:'Purse left (cr)', accent:'var(--lime)'})}
-        ${CD.Stat({val: '₹' + spent.toFixed(1), lbl:'Total spent (cr)', accent:'var(--pink)'})}
-        ${CD.Stat({val: overseas + '/' + (rs.maxOverseas || 8), lbl:'Overseas', accent:'var(--gold)'})}
-        ${CD.Stat({val: (seasonTotal>=0?'+':'') + seasonTotal, lbl:'Season points', accent:'var(--lime)'})}
+      <div style="display:grid;grid-template-columns:${mob ? 'repeat(3,1fr)' : 'repeat(auto-fit,minmax(160px,1fr))'};gap:${mob ? 7 : 14}px;margin-bottom:${mob ? 12 : 18}px;">
+        ${mob ? miniStat(xiPlayers.length + '+' + benchPlayers.length, 'XI+Bench', 'var(--electric)') : CD.Stat({val: xiPlayers.length + '+' + benchPlayers.length, lbl: 'XI + Bench', accent:'var(--electric)'})}
+        ${mob ? miniStat('₹' + (t.budget||0).toFixed(1), 'Purse', 'var(--lime)') : CD.Stat({val: '₹' + (t.budget||0).toFixed(1), lbl:'Purse left (cr)', accent:'var(--lime)'})}
+        ${mob ? miniStat('₹' + spent.toFixed(1), 'Spent', 'var(--pink)') : CD.Stat({val: '₹' + spent.toFixed(1), lbl:'Total spent (cr)', accent:'var(--pink)'})}
+        ${mob ? miniStat(overseas + '/' + (rs.maxOverseas || 8), 'Overseas', 'var(--gold)') : CD.Stat({val: overseas + '/' + (rs.maxOverseas || 8), lbl:'Overseas', accent:'var(--gold)'})}
+        ${mob ? miniStat((seasonTotal>=0?'+':'') + seasonTotal, 'Pts', 'var(--lime)') : CD.Stat({val: (seasonTotal>=0?'+':'') + seasonTotal, lbl:'Season points', accent:'var(--lime)'})}
       </div>
 
       <!-- Hero: Team name + cricket pitch -->
-      <div style="border-radius:22px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:18px;overflow:hidden;position:relative;">
+      <div style="border-radius:${mob ? 16 : 22}px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:${mob ? 14 : 18}px;overflow:hidden;position:relative;">
         <!-- Team header -->
-        <div style="padding:18px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);position:relative;z-index:2;flex-wrap:wrap;gap:10px;">
-          <div>
-            <div style="font-size:10px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Playing XI${xiMult !== 1 ? ' · ' + xiMult + '× multiplier' : ''}</div>
-            <div class="ed" style="font-size:32px;line-height:1;margin-top:3px;">${esc(t.name)}</div>
+        <div style="padding:${mob ? '12px 14px' : '18px 22px'};display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);position:relative;z-index:2;flex-wrap:wrap;gap:${mob ? 6 : 10}px;">
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:${mob ? 9 : 10}px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Playing XI${xiMult !== 1 ? ' · ' + xiMult + '×' : ''}</div>
+            <div class="ed" style="font-size:${mob ? 22 : 32}px;line-height:1;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.name)}</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            ${releaseLocked && !isSuper ? CD.Pill({tone:'red', children:'Releases locked'}) : ''}
-            ${squadLocked && !isAdmin ? CD.Pill({tone:'pink', children:'Squad locked'}) : ''}
-            ${CD.Pill({tone:'lime', children: CD.LiveDot() + ' XI ' + (xiTotal>=0?'+':'') + Math.round(xiTotal)})}
-            ${canEdit && roster.length > 0 ? `<button onclick="CD.startEditSquad()" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(46,91,255,0.35);">${I('edit',12)} Edit squad</button>` : ''}
+          <div style="display:flex;gap:${mob ? 5 : 8}px;align-items:center;flex-wrap:wrap;flex-shrink:0;">
+            ${releaseLocked && !isSuper ? CD.Pill({tone:'red', style: mob?'font-size:9px;padding:2px 7px;':'', children: mob ? 'Locked' : 'Releases locked'}) : ''}
+            ${squadLocked && !isAdmin ? CD.Pill({tone:'pink', style: mob?'font-size:9px;padding:2px 7px;':'', children:'Squad locked'}) : ''}
+            ${CD.Pill({tone:'lime', style: mob?'font-size:9.5px;padding:2px 8px;':'', children: CD.LiveDot() + ' XI ' + (xiTotal>=0?'+':'') + Math.round(xiTotal)})}
+            ${canEdit && roster.length > 0 ? `<button onclick="CD.startEditSquad()" style="padding:${mob ? '6px 10px' : '8px 14px'};border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:${mob ? 10.5 : 12}px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 4px 16px rgba(46,91,255,0.35);">${I('edit',mob ? 10 : 12)} ${mob ? 'Edit' : 'Edit squad'}</button>` : ''}
           </div>
         </div>
 
         <!-- Cricket pitch visualization -->
-        <div style="position:relative;min-height:${CD.state.isMobile ? 460 : 540}px;background:
+        <div style="position:relative;min-height:${mob ? 420 : 540}px;background:
           radial-gradient(ellipse 80% 100% at 50% 50%, #0d6638 0%, #052918 65%, #0A0B12 100%),
           #052918;
           overflow:hidden;">
 
           <!-- Field ring (boundary) -->
-          <div style="position:absolute;inset:22px;border-radius:50%;border:2px dashed rgba(255,255,255,0.18);pointer-events:none;"></div>
+          <div style="position:absolute;inset:${mob ? 14 : 22}px;border-radius:50%;border:${mob?1:2}px dashed rgba(255,255,255,0.18);pointer-events:none;"></div>
           <!-- Inner circle (30-yard) -->
-          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:55%;height:46%;border-radius:50%;border:1px solid rgba(255,255,255,0.14);pointer-events:none;"></div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? 62 : 55}%;height:${mob ? 40 : 46}%;border-radius:50%;border:1px solid rgba(255,255,255,0.14);pointer-events:none;"></div>
           <!-- Pitch strip (brown) -->
-          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${CD.state.isMobile ? '14%' : '9%'};height:${CD.state.isMobile ? '22%' : '28%'};background:linear-gradient(180deg,#c9a56d,#8c6a3a);border-radius:2px;pointer-events:none;box-shadow:0 0 24px rgba(201,165,109,0.4);"></div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? '11%' : '9%'};height:${mob ? '18%' : '28%'};background:linear-gradient(180deg,#c9a56d,#8c6a3a);border-radius:2px;pointer-events:none;box-shadow:0 0 24px rgba(201,165,109,0.4);"></div>
           <!-- Crease marks -->
-          <div style="position:absolute;left:50%;top:calc(50% - ${CD.state.isMobile ? 50 : 72}px);transform:translateX(-50%);width:${CD.state.isMobile ? 40 : 54}px;height:2px;background:#fff;"></div>
-          <div style="position:absolute;left:50%;top:calc(50% + ${CD.state.isMobile ? 50 : 72}px);transform:translateX(-50%);width:${CD.state.isMobile ? 40 : 54}px;height:2px;background:#fff;"></div>
+          <div style="position:absolute;left:50%;top:calc(50% - ${mob ? 40 : 72}px);transform:translateX(-50%);width:${mob ? 32 : 54}px;height:2px;background:#fff;"></div>
+          <div style="position:absolute;left:50%;top:calc(50% + ${mob ? 40 : 72}px);transform:translateX(-50%);width:${mob ? 32 : 54}px;height:2px;background:#fff;"></div>
           <!-- Stumps -->
-          <div style="position:absolute;left:50%;top:calc(50% - ${CD.state.isMobile ? 54 : 78}px);transform:translateX(-50%);display:flex;gap:2px;">
-            ${[0,1,2].map(() => '<div style="width:2px;height:9px;background:#fff;"></div>').join('')}
+          <div style="position:absolute;left:50%;top:calc(50% - ${mob ? 44 : 78}px);transform:translateX(-50%);display:flex;gap:2px;">
+            ${[0,1,2].map(() => `<div style="width:2px;height:${mob?7:9}px;background:#fff;"></div>`).join('')}
           </div>
-          <div style="position:absolute;left:50%;top:calc(50% + ${CD.state.isMobile ? 45 : 69}px);transform:translateX(-50%);display:flex;gap:2px;">
-            ${[0,1,2].map(() => '<div style="width:2px;height:9px;background:#fff;"></div>').join('')}
+          <div style="position:absolute;left:50%;top:calc(50% + ${mob ? 36 : 69}px);transform:translateX(-50%);display:flex;gap:2px;">
+            ${[0,1,2].map(() => `<div style="width:2px;height:${mob?7:9}px;background:#fff;"></div>`).join('')}
           </div>
 
           <!-- Players positioned by role -->
           <!-- Bowlers (top-center & scattered deep) -->
-          <div style="position:absolute;top:${CD.state.isMobile ? 26 : 34}px;left:0;right:0;display:flex;justify-content:center;gap:${CD.state.isMobile ? 22 : 40}px;flex-wrap:wrap;padding:0 18px;z-index:3;">
+          <div style="position:absolute;top:${mob ? 18 : 34}px;left:0;right:0;display:flex;justify-content:center;gap:${mob ? 10 : 40}px;flex-wrap:wrap;padding:0 ${mob ? 8 : 18}px;z-index:3;">
             ${byRole.bowl.map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
           <!-- All-rounders (mid, left+right of pitch) -->
-          <div style="position:absolute;top:50%;left:${CD.state.isMobile ? '5%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:22px;z-index:3;">
+          <div style="position:absolute;top:50%;left:${mob ? '2%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:${mob ? 12 : 22}px;z-index:3;">
             ${byRole.ar.slice(0, Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
-          <div style="position:absolute;top:50%;right:${CD.state.isMobile ? '5%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:22px;z-index:3;">
+          <div style="position:absolute;top:50%;right:${mob ? '2%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:${mob ? 12 : 22}px;z-index:3;">
             ${byRole.ar.slice(Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
-          <!-- Wicketkeeper (behind stumps, top of pitch) — lifted to clear the pitch strip -->
-          <div style="position:absolute;top:calc(50% - ${CD.state.isMobile ? 155 : 190}px);left:50%;transform:translateX(-50%);z-index:4;">
+          <!-- Wicketkeeper (behind stumps, top of pitch) — clear the pitch strip -->
+          <div style="position:absolute;top:calc(50% - ${mob ? 130 : 190}px);left:50%;transform:translateX(-50%);z-index:4;">
             ${byRole.wk.map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
-          <!-- Batters (bottom, near crease) — lifted + wider gap so 4+ don't crowd -->
-          <div style="position:absolute;bottom:${CD.state.isMobile ? 24 : 30}px;left:0;right:0;display:flex;justify-content:center;gap:${CD.state.isMobile ? 18 : 36}px;flex-wrap:wrap;padding:0 18px;z-index:3;">
+          <!-- Batters (bottom, near crease) -->
+          <div style="position:absolute;bottom:${mob ? 16 : 30}px;left:0;right:0;display:flex;justify-content:center;gap:${mob ? 8 : 36}px;flex-wrap:wrap;padding:0 ${mob ? 8 : 18}px;z-index:3;">
             ${byRole.bat.map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
