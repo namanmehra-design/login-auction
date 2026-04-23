@@ -498,31 +498,97 @@
     const isAdmin = window.isAdmin || false;
     const isStarted = setup.isStarted || false;
     const maxTeams = rs.maxTeams || setup.maxTeams || 7;
+    const maxPlayers = rs.maxPlayers || setup.maxPlayers || 21;
+    const maxOverseas = rs.maxOverseas || setup.maxOverseas || 8;
+    const budget = rs.budget || setup.budget || 100;
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
+    const releaseLocked = !!rs.releaseLocked;
+    const squadLocked = !!rs.squadLocked;
+    const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const inviteUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(window.roomId || '');
+    const myRegistered = window.myTeamName && members.find(m => m.uid === window.user?.uid);
+
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px;">
-        ${CD.Stat({val: rs.budget || setup.budget || 100, lbl: 'Budget (cr)', accent: 'var(--electric)'})}
+      <!-- Stats banner -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
+        ${CD.Stat({val: '₹' + budget, lbl: 'Budget (cr)', accent: 'var(--electric)'})}
         ${CD.Stat({val: maxTeams, lbl: 'Max Teams', accent: 'var(--pink)'})}
-        ${CD.Stat({val: rs.maxPlayers || setup.maxPlayers || 21, lbl: 'Players / Team', accent: 'var(--lime)'})}
-        ${CD.Stat({val: rs.maxOverseas || setup.maxOverseas || 8, lbl: 'Max Overseas', accent: 'var(--gold)'})}
+        ${CD.Stat({val: maxPlayers, lbl: 'Players / Team', accent: 'var(--lime)'})}
+        ${CD.Stat({val: maxOverseas, lbl: 'Max Overseas', accent: 'var(--gold)'})}
+        ${CD.Stat({val: xiMult + '×', lbl: 'XI Multiplier', accent: 'var(--gold)'})}
       </div>
-      <div class="cd-glass-2" style="padding:24px;border-radius:22px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-          <div class="ed" style="font-size:28px;">Members <span class="ed-i" style="color:var(--mute);">${members.length} / ${maxTeams}</span></div>
-          ${isAdmin && !isStarted ? `<button onclick="window.initializeAuctionData()" style="padding:10px 20px;border-radius:9999px;background:linear-gradient(180deg,var(--lime-2),var(--lime));color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 6px 24px rgba(182,255,60,0.3);">${I('check',14)} Start Auction</button>` : isStarted ? CD.Pill({tone:'lime', children: CD.LiveDot() + ' AUCTION LIVE'}) : ''}
+
+      <!-- Status banner -->
+      <div style="padding:20px 24px;border-radius:18px;background:${isStarted ? 'linear-gradient(135deg,rgba(182,255,60,0.12),rgba(46,91,255,0.08))' : 'var(--glass)'};border:1px solid ${isStarted?'rgba(182,255,60,0.3)':'var(--line-2)'};margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Auction status</div>
+          <div class="ed" style="font-size:26px;margin-top:3px;">${isStarted ? '<span style="color:var(--lime);">Live</span>' : 'Not <span class="ed-i" style="color:var(--mute);">started</span>'}</div>
+          ${isStarted ? `<div style="font-size:11px;color:var(--ink-2);margin-top:3px;">Auction is underway. Head to the Auction tab.</div>` : isAdmin ? `<div style="font-size:11px;color:var(--ink-2);margin-top:3px;">You're the admin. Click Start Auction when ${maxTeams} teams have joined.</div>` : `<div style="font-size:11px;color:var(--ink-2);margin-top:3px;">Waiting for the admin to start the auction.</div>`}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${isStarted ? CD.Pill({tone:'lime', children: CD.LiveDot() + ' LIVE'}) : ''}
+          ${releaseLocked ? CD.Pill({tone:'red', children:'Release locked'}) : ''}
+          ${squadLocked ? CD.Pill({tone:'pink', children:'Squad locked'}) : ''}
+          ${isAdmin && !isStarted && members.length >= 2 ? `<button onclick="window.initializeAuctionData()" style="padding:10px 20px;border-radius:9999px;background:linear-gradient(180deg,var(--lime-2),var(--lime));color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 6px 24px rgba(182,255,60,0.3);display:inline-flex;align-items:center;gap:6px;">${I('check',14)} Start Auction</button>` : ''}
+        </div>
+      </div>
+
+      <!-- Invite link + team registration -->
+      <div style="display:grid;grid-template-columns:${CD.state.isMobile ? '1fr' : '1fr 1fr'};gap:14px;margin-bottom:18px;">
+        <div style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);">
+          <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Invite teams</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+            <input value="${esc(inviteUrl)}" readonly onclick="this.select()" style="flex:1;padding:9px 12px;font-size:11px;color:var(--ink-2);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--mono);"/>
+            <button onclick="window.copyInviteLink && window.copyInviteLink()" style="padding:9px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;">${I('copy',12)} Copy</button>
+          </div>
+          <div style="font-size:11px;color:var(--mute);">Share this link with anyone you want to invite. They'll land on the room and can register a team.</div>
+        </div>
+        <div style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);">
+          <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Your registration</div>
+          ${myRegistered ? `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              ${CD.Avatar({name: window.myTeamName, size:40})}
+              <div>
+                <div class="ed" style="font-size:20px;line-height:1;">${esc(window.myTeamName)}</div>
+                <div style="font-size:11px;color:var(--mute);margin-top:2px;">Registered · ₹${(teams[window.myTeamName]?.budget || budget).toFixed(1)}cr purse</div>
+              </div>
+            </div>
+            ${isSuper ? `<button onclick="window.toggleReleaseLock_A && window.toggleReleaseLock_A()" style="padding:8px 14px;border-radius:9999px;background:${releaseLocked?'rgba(255,59,59,0.18)':'var(--glass-2)'};border:1px solid ${releaseLocked?'rgba(255,59,59,0.4)':'var(--line-2)'};color:${releaseLocked?'var(--red)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;margin-right:6px;">${releaseLocked?'Unlock releases':'Lock releases'}</button>` : ''}
+            ${isAdmin ? `<button onclick="window.toggleSquadLock_A && window.toggleSquadLock_A()" style="padding:8px 14px;border-radius:9999px;background:${squadLocked?'rgba(255,45,135,0.18)':'var(--glass-2)'};border:1px solid ${squadLocked?'rgba(255,45,135,0.4)':'var(--line-2)'};color:${squadLocked?'var(--pink)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${squadLocked?'Unlock squads':'Lock squads'}</button>` : ''}
+          ` : `
+            <div style="font-size:13px;color:var(--ink-2);margin-bottom:10px;">You haven't registered a team yet. Pick a name to start bidding.</div>
+            <button onclick="document.getElementById('teamNameModal')?.classList.add('open')" style="padding:10px 18px;border-radius:9999px;background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">Register my team</button>
+          `}
+        </div>
+      </div>
+
+      <!-- Members list -->
+      <div style="padding:20px 24px;border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="ed" style="font-size:24px;">Members <span class="ed-i" style="color:var(--mute);font-size:18px;">${members.length} / ${maxTeams}</span></div>
+          <div style="display:flex;gap:4px;">
+            ${Array.from({length: maxTeams}).map((_, i) => `<div style="width:18px;height:4px;border-radius:2px;background:${i < members.length ? 'var(--lime)' : 'rgba(255,255,255,0.1)'};"></div>`).join('')}
+          </div>
         </div>
         ${members.length ? `
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
           ${members.map(m => `
-            <div class="cd-glass" style="padding:14px;border-radius:14px;background:var(--glass);border:1px solid var(--line);display:flex;align-items:center;gap:10px;">
+            <div style="padding:14px;border-radius:14px;background:${m.uid === window.user?.uid ? 'rgba(182,255,60,0.08)' : 'var(--glass)'};border:1px solid ${m.uid === window.user?.uid ? 'rgba(182,255,60,0.3)' : 'var(--line)'};display:flex;align-items:center;gap:10px;">
               ${CD.Avatar({name: m.teamName, size: 36})}
               <div style="flex:1;min-width:0;">
-                <div style="font-weight:600;font-size:13px;">${esc(m.teamName)}</div>
-                <div style="font-size:11px;color:var(--mute);">${esc(m.email || '—')}</div>
+                <div style="font-weight:600;font-size:13px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(m.teamName)}</div>
+                <div style="font-size:11px;color:var(--mute);text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(m.email || '—')}</div>
               </div>
-              ${m.uid === window.user?.uid ? CD.Pill({tone:'lime', children:'YOU'}) : ''}
+              ${m.uid === window.user?.uid ? CD.Pill({tone:'lime', style:'font-size:9px;padding:2px 6px;', children:'YOU'}) : ''}
             </div>
           `).join('')}
-        </div>` : `<div style="padding:30px;text-align:center;color:var(--mute);">No members yet — share the invite link to bring teams in.</div>`}
+          ${Array.from({length: Math.max(0, maxTeams - members.length)}).map(() => `
+            <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.02);border:1px dashed var(--line-2);display:flex;align-items:center;gap:10px;opacity:0.5;">
+              <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;color:var(--mute);">${I('plus', 18)}</div>
+              <div style="font-size:12px;color:var(--mute);">Open slot</div>
+            </div>
+          `).join('')}
+        </div>` : `<div style="padding:30px;text-align:center;color:var(--mute);">No members yet — share the invite link above.</div>`}
       </div>
     `;
   };
@@ -2030,7 +2096,18 @@
         const batM = bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x×]4)?(?:\s+(\d+)[x×]6)?/);
         if(batM){ const r=+batM[1]; s.runs+=r; s.balls+=+batM[2]; s.fours+=+(batM[3]||0); s.sixes+=+(batM[4]||0); s.inns++; if(r>s.hs)s.hs=r; if(r>=100)s.h100++; else if(r>=50)s.h50++; }
         const bowM = bd.match(/Bowl(?:ing)?\((\d+)w\s+([\d.]+)ov(?:\s+(\d+)r)?/);
-        if(bowM){ const w=+bowM[1]; s.wkts+=w; s.overs+=+bowM[2]; s.runsConc+=+(bowM[3]||0); s.bowlInns++; if(w>=5)s.c5w++; if(w>=3)s.c3w++; }
+        if(bowM){
+          const w = +bowM[1], ov = +bowM[2];
+          s.wkts += w; s.overs += ov; s.bowlInns++;
+          let runsFromBd = bowM[3] ? +bowM[3] : null;
+          if(runsFromBd === null){
+            const ecoM = bd.match(/eco:([\d.]+)/);
+            if(ecoM && +ecoM[1] > 0 && ov > 0) runsFromBd = Math.round(+ecoM[1] * ov);
+          }
+          s.runsConc += (runsFromBd || 0);
+          if(w >= 5) s.c5w++;
+          if(w >= 3) s.c3w++;
+        }
         const fldM = bd.match(/Field(?:ing)?\((\d+)c\s+(\d+)st\s+(\d+)ro\)/);
         if(fldM){ s.catches+=+fldM[1]; s.stumps+=+fldM[2]; s.runouts+=+fldM[3]; }
       });
@@ -2313,11 +2390,12 @@
       </tbody></table></div>`;
   };
 
-  // Schedule — IPL 2026 70-match fixture list
+  // Schedule — IPL 2026 70-match fixture list (+ trade windows after every 10 matches)
   CD.renderSchedule = () => {
     const schedule = window.IPL_SCHEDULE || [];
     const rs = window.roomState || {};
     const matches = rs.matches || {};
+    const TRADE_WINDOWS = [10, 20, 30, 40, 50, 60];
     if(!schedule.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div class="ed" style="font-size:22px;">Schedule loading…</div></div>`;
 
     // Today's date (Apr 23, 2026 format)
@@ -2329,13 +2407,45 @@
     const byDate = {};
     schedule.forEach(m => { if(!byDate[m.date]) byDate[m.date] = []; byDate[m.date].push(m); });
 
-    // Build played-match lookup (fuzzy match label)
-    const played = {};
-    Object.values(matches).forEach(m => {
-      const lab = (m.label||'').toLowerCase();
-      // Extract team pairs like "csk vs mi"
-      const match = lab.match(/([A-Z]{2,4})\s*vs?\s*([A-Z]{2,4})/i);
-      if(match) played[(match[1]+':'+match[2]).toUpperCase()] = m;
+    // --- Build played-match lookup keyed by schedule sr ---
+    // Strategy: teams play each other twice in a season, so a simple
+    // team-pair key collides. Prefer an explicit match number extracted
+    // from the label ("Match 11", "#11", "M11", " 11 "), otherwise assign
+    // played matches to schedule slots in chronological order.
+    const resultBySr = {};
+    const allPlayed = Object.values(matches).slice().sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
+    const unmatched = [];
+
+    // Phase 1: extract sr from explicit match-number markers
+    // (don't grab bare numbers — labels often include dates like "24 Apr")
+    allPlayed.forEach(pl => {
+      const lab = (pl.label || '').trim();
+      let sr = null;
+      const marked = lab.match(/(?:match\s*#?|\bmatch\s+no\.?\s*|#)\s*(\d{1,3})\b/i)
+                 || lab.match(/\bm\s*(\d{1,3})\b/i);
+      if(marked) sr = parseInt(marked[1], 10);
+      if(sr !== null && sr >= 1 && sr <= schedule.length && !resultBySr[sr]){
+        resultBySr[sr] = pl;
+      } else {
+        unmatched.push(pl);
+      }
+    });
+
+    // Phase 2: assign remaining by team-pair to earliest open slot
+    unmatched.forEach(pl => {
+      const lab = (pl.label || '').toUpperCase();
+      const pair = lab.match(/([A-Z]{2,4})\s*VS?\s*([A-Z]{2,4})/);
+      if(!pair) return;
+      const t1 = pair[1], t2 = pair[2];
+      for(let i = 0; i < schedule.length; i++){
+        const s = schedule[i];
+        if(resultBySr[s.sr]) continue;
+        const sm1 = (s.t1||'').toUpperCase(), sm2 = (s.t2||'').toUpperCase();
+        if((sm1 === t1 && sm2 === t2) || (sm1 === t2 && sm2 === t1)){
+          resultBySr[s.sr] = pl;
+          break;
+        }
+      }
     });
 
     const parseDateForSort = (dStr) => {
@@ -2346,18 +2456,42 @@
 
     const sortedDates = Object.keys(byDate).sort((a,b) => parseDateForSort(a) - parseDateForSort(b));
 
+    // Trade window banner (reusable)
+    const tradeBanner = (wIdx, prevSr, nextSr) => `
+      <div style="position:relative;padding:16px 22px;border-radius:14px;background:linear-gradient(135deg,rgba(255,199,0,0.14),rgba(46,91,255,0.10));border:1px dashed rgba(255,199,0,0.45);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="width:34px;height:34px;border-radius:9999px;background:linear-gradient(135deg,var(--gold),#ff9f1c);display:flex;align-items:center;justify-content:center;color:#111;font-weight:900;font-family:var(--display);font-size:14px;">W${wIdx}</div>
+          <div>
+            <div style="font-size:10px;color:var(--gold);letter-spacing:0.2em;text-transform:uppercase;font-weight:800;">Change & Trade Window ${wIdx}</div>
+            <div style="font-size:13px;color:var(--ink);font-weight:600;margin-top:2px;">Between Match #${prevSr} and Match #${nextSr}</div>
+            <div style="font-size:11px;color:var(--mute);margin-top:3px;">Teams may trade players and adjust squads during this window.</div>
+          </div>
+        </div>
+        ${CD.Pill({tone:'gold', children:'TRADE OPEN'})}
+      </div>
+    `;
+
     return `
       <div style="padding:16px 20px;border-radius:14px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:18px;">
         <div style="font-size:10px;color:var(--mute);letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">IPL 2026</div>
         <h2 class="ed" style="font-size:32px;margin-top:2px;">Season <span class="ed-i" style="color:var(--gold);">schedule</span></h2>
-        <div style="font-size:12px;color:var(--mute);margin-top:6px;">${schedule.length} matches · 10 teams</div>
+        <div style="font-size:12px;color:var(--mute);margin-top:6px;">${schedule.length} matches · 10 teams · ${TRADE_WINDOWS.length} trade windows</div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:12px;">
         ${sortedDates.map(d => {
           const isToday = d === todayStr;
-          const dayMatches = byDate[d];
-          return `
+          const dayMatches = byDate[d].slice().sort((a,b) => a.sr - b.sr);
+          // Does a trade window fall *within* this day (same day has both match N and N+1)?
+          const innerWindowSrs = dayMatches
+            .map(m => m.sr)
+            .filter(sr => TRADE_WINDOWS.includes(sr) && dayMatches.some(x => x.sr === sr + 1));
+          // Does a trade window fall *after* this day (last match of day is N, N+1 is next day)?
+          const outerWindowSrs = dayMatches
+            .map(m => m.sr)
+            .filter(sr => TRADE_WINDOWS.includes(sr) && !dayMatches.some(x => x.sr === sr + 1));
+
+          const dayCard = `
             <div style="border-radius:14px;background:${isToday?'linear-gradient(135deg,rgba(255,45,135,0.12),rgba(46,91,255,0.10))':'var(--glass)'};border:1px solid ${isToday?'rgba(255,45,135,0.35)':'var(--line)'};backdrop-filter:blur(20px);overflow:hidden;">
               <div style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);">
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -2368,11 +2502,25 @@
               </div>
               <div style="padding:12px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
                 ${dayMatches.map(m => {
-                  const playedKey = (m.t1+':'+m.t2).toUpperCase();
-                  const playedKey2 = (m.t2+':'+m.t1).toUpperCase();
-                  const result = played[playedKey] || played[playedKey2];
+                  const result = resultBySr[m.sr];
+                  const isNoResult = result && (result.result === 'noresult');
                   const [c1a, c2a] = TEAM_COLORS[m.t1] || ['#444','#222'];
                   const [c1b, c2b] = TEAM_COLORS[m.t2] || ['#444','#222'];
+                  let statusPill = '';
+                  if(result){
+                    if(isNoResult){
+                      statusPill = CD.Pill({style:'font-size:9px;padding:2px 7px;background:rgba(255,255,255,0.08);color:var(--mute);border-color:var(--line-2);', children:'No Result'});
+                    } else if(result.winner){
+                      statusPill = CD.Pill({tone:'lime', style:'font-size:9px;padding:2px 7px;', children:'W: ' + esc(result.winner)});
+                    } else {
+                      statusPill = CD.Pill({style:'font-size:9px;padding:2px 7px;', children:'Completed'});
+                    }
+                  }
+                  const innerBanner = innerWindowSrs.includes(m.sr) ? `
+                    <div style="grid-column:1/-1;margin:6px 0;">
+                      ${tradeBanner(TRADE_WINDOWS.indexOf(m.sr)+1, m.sr, m.sr+1)}
+                    </div>
+                  ` : '';
                   return `<div style="padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--line);">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                       <div style="display:flex;align-items:center;gap:6px;">
@@ -2389,12 +2537,15 @@
                       <span>Match ${m.sr}</span>
                       <span>${esc(m.time||'')} · ${esc(m.city||'')}</span>
                     </div>
-                    ${result ? `<div style="margin-top:6px;font-size:10px;">${CD.Pill({tone:'lime', style:'font-size:9px;padding:2px 7px;', children:'W: ' + esc(result.winner||'?')})}</div>` : ''}
-                  </div>`;
+                    ${statusPill ? `<div style="margin-top:6px;font-size:10px;">${statusPill}</div>` : ''}
+                  </div>${innerBanner}`;
                 }).join('')}
               </div>
             </div>
           `;
+
+          const afterBanners = outerWindowSrs.map(sr => tradeBanner(TRADE_WINDOWS.indexOf(sr)+1, sr, sr+1)).join('');
+          return dayCard + afterBanners;
         }).join('')}
       </div>
     `;
