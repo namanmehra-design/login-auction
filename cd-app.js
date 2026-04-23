@@ -3880,7 +3880,6 @@
     }, 400);
 
     // Listen for room list updates (fired by app.js when Firebase data loads)
-    let _lastRoomsKey = '';
     const updateRoomGrids = () => {
       try {
         if(CD.state.view !== 'dashboard') return;
@@ -3888,15 +3887,9 @@
         const joinedRooms = window.userJoinedRooms || [];
         const myGrid = document.getElementById('cd-my-rooms-grid');
         const joinedGrid = document.getElementById('cd-joined-rooms-grid');
-        // Only skip re-render when grids are actually in the DOM (rendered)
-        // AND the data key matches the last rendered key. This prevents the
-        // earlier bug where the first call (before grids existed) cached the
-        // empty key and blocked subsequent renders of real data.
-        if(myGrid && joinedGrid){
-          const key = JSON.stringify([myRooms.map(r=>r.id+':'+r.name), joinedRooms.map(r=>r.id+':'+r.name)]);
-          if(key === _lastRoomsKey) return;
-          _lastRoomsKey = key;
-        }
+        // Always write — the diff-guard caused bugs where pre-render calls
+        // cached an empty key and blocked subsequent renders of real data.
+        // Writing a few room cards every 800ms is negligible perf cost.
         const buildCards = (rooms, isOwner) => {
           if(!rooms.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">' + (isOwner ? 'No rooms yet — create one above.' : 'No joined rooms yet.') + '</div>';
           return rooms.map(r => {
