@@ -5748,3 +5748,76 @@ window.renderSuperAdminPanel       = renderSuperAdminPanel;
 window.renderGlobalScorecardHistory = renderGlobalScorecardHistory;
 window.refreshGlobalScorecardList  = renderGlobalScorecardHistory; // alias
 window.populateScorecardSelect     = renderSuperAdminPanel;        // select is a side-effect of panel render
+
+// ─── Super admin: Replace player (auction) ────────────────────────
+// Points-preserving: we never touch matches/*/players/* — past performances
+// already carry ownedBy and live squad snapshots, so refusing to mutate
+// them keeps every earned point intact for the team that owned the
+// player at match time. Only current-roster + players-list pointers move.
+window.saReplacePlayerA = function(teamName, oldName, wasOverseas, price){
+  if(!isSuperAdminEmail(user?.email)) return window.showAlert('Only the super admin can replace players.','error');
+  if(!roomId) return window.showAlert('No room loaded.','error');
+  if(typeof CD !== 'undefined' && typeof CD.openReplaceA === 'function'){
+    CD.openReplaceA(teamName, oldName, !!wasOverseas, +price||0);
+  } else {
+    window.showAlert('Replace UI not loaded. Reload the page.','error');
+  }
+};
+
+window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
+  if(!isSuperAdminEmail(user?.email)) throw new Error('Not authorized');
+  if(!roomId) throw new Error('No room loaded');
+  const targetName=(oldName||'').toLowerCase().trim();
+  const snap=await get(ref(db,`auctions/${roomId}`));
+  const data=snap.val();
+  if(!data) throw new Error('Room data not found');
+  const team=data.teams?.[teamName];
+  if(!team) throw new Error(`Team ${teamName} not found`);
+  // Normalise roster, keeping explicit indices
+  const rawRoster=team.roster;
+  let rosterEntries=[];
+  if(Array.isArray(rawRoster)) rosterEntries=rawRoster.map((v,i)=>({key:String(i),value:v}));
+  else if(rawRoster) rosterEntries=Object.entries(rawRoster).map(([k,v])=>({key:k,value:v}));
+  else throw new Error(`${teamName} has no roster.`);
+  const matchEntry=rosterEntries.find(e=>(e.value?.name||e.value?.n||'').toLowerCase().trim()===targetName);
+  if(!matchEntry) throw new Error(`${oldName} not in ${teamName}'s roster`);
+  // Resolve players
+  const allPlayers=data.players?Object.values(data.players):[];
+  const oldPlayer=allPlayers.find(p=>(p.name||p.n||'').toLowerCase().trim()===targetName);
+  const newPlayer=allPlayers.find(p=>String(p.id)===String(newPlayerId));
+  if(!newPlayer) throw new Error('Replacement player not found in pool');
+  if((newPlayer.status==='sold')||newPlayer.soldTo) throw new Error(`${newPlayer.name} is already sold`);
+  // Keep price identical → budget unchanged
+  const oldSoldPrice=+(matchEntry.value.soldPrice||matchEntry.value.sp||oldPlayer?.soldPrice||0);
+  // Overseas cap check
+  const currentRoster=rosterEntries.map(e=>e.value);
+  const currentOs=currentRoster.filter(p=>!!(p.isOverseas||p.o)).length;
+  const losingOs=(matchEntry.value.isOverseas||matchEntry.value.o)?1:0;
+  const gainingOs=newPlayer.isOverseas?1:0;
+  const newOsCount=currentOs-losingOs+gainingOs;
+  const maxOs=data.maxOverseas||8;
+  if(newOsCount>maxOs) throw new Error(`Overseas limit exceeded: ${newOsCount} > ${maxOs}`);
+  // Build new roster (full replace to avoid Firebase merge bugs)
+  const newRoster=currentRoster.slice();
+  const idx=parseInt(matchEntry.key,10);
+  newRoster[idx]={
+    name:newPlayer.name,
+    iplTeam:newPlayer.iplTeam,
+    role:newPlayer.role,
+    isOverseas:!!newPlayer.isOverseas,
+    soldPrice:oldSoldPrice
+  };
+  // Commit — roster via set() to avoid merge artefacts, then atomic update for players/*
+  await set(ref(db,`auctions/${roomId}/teams/${teamName}/roster`),newRoster);
+  const upd={};
+  if(oldPlayer){
+    upd[`auctions/${roomId}/players/${oldPlayer.id}/status`]='available';
+    upd[`auctions/${roomId}/players/${oldPlayer.id}/soldTo`]=null;
+    upd[`auctions/${roomId}/players/${oldPlayer.id}/soldPrice`]=null;
+  }
+  upd[`auctions/${roomId}/players/${newPlayer.id}/status`]='sold';
+  upd[`auctions/${roomId}/players/${newPlayer.id}/soldTo`]=teamName;
+  upd[`auctions/${roomId}/players/${newPlayer.id}/soldPrice`]=oldSoldPrice;
+  await update(ref(db),upd);
+  window.showAlert(`${oldName} replaced with ${newPlayer.name}. Points history preserved.`,'ok');
+};

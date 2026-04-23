@@ -1610,12 +1610,93 @@
           </div>
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;">
         <span style="font-family:var(--mono);color:var(--mute);">₹${(p.soldPrice||0).toFixed(2)}</span>
         <span style="font-family:var(--display);font-weight:800;color:${pts>0?'var(--lime)':pts<0?'var(--red)':'var(--mute)'};">${pts>=0?'+':''}${pts}${mc?' <span style="color:var(--mute);font-weight:500;font-size:10px;">· '+mc+'m</span>':''}</span>
-        ${(!releaseLocked || isSuper) ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
+        <div style="display:flex;gap:5px;margin-left:auto;">
+          ${isSuper ? `<button onclick="window.saReplacePlayerA && window.saReplacePlayerA('${esc(teamName)}','${esc(name)}',${isOs?'true':'false'},${(p.soldPrice||0)})" style="padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.12);border:1px solid rgba(255,200,61,0.45);color:#FFD97D;font-size:10px;font-weight:600;cursor:pointer;">Replace</button>` : ''}
+          ${(!releaseLocked || isSuper) ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
+        </div>
       </div>
     </div>`;
+  };
+
+  // ── SUPER ADMIN · Replace player overlay (auction) ─────────────
+  CD.openReplaceA = (teamName, oldName, wasOverseas, price) => {
+    CD._replaceA = { teamName, oldName, wasOverseas:!!wasOverseas, price:+price||0, filter:'All' };
+    CD._renderReplaceAOverlay();
+  };
+  CD.closeReplaceA = () => {
+    CD._replaceA = null;
+    const el = document.getElementById('cd-replace-a-overlay');
+    if(el) el.remove();
+  };
+  CD.setReplaceAFilter = (role) => {
+    if(!CD._replaceA) return;
+    CD._replaceA.filter = role;
+    CD._renderReplaceAOverlay();
+  };
+  CD.confirmReplaceA = (newId, newName) => {
+    const ctx = CD._replaceA;
+    if(!ctx) return;
+    if(!confirm(`Replace ${ctx.oldName} with ${newName}?\n\n• ${newName} joins ${ctx.teamName} at ₹${ctx.price.toFixed(2)} Cr (same price — budget unchanged)\n• ${ctx.oldName} returns to the unsold pool\n• All match points already earned by ${ctx.oldName} stay with ${ctx.teamName}`)) return;
+    if(typeof window.saExecuteReplaceA !== 'function'){
+      window.showAlert?.('Replace handler not available.');
+      return;
+    }
+    window.saExecuteReplaceA(ctx.teamName, ctx.oldName, newId)
+      .then(() => { CD.closeReplaceA(); })
+      .catch(e => window.showAlert?.('Replace failed: ' + (e.message||e), 'err'));
+  };
+  CD._renderReplaceAOverlay = () => {
+    const ctx = CD._replaceA;
+    if(!ctx) return;
+    const rs = window.roomState || {};
+    const players = rs.players ? Object.values(rs.players) : [];
+    let avail = players.filter(p => !(p.status==='sold' || p.soldTo));
+    const roleSet = new Set();
+    players.forEach(p => { if(p.role) roleSet.add(p.role); });
+    const roles = ['All', ...Array.from(roleSet).sort()];
+    if(ctx.filter !== 'All') avail = avail.filter(p => (p.role||'') === ctx.filter);
+    // Sort: highest base price / alphabetical
+    avail.sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
+    const existing = document.getElementById('cd-replace-a-overlay');
+    if(existing) existing.remove();
+    const rowBtn = (r) => `<button onclick="CD.setReplaceAFilter('${r.replace(/'/g,"\\'")}')" style="padding:6px 12px;border-radius:9999px;background:${ctx.filter===r?'linear-gradient(180deg,rgba(255,200,61,0.25),rgba(255,200,61,0.1))':'var(--glass)'};color:${ctx.filter===r?'#FFE49A':'var(--ink-2)'};border:1px solid ${ctx.filter===r?'rgba(255,200,61,0.55)':'var(--line-2)'};font-family:var(--sans);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.04em;">${r}</button>`;
+    const playerBtn = (p) => {
+      const pname = p.name || p.n || '';
+      const code = p.iplTeam || p.t || '';
+      const role = p.role || '';
+      const isOs = !!p.isOverseas;
+      return `<button onclick="CD.confirmReplaceA('${String(p.id).replace(/'/g,"\\'")}','${pname.replace(/'/g,"\\'")}')" style="display:flex;gap:10px;align-items:center;width:100%;padding:10px 12px;border-radius:12px;background:var(--glass);border:1px solid var(--line);margin-bottom:6px;cursor:pointer;text-align:left;transition:border-color .15s, background .15s;" onmouseover="this.style.borderColor='rgba(255,200,61,0.5)';this.style.background='rgba(255,200,61,0.06)'" onmouseout="this.style.borderColor='var(--line)';this.style.background='var(--glass)'">
+        ${CD.Avatar({team: code, name: pname, size: 32})}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pname}${isOs ? ' <span style="color:var(--gold);font-size:10px;">★</span>' : ''}</div>
+          <div style="font-size:10px;color:var(--mute);letter-spacing:0.04em;">${code || '—'} · ${role || '—'}</div>
+        </div>
+        <span style="font-family:var(--sans);font-size:10px;color:var(--electric);font-weight:700;text-transform:uppercase;letter-spacing:0.12em;">Pick</span>
+      </button>`;
+    };
+    const html = `<div id="cd-replace-a-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.74);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)CD.closeReplaceA()">
+      <div style="background:var(--glass-2,rgba(22,24,38,0.92));backdrop-filter:blur(32px) saturate(1.5);-webkit-backdrop-filter:blur(32px) saturate(1.5);border:1px solid var(--line-2);border-radius:22px;max-width:680px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--sh-2);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:14px;">
+          <div style="flex:1;min-width:0;">
+            <div class="ed" style="font-size:24px;line-height:1;">Replace <span class="ed-i" style="color:var(--gold);">player</span></div>
+            <div style="font-size:10px;color:var(--gold);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-top:6px;">${ctx.oldName} · ${ctx.teamName} · ₹${ctx.price.toFixed(2)} Cr</div>
+            <div style="font-size:11px;color:var(--mute);margin-top:8px;line-height:1.5;">Price stays ₹${ctx.price.toFixed(2)} Cr. Points history preserved.</div>
+          </div>
+          <button onclick="CD.closeReplaceA()" style="background:var(--glass);border:1px solid var(--line-2);color:var(--mute);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0;">×</button>
+        </div>
+        <div style="padding:12px 24px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);">
+          ${roles.map(rowBtn).join('')}
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:14px 20px;">
+          ${avail.length===0 ? '<div style="padding:40px;text-align:center;color:var(--mute);font-size:13px;">No available players match this filter.</div>' : avail.slice(0,250).map(playerBtn).join('')}
+          ${avail.length>250 ? '<div style="padding:12px;text-align:center;color:var(--mute);font-size:11px;">Showing first 250. Use the role filter to narrow.</div>' : ''}
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
   };
 
   // ───────────────────────────────────────────────────────────────
