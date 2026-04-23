@@ -1035,17 +1035,23 @@
       const name = p.name || p.n || '';
       const first = name.split(' ')[0];
       const last = name.split(' ').slice(1).join(' ');
+      const displayName = last || first;
       const pts = ptsFor(name) * (pos === 'xi' ? xiMult : 1);
       const code = teamCode(p.iplTeam || p.t);
       const isOs = !!(p.isOverseas || p.o);
+      const ptsColor = pts > 0 ? 'var(--lime)' : pts < 0 ? '#FFB4B4' : 'rgba(255,255,255,0.85)';
+      const ptsBg = pts > 0
+        ? 'linear-gradient(180deg,rgba(40,60,20,0.92),rgba(20,40,10,0.95))'
+        : pts < 0 ? 'rgba(70,20,20,0.92)' : 'rgba(0,0,0,0.7)';
+      const ptsBorder = pts > 0 ? 'rgba(182,255,60,0.65)' : pts < 0 ? 'rgba(255,120,120,0.45)' : 'rgba(255,255,255,0.3)';
       return `
-        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px;cursor:pointer;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
-          <div style="position:relative;">
-            ${CD.Avatar({team: p.iplTeam || p.t, name, size: 46})}
-            ${isOs ? '<div style="position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;box-shadow:0 0 0 2px var(--bg-1,#0C0D14);">★</div>' : ''}
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:80px;cursor:pointer;position:relative;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
+          <div style="position:relative;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7));">
+            ${CD.Avatar({team: p.iplTeam || p.t, name, size: 48})}
+            ${isOs ? '<div style="position:absolute;top:-3px;right:-3px;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;box-shadow:0 0 0 2px #052918;">★</div>' : ''}
           </div>
-          <div style="font-size:10px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,0.8);max-width:80px;overflow:hidden;text-overflow:ellipsis;">${esc(last || first)}</div>
-          <div style="font-family:var(--display);font-size:11px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${pts>0?'rgba(182,255,60,0.3)':'rgba(255,255,255,0.15)'};border:1px solid ${pts>0?'rgba(182,255,60,0.5)':'rgba(255,255,255,0.2)'};color:${pts>0?'var(--lime)':pts<0?'var(--red)':'#fff'};">${pts>=0?'+':''}${Math.round(pts)}</div>
+          <div style="font-size:11.5px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.95),0 0 10px rgba(0,0,0,0.7);max-width:94px;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.01em;">${esc(displayName)}</div>
+          <div style="font-family:var(--display);font-size:13px;font-weight:800;padding:3px 11px;border-radius:9999px;background:${ptsBg};border:1px solid ${ptsBorder};color:${ptsColor};box-shadow:0 3px 10px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.08);min-width:38px;text-align:center;line-height:1;">${pts >= 0 ? '+' : ''}${Math.round(pts)}</div>
         </div>
       `;
     };
@@ -1106,25 +1112,25 @@
 
           <!-- Players positioned by role -->
           <!-- Bowlers (top-center & scattered deep) -->
-          <div style="position:absolute;top:${CD.state.isMobile ? 30 : 40}px;left:0;right:0;display:flex;justify-content:center;gap:32px;flex-wrap:wrap;padding:0 20px;z-index:3;">
+          <div style="position:absolute;top:${CD.state.isMobile ? 26 : 34}px;left:0;right:0;display:flex;justify-content:center;gap:${CD.state.isMobile ? 22 : 40}px;flex-wrap:wrap;padding:0 18px;z-index:3;">
             ${byRole.bowl.map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
           <!-- All-rounders (mid, left+right of pitch) -->
-          <div style="position:absolute;top:50%;left:${CD.state.isMobile ? '8%' : '15%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:16px;z-index:3;">
+          <div style="position:absolute;top:50%;left:${CD.state.isMobile ? '5%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:22px;z-index:3;">
             ${byRole.ar.slice(0, Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
-          <div style="position:absolute;top:50%;right:${CD.state.isMobile ? '8%' : '15%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:16px;z-index:3;">
+          <div style="position:absolute;top:50%;right:${CD.state.isMobile ? '5%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:22px;z-index:3;">
             ${byRole.ar.slice(Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
-          <!-- Wicketkeeper (behind stumps, top of pitch) -->
-          <div style="position:absolute;top:calc(50% - ${CD.state.isMobile ? 130 : 160}px);left:50%;transform:translateX(-50%);z-index:3;">
+          <!-- Wicketkeeper (behind stumps, top of pitch) — lifted to clear the pitch strip -->
+          <div style="position:absolute;top:calc(50% - ${CD.state.isMobile ? 155 : 190}px);left:50%;transform:translateX(-50%);z-index:4;">
             ${byRole.wk.map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
-          <!-- Batters (bottom, near crease) -->
-          <div style="position:absolute;bottom:${CD.state.isMobile ? 30 : 40}px;left:0;right:0;display:flex;justify-content:center;gap:24px;flex-wrap:wrap;padding:0 20px;z-index:3;">
+          <!-- Batters (bottom, near crease) — lifted + wider gap so 4+ don't crowd -->
+          <div style="position:absolute;bottom:${CD.state.isMobile ? 24 : 30}px;left:0;right:0;display:flex;justify-content:center;gap:${CD.state.isMobile ? 18 : 36}px;flex-wrap:wrap;padding:0 18px;z-index:3;">
             ${byRole.bat.map(p => renderPitchPlayer(p, 'xi')).join('')}
           </div>
 
