@@ -360,7 +360,7 @@
             <div style="font-size:9px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-top:2px;">Fantasy · '26</div>
           </div>
         </div>
-        <button onclick="window.backToDashboard()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:transparent;border:1px solid var(--line);color:var(--mute);width:100%;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;margin-bottom:18px;">${I('back',14)} Dashboard</button>
+        <button onclick="CD.goDashboard()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:transparent;border:1px solid var(--line);color:var(--mute);width:100%;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;margin-bottom:18px;">${I('back',14)} Dashboard</button>
         <div style="font-size:9px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;padding:0 10px 10px;">Navigate</div>
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${NAV.map(n => `
@@ -772,7 +772,7 @@
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
                 <span style="font-family:var(--mono);color:var(--lime);">₹${(p.soldPrice||0).toFixed(2)}cr</span>
-                ${(!releaseLocked || isSuper) ? `<button onclick="window.openReleaseModal('${esc(t.name).replace(/'/g,"\\'")}',${idx},'${esc(name).replace(/'/g,"\\'")}',${p.soldPrice||0})" style="padding:4px 10px;border-radius:9999px;background:rgba(255,59,59,0.18);border:1px solid rgba(255,59,59,0.4);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
+                ${(!releaseLocked || isSuper) ? `<button data-team="${esc(t.name)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:4px 10px;border-radius:9999px;background:rgba(255,59,59,0.18);border:1px solid rgba(255,59,59,0.4);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
               </div>
             </div>`;
           }).join('')}
@@ -977,6 +977,31 @@
     `;
   };
 
+  // ── DATA-ATTRIBUTE HANDLERS (avoid string interpolation in onclick) ──
+  CD.handleRelease = (btn) => {
+    if(typeof window.openReleaseModal !== 'function') return;
+    window.openReleaseModal(
+      btn.getAttribute('data-team'),
+      parseInt(btn.getAttribute('data-idx'), 10),
+      btn.getAttribute('data-name'),
+      parseFloat(btn.getAttribute('data-price')) || 0
+    );
+  };
+  CD.handleRoomClick = (el) => {
+    const rid = el.getAttribute('data-rid');
+    if(rid) {
+      window.location.search = '?room=' + encodeURIComponent(rid);
+    }
+  };
+  CD.goDashboard = () => {
+    if(window.location.search) {
+      window.location.search = '';
+    } else {
+      CD.state.view = 'dashboard';
+      CD.render();
+    }
+  };
+
   // ── NAVIGATION ──────────────────────────────────────────────────
   CD.go = (navId) => {
     CD.state.activeNav = navId;
@@ -1041,15 +1066,7 @@
 
   // ── HOOK INTO APP.JS LIFECYCLE ─────────────────────────────────
   CD.hook = () => {
-    // Wrap showAuth → set view auth
-    const _origShowAuth = window.showAuth;
-    window.showAuth = function(){ CD.state.view = 'auth'; CD.render(); if(typeof _origShowAuth === 'function') try { _origShowAuth(); } catch(e){} };
-    const _origShowApp = window.showApp;
-    window.showApp = function(){ if(typeof _origShowApp === 'function') try { _origShowApp(); } catch(e){} CD.state.view = 'dashboard'; CD.render(); };
-    const _origLoadDash = window.loadDash;
-    if(typeof _origLoadDash === 'function'){
-      window.loadDash = function(){ try { _origLoadDash(); } catch(e){} CD.state.view = 'dashboard'; setTimeout(CD.render, 50); };
-    }
+    // Override window.* helpers (these ARE on window, so override works)
     const _origLoadRoom = window.loadRoom;
     if(typeof _origLoadRoom === 'function'){
       window.loadRoom = function(rid){ try { _origLoadRoom(rid); } catch(e){} CD.state.view = 'room'; CD.state.activeNav = 'auction'; CD.state.activeSub = 'live'; setTimeout(CD.render, 100); };
@@ -1059,7 +1076,47 @@
       window.backToDashboard = function(){ try { _origBack(); } catch(e){} CD.state.view = 'dashboard'; CD.render(); };
     }
 
-    // Poll for state changes
+    // CRITICAL: detect login/logout by polling window.user (showAuth/showApp are module-scoped, can't override)
+    let lastUserUid = null;
+    let lastRoomId = null;
+    setInterval(() => {
+      try {
+        const u = window.user;
+        const uid = u && u.uid;
+        const rid = window.roomId;
+        if(uid !== lastUserUid){
+          lastUserUid = uid;
+          if(uid){
+            // Logged in
+            if(rid){
+              CD.state.view = 'room';
+              if(!CD.state.activeNav || (CD.state.activeNav === 'auction' && CD.state.activeSub == null)){
+                CD.state.activeNav = 'auction';
+                CD.state.activeSub = 'live';
+              }
+            } else {
+              CD.state.view = 'dashboard';
+            }
+          } else {
+            // Logged out
+            CD.state.view = 'auth';
+            window._cdSignup = false;
+          }
+          CD.render();
+          return;
+        }
+        if(rid !== lastRoomId){
+          lastRoomId = rid;
+          if(uid){
+            if(rid){ CD.state.view = 'room'; CD.state.activeNav = 'auction'; CD.state.activeSub = 'live'; }
+            else { CD.state.view = 'dashboard'; }
+            CD.render();
+          }
+        }
+      } catch(e){ console.error('CD auth poll:', e); }
+    }, 200);
+
+    // Poll for room data changes
     let lastKey = '';
     setInterval(() => {
       try {
@@ -1073,7 +1130,8 @@
           tn: Object.keys(rs.teams||{}).length,
           ni: Object.keys(rs.currentBlock?.notInterested||{}).length,
           mt: Object.keys(rs.matches||{}).length,
-          ps: Object.values(rs.players||{}).filter(p=>p.status==='sold').length
+          ps: Object.values(rs.players||{}).filter(p=>p.status==='sold').length,
+          rl: rs.releaseLocked
         });
         if(key !== lastKey){ lastKey = key; CD.scheduleRender(); }
       } catch(e){}
@@ -1103,7 +1161,7 @@
             // Try to find name from sibling text in classic card
             const cardEl = card.closest('.rc, .rc-card, .room-card, div') || card;
             const name = (cardEl.querySelector('.rc-name')?.textContent || cardEl.querySelector('.tname')?.textContent || cardEl.textContent.slice(0, 40)).trim();
-            return `<div onclick="window.loadRoom('${rid}')" style="padding:20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);cursor:pointer;transition:all 0.2s;backdrop-filter:blur(20px);" onmouseover="this.style.borderColor='var(--electric)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='var(--line-2)';this.style.transform='translateY(0)';">
+            return `<div data-rid="${esc(rid)}" onclick="CD.handleRoomClick(this)" style="padding:20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);cursor:pointer;transition:all 0.2s;backdrop-filter:blur(20px);" onmouseover="this.style.borderColor='var(--electric)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='var(--line-2)';this.style.transform='translateY(0)';">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
                 <div class="ed" style="font-size:20px;">${esc(name)}</div>
                 ${isOwner ? '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.16);border:1px solid rgba(255,200,61,0.4);color:#FFD97D;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Owner</span>' : '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(46,91,255,0.18);border:1px solid rgba(46,91,255,0.4);color:#8EA9FF;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Joined</span>'}
@@ -1120,6 +1178,14 @@
 
   // ── BOOT ───────────────────────────────────────────────────────
   function init(){
+    // Pre-detect initial state to avoid auth flicker if user already logged in
+    if(window.user && window.user.uid){
+      CD.state.view = window.roomId ? 'room' : 'dashboard';
+      if(CD.state.view === 'room'){ CD.state.activeNav = 'auction'; CD.state.activeSub = 'live'; }
+    } else if(window.location.search.includes('room=')){
+      // URL has ?room= — likely going to a room after auth restores
+      CD.state.view = 'auth';
+    }
     CD.hook();
     CD.fetchTicker();
     CD.render();
@@ -1129,10 +1195,10 @@
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  // Helper: copy invite link override (more reliable)
+  // Helper: copy invite link override (more reliable, properly URL-encoded)
   if(!window.copyInviteLink){
     window.copyInviteLink = function(){
-      const url = window.location.origin + window.location.pathname + '?room=' + (window.roomId || '');
+      const url = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(window.roomId || '');
       navigator.clipboard?.writeText(url);
       window.showAlert?.('Invite link copied!','ok');
     };
