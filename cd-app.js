@@ -1525,8 +1525,8 @@
           </div>
         </div>
 
-        <!-- Cricket pitch visualization -->
-        <div style="position:relative;min-height:${mob ? 420 : 540}px;background:
+        <!-- Cricket pitch — role-sorted rows (WK → BAT → AR → BOWL) -->
+        <div style="position:relative;min-height:${mob ? 480 : 560}px;background:
           radial-gradient(ellipse 80% 100% at 50% 50%, #0d6638 0%, #052918 65%, #0A0B12 100%),
           #052918;
           overflow:hidden;">
@@ -1534,43 +1534,29 @@
           <!-- Field ring (boundary) -->
           <div style="position:absolute;inset:${mob ? 14 : 22}px;border-radius:50%;border:${mob?1:2}px dashed rgba(255,255,255,0.18);pointer-events:none;"></div>
           <!-- Inner circle (30-yard) -->
-          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? 62 : 55}%;height:${mob ? 40 : 46}%;border-radius:50%;border:1px solid rgba(255,255,255,0.14);pointer-events:none;"></div>
-          <!-- Pitch strip (brown) -->
-          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? '11%' : '9%'};height:${mob ? '18%' : '28%'};background:linear-gradient(180deg,#c9a56d,#8c6a3a);border-radius:2px;pointer-events:none;box-shadow:0 0 24px rgba(201,165,109,0.4);"></div>
-          <!-- Crease marks -->
-          <div style="position:absolute;left:50%;top:calc(50% - ${mob ? 40 : 72}px);transform:translateX(-50%);width:${mob ? 32 : 54}px;height:2px;background:#fff;"></div>
-          <div style="position:absolute;left:50%;top:calc(50% + ${mob ? 40 : 72}px);transform:translateX(-50%);width:${mob ? 32 : 54}px;height:2px;background:#fff;"></div>
-          <!-- Stumps -->
-          <div style="position:absolute;left:50%;top:calc(50% - ${mob ? 44 : 78}px);transform:translateX(-50%);display:flex;gap:2px;">
-            ${[0,1,2].map(() => `<div style="width:2px;height:${mob?7:9}px;background:#fff;"></div>`).join('')}
-          </div>
-          <div style="position:absolute;left:50%;top:calc(50% + ${mob ? 36 : 69}px);transform:translateX(-50%);display:flex;gap:2px;">
-            ${[0,1,2].map(() => `<div style="width:2px;height:${mob?7:9}px;background:#fff;"></div>`).join('')}
-          </div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${mob ? 76 : 70}%;height:${mob ? 70 : 74}%;border-radius:50%;border:1px solid rgba(255,255,255,0.10);pointer-events:none;"></div>
 
-          <!-- Players positioned by role -->
-          <!-- Bowlers (top-center & scattered deep) -->
-          <div style="position:absolute;top:${mob ? 18 : 34}px;left:0;right:0;display:flex;justify-content:center;gap:${mob ? 10 : 40}px;flex-wrap:wrap;padding:0 ${mob ? 8 : 18}px;z-index:3;">
-            ${byRole.bowl.map(p => renderPitchPlayer(p, 'xi')).join('')}
-          </div>
-
-          <!-- All-rounders (mid, left+right of pitch) -->
-          <div style="position:absolute;top:50%;left:${mob ? '2%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:${mob ? 12 : 22}px;z-index:3;">
-            ${byRole.ar.slice(0, Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
-          </div>
-          <div style="position:absolute;top:50%;right:${mob ? '2%' : '13%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:${mob ? 12 : 22}px;z-index:3;">
-            ${byRole.ar.slice(Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
-          </div>
-
-          <!-- Wicketkeeper (behind stumps, top of pitch) — clear the pitch strip -->
-          <div style="position:absolute;top:calc(50% - ${mob ? 130 : 190}px);left:50%;transform:translateX(-50%);z-index:4;">
-            ${byRole.wk.map(p => renderPitchPlayer(p, 'xi')).join('')}
-          </div>
-
-          <!-- Batters (bottom, near crease) -->
-          <div style="position:absolute;bottom:${mob ? 16 : 30}px;left:0;right:0;display:flex;justify-content:center;gap:${mob ? 8 : 36}px;flex-wrap:wrap;padding:0 ${mob ? 8 : 18}px;z-index:3;">
-            ${byRole.bat.map(p => renderPitchPlayer(p, 'xi')).join('')}
-          </div>
+          <!-- Players organized in 4 horizontal role rows -->
+          ${xiPlayers.length === 0 ? '' : (() => {
+            const rowLabel = (txt, color) => `<div style="font-size:${mob?8.5:10}px;color:${color};letter-spacing:0.16em;text-transform:uppercase;font-weight:800;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,0.9);margin-bottom:${mob?4:6}px;">${txt}</div>`;
+            const roleRow2 = (label, color, players) => {
+              if(!players.length) return '';
+              return `<div style="position:relative;z-index:3;">
+                ${rowLabel(label, color)}
+                <div style="display:flex;justify-content:center;gap:${mob?10:28}px;flex-wrap:wrap;align-items:flex-start;padding:0 ${mob?6:18}px;">
+                  ${players.map(p => renderPitchPlayer(p, 'xi')).join('')}
+                </div>
+              </div>`;
+            };
+            return `
+              <div style="position:absolute;inset:${mob?'30px 6px':'40px 22px'};display:flex;flex-direction:column;justify-content:space-around;gap:${mob?10:14}px;">
+                ${roleRow2('Wicketkeeper', 'rgba(255,215,125,0.92)', byRole.wk)}
+                ${roleRow2('Batsmen',      'rgba(120,180,255,0.95)', byRole.bat)}
+                ${roleRow2('All-rounders', 'rgba(182,255,60,0.92)',  byRole.ar)}
+                ${roleRow2('Bowlers',      'rgba(255,120,180,0.95)', byRole.bowl)}
+              </div>
+            `;
+          })()}
 
           ${xiPlayers.length === 0 ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4;"><div style="padding:24px 36px;border-radius:16px;background:rgba(0,0,0,0.65);backdrop-filter:blur(16px);text-align:center;border:1px solid rgba(255,255,255,0.14);"><div class="ed" style="font-size:28px;color:#fff;">Empty <span class="ed-i" style="color:var(--pink);">pitch</span></div><div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">Bid on players to build your XI.</div></div></div>` : ''}
         </div>
