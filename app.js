@@ -661,6 +661,8 @@ window.confirmRelease=function(){
  }).then(()=>{
  window.closeReleaseModal();
  window.showAlert(`${releasePlayerName} released. \u20b9${actualPrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
+ // Auto-heal stored leaderboardTotals so future reads can't drift.
+ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){}
  }).catch(e=>window.showAlert('Release failed: '+e.message));
  }).catch(e=>window.showAlert('Could not read room data: '+e.message));
 };
@@ -759,6 +761,14 @@ function loadRoom(rid){
  migrateOverseasFlags(rid,data);
  migrateSquadSnapshots(rid,data);
  migrateDuckPoints(rid,data);
+
+ // Self-heal: silently recalc leaderboardTotals once per room load so stored
+ // values never drift from what computeMatchContribution would produce right
+ // now with the current xiMultiplier + snapshots.
+ if(!window._recalcLBDone||window._recalcLBDone!==rid){
+  window._recalcLBDone=rid;
+  setTimeout(()=>{ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){} }, 400);
+ }
  document.getElementById('roomTitleDisplay').textContent=data.roomName||`Room ${rid.substring(0,5).toUpperCase()}`;
 
  // Auto-switch from setup tab once initialized
@@ -1998,10 +2008,9 @@ async function _incrementLeaderboardTotalsA(contrib){
 }
 
 // -- Recalculate leaderboard totals from all matches (admin tool, auction) --
-window.recalcLeaderboard=async function(){
- if(!roomId||!roomState) return;
- if(!confirm('Recalculate leaderboard totals from all match data? This will overwrite current stored totals.')) return;
- window.showAlert('Recalculating...','info');
+// -- Core: recompute stored leaderboardTotals from match records + snapshots + current xiMultiplier --
+async function _recalcLeaderboardCore(){
+ if(!roomId||!roomState) return false;
  var matches=roomState.matches||{};
  var teams=roomState.teams||{};
  var xiMult=parseFloat(roomState.xiMultiplier)||1;
@@ -2011,7 +2020,7 @@ window.recalcLeaderboard=async function(){
   totals[t.name]={pts:0,topPlayer:'--',topPts:0,playerCount:0,_players:{}};
  });
  Object.entries(matches).forEach(function(me){
-  var mid=me[0], m=me[1];
+  var m=me[1];
   var matchSnaps=m.squadSnapshots||currentSnaps;
   var contrib=computeMatchContribution(m, matchSnaps, teams, xiMult);
   Object.entries(contrib).forEach(function(ce){
@@ -2038,8 +2047,30 @@ window.recalcLeaderboard=async function(){
   }
   toStore[tn]={pts:Math.round(t.pts*100)/100,topPlayer:topP,topPts:Math.round(topPts*100)/100,playerCount:pCount};
  });
+ await set(ref(db,'auctions/'+roomId+'/leaderboardTotals'),toStore);
+ return true;
+}
+
+// Silent auto-heal: no prompts, no toasts. Safe to call on room load + after mutations.
+var _recalcLBSilentBusy=false, _recalcLBSilentPending=false;
+window._recalcLeaderboardSilent=async function(){
+ if(!roomId||!roomState) return;
+ if(_recalcLBSilentBusy){ _recalcLBSilentPending=true; return; }
+ _recalcLBSilentBusy=true;
+ try{ await _recalcLeaderboardCore(); }
+ catch(e){ /* silent */ }
+ finally{
+  _recalcLBSilentBusy=false;
+  if(_recalcLBSilentPending){ _recalcLBSilentPending=false; setTimeout(()=>window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(),200); }
+ }
+};
+
+window.recalcLeaderboard=async function(){
+ if(!roomId||!roomState) return;
+ if(!confirm('Recalculate leaderboard totals from all match data? This will overwrite current stored totals.')) return;
+ window.showAlert('Recalculating...','info');
  try{
-  await set(ref(db,'auctions/'+roomId+'/leaderboardTotals'),toStore);
+  await _recalcLeaderboardCore();
   window.showAlert('Leaderboard totals recalculated and saved.','ok');
  }catch(e){
   window.showAlert('Failed: '+e.message);
@@ -5850,5 +5881,7 @@ window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
   upd[`auctions/${roomId}/players/${newPlayer.id}/soldTo`]=teamName;
   upd[`auctions/${roomId}/players/${newPlayer.id}/soldPrice`]=oldSoldPrice;
   await update(ref(db),upd);
+  // Auto-heal stored leaderboardTotals so future reads can't drift.
+  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){}
   window.showAlert(`${oldName} replaced with ${newPlayer.name}. Points history preserved.`,'ok');
 };

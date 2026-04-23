@@ -8,6 +8,100 @@
   const CD = window.CD = window.CD || {};
   const $ = (s, p) => (p || document).querySelector(s);
   const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  // attrEscape — safe for HTML attribute value when wrapped in double quotes.
+  // Does NOT escape apostrophes, so strings like `Vinay and Anshul's 11` survive
+  // a round-trip through `data-team="..."` -> element.dataset.team.
+  const attrEscape = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // ════════════════════════════════════════════════════════════════════
+  // CANONICAL POINTS HELPERS — single source of truth for team totals.
+  // Mirrors `computeMatchContribution` in app.js: snapshot-aware, XI×xiMult,
+  // Bench×1, Reserves/not-in-snap ×0. Sum UNROUNDED, round once at the end.
+  // ════════════════════════════════════════════════════════════════════
+  const _cdCleanName = (n) => (n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+  CD._teamContribBreakdown = (teamName) => {
+    const rs = window.roomState || {};
+    const matches = rs.matches || {};
+    const teams = rs.teams || {};
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
+    const rosterOwnerMap = {};
+    Object.values(teams).forEach(tt => {
+      const rostr = Array.isArray(tt.roster) ? tt.roster : (tt.roster ? Object.values(tt.roster) : []);
+      rostr.forEach(p => {
+        const fn = (p.name||p.n||'').toLowerCase().trim();
+        rosterOwnerMap[fn] = tt.name;
+        rosterOwnerMap[_cdCleanName(p.name||p.n||'')] = tt.name;
+      });
+    });
+    let xi = 0, bench = 0;
+    const playerPts = {};
+    Object.values(matches).forEach(m => {
+      if(!m || !m.players) return;
+      const hasStoredSnaps = !!m.squadSnapshots;
+      const snap = m.squadSnapshots ? m.squadSnapshots[teamName] : null;
+      let xiSet = null, benchSet = null;
+      if(snap){
+        xiSet = new Set();
+        benchSet = new Set();
+        (snap.xi||[]).forEach(n => { const fn=(n||'').toLowerCase().trim(); xiSet.add(fn); xiSet.add(_cdCleanName(n)); });
+        (snap.bench||[]).forEach(n => { const fn=(n||'').toLowerCase().trim(); benchSet.add(fn); benchSet.add(_cdCleanName(n)); });
+      }
+      Object.values(m.players).forEach(p => {
+        const key = (p.name||'').toLowerCase().trim();
+        const ckey = _cdCleanName(p.name||'');
+        const owner = rosterOwnerMap[key] || rosterOwnerMap[ckey] || p.ownedBy || '';
+        if(owner !== teamName) return;
+        const raw = p.pts || 0;
+        let contrib = 0, bucket = null;
+        if(xiSet && (xiSet.has(key) || xiSet.has(ckey))){ contrib = raw * xiMult; bucket = 'xi'; }
+        else if(benchSet && (benchSet.has(key) || benchSet.has(ckey))){ contrib = raw * 1; bucket = 'bench'; }
+        else if(!hasStoredSnaps && owner){ contrib = raw * 1; bucket = 'bench'; }
+        if(bucket === 'xi') xi += contrib;
+        else if(bucket === 'bench') bench += contrib;
+        if(bucket){ playerPts[ckey] = (playerPts[ckey] || 0) + contrib; }
+      });
+    });
+    return { xi, bench, reserves: 0, total: xi + bench, playerPts };
+  };
+  CD._teamSeasonTotal = (teamName) => Math.round(CD._teamContribBreakdown(teamName).total);
+
+  CD._teamMatchContribution = (teamName, matchId) => {
+    const rs = window.roomState || {};
+    const m = (rs.matches || {})[matchId];
+    if(!m || !m.players) return 0;
+    const teams = rs.teams || {};
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
+    const rosterOwnerMap = {};
+    Object.values(teams).forEach(tt => {
+      const rostr = Array.isArray(tt.roster) ? tt.roster : (tt.roster ? Object.values(tt.roster) : []);
+      rostr.forEach(p => {
+        const fn = (p.name||p.n||'').toLowerCase().trim();
+        rosterOwnerMap[fn] = tt.name;
+        rosterOwnerMap[_cdCleanName(p.name||p.n||'')] = tt.name;
+      });
+    });
+    const hasStoredSnaps = !!m.squadSnapshots;
+    const snap = m.squadSnapshots ? m.squadSnapshots[teamName] : null;
+    let xiSet = null, benchSet = null;
+    if(snap){
+      xiSet = new Set();
+      benchSet = new Set();
+      (snap.xi||[]).forEach(n => { const fn=(n||'').toLowerCase().trim(); xiSet.add(fn); xiSet.add(_cdCleanName(n)); });
+      (snap.bench||[]).forEach(n => { const fn=(n||'').toLowerCase().trim(); benchSet.add(fn); benchSet.add(_cdCleanName(n)); });
+    }
+    let sum = 0;
+    Object.values(m.players).forEach(p => {
+      const key = (p.name||'').toLowerCase().trim();
+      const ckey = _cdCleanName(p.name||'');
+      const owner = rosterOwnerMap[key] || rosterOwnerMap[ckey] || p.ownedBy || '';
+      if(owner !== teamName) return;
+      const raw = p.pts || 0;
+      if(xiSet && (xiSet.has(key) || xiSet.has(ckey))) sum += raw * xiMult;
+      else if(benchSet && (benchSet.has(key) || benchSet.has(ckey))) sum += raw;
+      else if(!hasStoredSnaps && owner) sum += raw;
+    });
+    return Math.round(sum);
+  };
 
   // ── TEAM COLORS ─────────────────────────────────────────────────
   const TEAM_COLORS = {
@@ -1979,31 +2073,47 @@
       const rostr = Array.isArray(tt.roster) ? tt.roster : (tt.roster ? Object.values(tt.roster) : []);
       if(!rostr.length) return '';
       const activeSq = Array.isArray(tt.activeSquad) ? tt.activeSquad : null;
-      const xiSet = new Set((activeSq ? activeSq.slice(0,11) : rostr.slice(0,11).map(p => p.name||p.n||'')));
+      const xiFallback = new Set((activeSq ? activeSq.slice(0,11) : rostr.slice(0,11).map(p => p.name||p.n||'')));
+      const benchFallback = new Set((activeSq ? activeSq.slice(11,16) : rostr.slice(11,16).map(p => p.name||p.n||'')));
 
-      let teamTotal = 0;
       const rows = rostr.map(p => {
         const name = p.name || p.n || '';
-        const isXI = xiSet.has(name);
+        const isXI = xiFallback.has(name);
         const perMatch = {};
-        let total = 0;
+        let totalUnrounded = 0;
         matchIds.forEach(mid => {
           const m = matches[mid];
-          const snap = m.squadSnapshots?.[tt.name];
-          let xiThisMatch = xiSet;
-          if(snap){ xiThisMatch = new Set((snap.xi || []).map(n => n.toLowerCase().trim())); }
-          const rec = m.players ? Object.values(m.players).find(pp => (pp.name||'').toLowerCase().trim() === name.toLowerCase().trim()) : null;
+          const snap = m.squadSnapshots ? m.squadSnapshots[tt.name] : null;
+          const hasStoredSnaps = !!m.squadSnapshots;
+          const nameL = name.toLowerCase().trim();
+          const nameC = _cdCleanName(name);
+          let xiSet, benchSet;
+          if(snap){
+            xiSet = new Set(); benchSet = new Set();
+            (snap.xi||[]).forEach(n => { const fn=(n||'').toLowerCase().trim(); xiSet.add(fn); xiSet.add(_cdCleanName(n)); });
+            (snap.bench||[]).forEach(n => { const fn=(n||'').toLowerCase().trim(); benchSet.add(fn); benchSet.add(_cdCleanName(n)); });
+          } else if(!hasStoredSnaps){
+            xiSet = new Set(); benchSet = new Set();
+            xiFallback.forEach(n => { xiSet.add((n||'').toLowerCase().trim()); xiSet.add(_cdCleanName(n)); });
+            benchFallback.forEach(n => { benchSet.add((n||'').toLowerCase().trim()); benchSet.add(_cdCleanName(n)); });
+          } else { xiSet = new Set(); benchSet = new Set(); }
+          const rec = m.players ? Object.values(m.players).find(pp => (pp.name||'').toLowerCase().trim() === nameL) : null;
           if(!rec){ perMatch[mid] = null; return; }
           const raw = rec.pts || 0;
-          const isSnapXI = snap ? xiThisMatch.has(name.toLowerCase().trim()) : isXI;
-          const mult = isSnapXI ? xiMult : 1;
-          const val = Math.round(raw * mult);
-          perMatch[mid] = { val, mult, raw };
-          total += val;
+          let mult = 0;
+          if(xiSet.has(nameL) || xiSet.has(nameC)) mult = xiMult;
+          else if(benchSet.has(nameL) || benchSet.has(nameC)) mult = 1;
+          if(mult === 0){ perMatch[mid] = null; return; }
+          const contrib = raw * mult;
+          perMatch[mid] = { val: Math.round(contrib), mult, raw };
+          totalUnrounded += contrib;
         });
-        teamTotal += total;
+        const total = Math.round(totalUnrounded);
         return { p, name, perMatch, total, isXI };
       }).sort((a,b) => b.total - a.total);
+
+      // Team header total — canonical helper so leaderboard == all-squads == here.
+      const teamTotal = CD._teamSeasonTotal(tt.name);
 
       return `
         <div style="border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);overflow:hidden;margin-bottom:18px;">
@@ -2015,7 +2125,7 @@
                 <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-top:3px;">${rows.length} players · ${matchIds.length} matches</div>
               </div>
             </div>
-            <div style="font-family:var(--display);font-weight:800;font-size:28px;color:${teamTotal>0?'var(--lime)':teamTotal<0?'var(--red)':'var(--mute)'};">${teamTotal>=0?'+':''}${Math.round(teamTotal)}</div>
+            <div style="font-family:var(--display);font-weight:800;font-size:28px;color:${teamTotal>0?'var(--lime)':teamTotal<0?'var(--red)':'var(--mute)'};">${teamTotal>=0?'+':''}${teamTotal}</div>
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -2132,7 +2242,8 @@
     if(typeof window.showAlert === 'function') window.showAlert('Points-by-match CSV downloaded','ok');
   };
 
-  // Helper: compute per-team points from stored leaderboardTotals, per-team roster, per-team points details
+  // Helper: compute per-team points. `pts` uses CD._teamSeasonTotal so the leaderboard
+  // header can NEVER diverge from the All-Squads subtotals / Points-by-Match team header.
   CD._computeLeaderboard = () => {
     const rs = window.roomState || {};
     const teams = rs.teams || {};
@@ -2143,7 +2254,7 @@
       return {
         name: t.name,
         code: teamCode(t.name),
-        pts: Math.round(st.pts || 0),
+        pts: CD._teamSeasonTotal(t.name),
         topPlayer: st.topPlayer || '—',
         topPts: Math.round(st.topPts || 0),
         playerCount: st.playerCount || 0,
@@ -2260,7 +2371,7 @@
             const rank = rankIdx + 1;
             return `
               <div style="border-radius:14px;background:rgba(255,255,255,0.02);border:1px solid var(--line);overflow:hidden;">
-                <div onclick="CD.toggleSquadExpand('${esc(t.name)}')" style="padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'">
+                <div data-team="${attrEscape(t.name)}" onclick="CD.toggleSquadExpand(this.dataset.team)" style="padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'">
                   <div style="font-family:var(--display);font-size:22px;color:${rank<=3?'var(--gold)':'var(--mute)'};font-weight:800;min-width:36px;">${rank.toString().padStart(2,'0')}</div>
                   ${CD.Avatar({name: t.name, size: 40})}
                   <div style="flex:1;min-width:0;">
@@ -2279,21 +2390,19 @@
     `;
   };
 
-  // Helper — render a team's roster split into XI / Bench / Reserves with season points
+  // Helper — render a team's roster split into XI / Bench / Reserves with season points.
+  // Subtotals come from CD._teamContribBreakdown (single source of truth); they sum to
+  // CD._teamSeasonTotal(t.name), which is also what the leaderboard header shows.
+  // Previous version summed by p.ownedBy only and ignored per-match XI/Bench snapshots,
+  // which is why subtotals could disagree with the leaderboard header by several points.
   CD._renderTeamRoster = (t, c1, c2) => {
     if(!t.roster.length) return `<div style="padding:14px 18px;color:var(--mute);font-size:12px;border-top:1px solid var(--line);">Empty roster</div>`;
     const rs = window.roomState || {};
     const xiMult = parseFloat(rs.xiMultiplier) || 1;
-    const matches = rs.matches || {};
-    const playerPts = {};
-    Object.values(matches).forEach(m => {
-      if(!m.players) return;
-      Object.values(m.players).forEach(p => {
-        if(p.ownedBy !== t.name) return;
-        const key = (p.name||'').toLowerCase().trim();
-        playerPts[key] = (playerPts[key] || 0) + (p.pts || 0);
-      });
-    });
+
+    // Canonical breakdown — unrounded subtotals + per-player unrounded contribution.
+    const brk = CD._teamContribBreakdown(t.name);
+    const playerPts = brk.playerPts; // cleanKey -> unrounded (multiplier baked in)
 
     // Split by activeSquad: first 11 = XI, next 5 = Bench, rest = Reserves
     const activeSq = Array.isArray(t.activeSquad) ? t.activeSquad : null;
@@ -2312,8 +2421,13 @@
     const bench = benchNames.map(findP).filter(Boolean);
     const reserves = reserveNames.map(findP).filter(Boolean);
 
-    const xiTotal = xi.reduce((s,p) => s + Math.round((playerPts[(p.name||p.n||'').toLowerCase().trim()] || 0) * xiMult), 0);
-    const benchTotal = bench.reduce((s,p) => s + Math.round(playerPts[(p.name||p.n||'').toLowerCase().trim()] || 0), 0);
+    // Subtotals from canonical breakdown — single round per bucket, NOT per-player.
+    const xiTotal = Math.round(brk.xi);
+    const benchTotal = Math.round(brk.bench);
+    // Reserves never contribute under the canonical rule (0× multiplier).
+    const reservesTotal = 0;
+    // Per-player chip values (player-level stat; already has multiplier baked in).
+    const ptsFor = (p) => Math.round(playerPts[_cdCleanName(p.name||p.n||'')] || 0);
 
     const renderSection = (label, players, mult, totalPts, sectionColor) => {
       if(!players.length) return '';
@@ -2334,20 +2448,15 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;">
             ${players.map(p => {
               const pName = p.name || p.n || '';
-              const raw = Math.round(playerPts[pName.toLowerCase().trim()] || 0);
-              const val = Math.round(raw * mult);
+              const val = ptsFor(p); // already includes multiplier for XI/Bench; 0 for Reserves
               const isOs = !!(p.isOverseas || p.o);
-              const showMultExpr = mult !== 1 && raw !== 0;
-              return `<div title="${raw} raw × ${mult}× = ${val}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
+              return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
                 ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 24})}
                 <div style="flex:1;min-width:0;overflow:hidden;">
                   <div style="font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(pName)}${isOs ? ' <span style="color:var(--gold);font-size:9px;">★</span>' : ''}</div>
                   <div style="font-size:10px;color:var(--mute);">${esc(teamCode(p.iplTeam||p.t))} · ${esc((p.role||p.r||'').split('-')[0].slice(0,3))}</div>
                 </div>
-                <div style="text-align:right;">
-                  <div style="font-family:var(--mono);font-size:12px;font-weight:700;color:${val>0?'var(--lime)':val<0?'var(--red)':'var(--mute)'};">${val>=0?'+':''}${val}</div>
-                  ${showMultExpr ? `<div style="font-size:9px;color:var(--mute);font-family:var(--mono);">${raw}×${mult}</div>` : ''}
-                </div>
+                <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:${val>0?'var(--lime)':val<0?'var(--red)':'var(--mute)'};">${val>=0?'+':''}${val}</div>
               </div>`;
             }).join('')}
           </div>
@@ -2359,7 +2468,7 @@
       <div style="padding:16px 18px 18px;border-top:1px solid var(--line);background:linear-gradient(180deg,${c1}10,transparent);">
         ${renderSection('Playing XI', xi, xiMult, xiTotal, 'var(--electric)')}
         ${renderSection('Bench', bench, 1, benchTotal, 'var(--ink-2)')}
-        ${reserves.length ? renderSection('Reserves', reserves, 0, 0, 'var(--mute)') : ''}
+        ${reserves.length ? renderSection('Reserves', reserves, 0, reservesTotal, 'var(--mute)') : ''}
       </div>
     `;
   };
