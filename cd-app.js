@@ -348,8 +348,8 @@
     return `
       <div style="display:flex;align-items:center;height:36px;background:#07070C;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;position:relative;">
         <div style="flex-shrink:0;padding:0 22px 0 14px;height:100%;display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,var(--pink),var(--pink-2));color:#fff;font-family:var(--display);font-size:13px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%);z-index:2;">${CD.LiveDot()} LIVE</div>
-        <div style="flex:1;overflow:hidden;position:relative;height:100%;">
-          <div style="display:flex;align-items:center;gap:48px;height:100%;animation:cd-ticker 50s linear infinite;white-space:nowrap;padding-left:24px;">
+        <div class="cd-ticker-viewport" style="flex:1;overflow:hidden;position:relative;height:100%;">
+          <div class="cd-ticker-track" style="display:flex;align-items:center;gap:48px;height:100%;animation:cd-ticker 50s linear infinite;white-space:nowrap;padding-left:24px;">
             ${itemHtml}${itemHtml}
           </div>
         </div>
@@ -981,9 +981,9 @@
       </aside>`;
 
     const subTabBar = subs.length > 1 ? `
-      <div style="display:flex;gap:4px;padding:14px 32px 0;border-bottom:1px solid var(--line);overflow-x:auto;">
+      <div class="cd-subtab-bar" style="display:flex;gap:4px;padding:14px 32px 0;border-bottom:1px solid var(--line);overflow-x:auto;">
         ${subs.map(s => `
-          <button onclick="CD.goSub('${s.id}')" style="padding:8px 14px;background:transparent;border:none;border-bottom:2px solid ${activeSub === s.id ? 'var(--pink)' : 'transparent'};color:${activeSub === s.id ? 'var(--ink)' : 'var(--mute)'};font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;text-transform:uppercase;letter-spacing:0.08em;">${s.label}</button>
+          <button ${activeSub === s.id ? 'data-sub-active="1"' : ''} onclick="CD.goSub('${s.id}')" style="padding:8px 14px;background:transparent;border:none;border-bottom:2px solid ${activeSub === s.id ? 'var(--pink)' : 'transparent'};color:${activeSub === s.id ? 'var(--ink)' : 'var(--mute)'};font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;text-transform:uppercase;letter-spacing:0.08em;position:relative;">${s.label}</button>
         `).join('')}
       </div>
     ` : '';
@@ -1012,7 +1012,7 @@
           </div>
         </div>
         ${subTabBar}
-        <div style="padding:${CD.state.isMobile ? '14px 16px 80px' : '20px 32px'};flex:1;" id="cd-tab-content">
+        <div style="padding:${CD.state.isMobile ? '14px 16px 80px' : '20px 32px'};flex:1;" id="cd-tab-content" data-cd-nav="${CD.state.activeNav || ''}" data-cd-sub="${activeSub || ''}">
           ${CD.renderTabContent()}
         </div>
       </main>`;
@@ -2449,7 +2449,7 @@
           <div class="ed" style="font-size:22px;">All <span class="ed-i" style="color:var(--mute);">squads</span></div>
           <div style="font-size:11px;color:var(--mute);">Click to expand</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="cd-league-list" style="display:flex;flex-direction:column;gap:10px;">
           ${arr.map((t, rankIdx) => {
             const isExpanded = expandedTeam === t.name;
             const code = teamCode(t.name);
@@ -3000,7 +3000,7 @@
                 <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">Buyer</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="cd-pool-tbody">
               ${filtered.slice(0, 150).map(p => {
                 const name = p.name || p.n || '';
                 const status = p.status || 'available';
@@ -3168,7 +3168,7 @@
             <div style="overflow-x:auto;">
               <table style="width:100%;border-collapse:collapse;font-size:13px;">
                 <thead><tr style="background:rgba(0,0,0,0.2);"><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">#</th>${activeSub.cols.map((c,i) => `<th style="padding:10px 14px;text-align:${i>=2?'right':'left'};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">${c}</th>`).join('')}</tr></thead>
-                <tbody>
+                <tbody class="cd-analytics-tbody">
                   ${rows.slice(0, 50).map((p, i) => {
                     const rowVals = activeSub.row(p);
                     return `<tr style="border-top:1px solid var(--line);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
@@ -3924,9 +3924,25 @@
     else if(CD.state.view === 'admin') html = CD.renderAdmin();
     // Page-level fade when the top-level view changes
     const viewChangedFromRender = _lastRenderedView !== viewKey;
+    const _prevView = _lastRenderedView;
+    const _prevAdminSub = _lastRenderedSub;
     _lastRenderedView = viewKey;
     _lastRenderedSub = CD.state.adminSub;
-    r.innerHTML = `<div class="cd-view${viewChangedFromRender ? ' cd-view-enter' : ''}">${html}</div>`;
+    // Per-view specialised enter class (drives the tasteful transition for each surface).
+    // Only applied when the view actually changed so in-place re-renders don't re-animate.
+    let _viewCls = 'cd-view';
+    if(viewChangedFromRender){
+      _viewCls += ' cd-view-enter';
+      if(viewKey === 'room')            _viewCls += ' cd-enter-room';
+      else if(viewKey === 'dashboard')  _viewCls += (_prevView === 'room') ? ' cd-enter-dashboard-back' : ' cd-enter-dashboard';
+      else if(viewKey === 'admin')      _viewCls += ' cd-enter-admin';
+      else if(viewKey === 'auth')       _viewCls += ' cd-enter-auth';
+      else if(viewKey === 'splash')     _viewCls += ' cd-enter-splash';
+    } else if(viewKey === 'admin' && _prevAdminSub !== CD.state.adminSub){
+      // Admin sub-tab switch — quick professional fade only.
+      _viewCls += ' cd-enter-admin-sub';
+    }
+    r.innerHTML = `<div class="${_viewCls}">${html}</div>`;
     // Restore captured form state (values + focus + selection).
     CD._restoreFormState(_formSnap);
     // (Re-)wire the delegate listeners; cheap no-op if already wired.
@@ -4114,6 +4130,20 @@
     setInterval(updateRoomGrids, 800);
     // Initial call after a moment, to catch already-loaded data
     setTimeout(updateRoomGrids, 200);
+    // ** Aggressive fallback ** — after 3s if the grid is still stuck on
+    // the "Loading rooms…" placeholder (listener never fired, permission
+    // issue, token refresh race), replace with a sensible empty state
+    // + a tap-to-retry button. User is never stuck on "Loading…".
+    setTimeout(() => {
+      try {
+        const myGrid = document.getElementById('cd-my-rooms-grid');
+        if(myGrid && /Loading rooms/i.test(myGrid.textContent)){
+          console.warn('[CD] rooms never loaded — forcing empty state + retry');
+          myGrid.innerHTML = '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">No rooms yet — create one above, or <a href="javascript:void(0)" onclick="window.cdForceLoadRooms&&window.cdForceLoadRooms()" style="color:var(--electric);text-decoration:underline;cursor:pointer;">tap to reload</a>.</div>';
+          if(typeof window.cdForceLoadRooms === 'function') window.cdForceLoadRooms();
+        }
+      } catch(e){ console.warn('rooms-fallback:', e); }
+    }, 3000);
   };
 
   // ── BOOT ───────────────────────────────────────────────────────
