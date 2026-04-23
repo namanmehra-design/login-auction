@@ -143,7 +143,7 @@
   ];
   const SUBTABS = {
     auction: [{id:'live', label:'Live block'}, {id:'purses', label:'Team purses'}, {id:'ledger', label:'Bid ledger'}],
-    squad:   [{id:'myteam', label:'My team'}, {id:'trades', label:'Trades'}],
+    squad:   [{id:'myteam', label:'My team'}, {id:'ptsbymatch', label:'Points by match'}, {id:'trades', label:'Trades'}],
     league:  [{id:'leaderboard', label:'Leaderboard'}, {id:'points', label:'Points'}, {id:'weeks', label:'Teams of Week'}],
     players: [{id:'pool', label:'Pool'}, {id:'analytics', label:'Analytics'}],
     matches: [{id:'data', label:'Match data'}, {id:'schedule', label:'Schedule'}]
@@ -466,6 +466,7 @@
       }
       if(nav === 'squad'){
         if(sub === 'trades') return CD.renderTrades();
+        if(sub === 'ptsbymatch') return CD.renderPointsByMatch();
         return CD.renderMyTeam();
       }
       if(nav === 'league'){
@@ -887,54 +888,400 @@
     if(typeof window.showAlert === 'function') window.showAlert('Ledger CSV downloaded', 'ok');
   };
 
+  // My Team — slick cricket pitch view with XI/Bench split + season points
   CD.renderMyTeam = () => {
     const rs = window.roomState || {};
     const teams = rs.teams || {};
     const myTeam = window.myTeamName || '';
     const t = teams[myTeam];
-    if(!t) return `<div class="cd-glass" style="padding:30px;border-radius:14px;color:var(--mute);text-align:center;">You haven't registered a team yet.</div>`;
+    if(!t) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div class="ed" style="font-size:22px;margin-bottom:6px;">No team <span class="ed-i" style="color:var(--pink);">registered</span></div><div style="font-size:13px;">Register a team to start building your squad.</div></div>`;
+
     const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
     const spent = roster.reduce((s,p) => s + (p.soldPrice || 0), 0);
     const overseas = roster.filter(p => p.isOverseas || p.o).length;
     const releaseLocked = !!rs.releaseLocked;
     const isSuper = window.user?.email && window.user.email.toLowerCase().trim() === 'namanmehra@gmail.com';
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
+
+    // Split roster into XI (first 11 or activeSquad) / Bench (next 5) / Reserves
+    const activeSq = Array.isArray(t.activeSquad) ? t.activeSquad : null;
+    const rosterNames = roster.map(p => p.name || p.n || '');
+    let xiNames, benchNames;
+    if(activeSq && activeSq.length) {
+      xiNames = activeSq.slice(0, 11);
+      benchNames = activeSq.slice(11, 16);
+    } else {
+      xiNames = rosterNames.slice(0, 11);
+      benchNames = rosterNames.slice(11, 16);
+    }
+    const reserveNames = rosterNames.filter(n => !xiNames.includes(n) && !benchNames.includes(n));
+
+    const findP = (name) => roster.find(p => (p.name||p.n||'') === name) || null;
+    const xiPlayers = xiNames.map(findP).filter(Boolean);
+    const benchPlayers = benchNames.map(findP).filter(Boolean);
+    const reservePlayers = reserveNames.map(findP).filter(Boolean);
+
+    // Season points per player (aggregated from matches)
+    const matches = rs.matches || {};
+    const playerPts = {};
+    const playerMc = {};
+    Object.values(matches).forEach(m => {
+      if(!m.players) return;
+      Object.values(m.players).forEach(p => {
+        const k = (p.name||'').toLowerCase().trim();
+        if(!k) return;
+        playerPts[k] = (playerPts[k] || 0) + (p.pts || 0);
+        playerMc[k] = (playerMc[k] || 0) + 1;
+      });
+    });
+    const ptsFor = (name) => Math.round(playerPts[(name||'').toLowerCase().trim()] || 0);
+    const mcFor = (name) => playerMc[(name||'').toLowerCase().trim()] || 0;
+
+    // Compute season totals for this team
+    const xiTotal = xiPlayers.reduce((s,p) => s + ptsFor(p.name||p.n||'') * xiMult, 0);
+    const benchTotal = benchPlayers.reduce((s,p) => s + ptsFor(p.name||p.n||''), 0);
+    const seasonTotal = Math.round(xiTotal + benchTotal);
+
+    // Group XI by role for pitch positioning (realistic field layout)
+    const byRole = { wk: [], bat: [], ar: [], bowl: [] };
+    xiPlayers.forEach(p => {
+      const r = (p.role || p.r || '').toLowerCase();
+      if(r.includes('wicket') || r.includes('keep')) byRole.wk.push(p);
+      else if(r.includes('bowl')) byRole.bowl.push(p);
+      else if(r.includes('all')) byRole.ar.push(p);
+      else byRole.bat.push(p);
+    });
+
+    const renderPitchPlayer = (p, pos) => {
+      const name = p.name || p.n || '';
+      const first = name.split(' ')[0];
+      const last = name.split(' ').slice(1).join(' ');
+      const pts = ptsFor(name) * (pos === 'xi' ? xiMult : 1);
+      const code = teamCode(p.iplTeam || p.t);
+      const isOs = !!(p.isOverseas || p.o);
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px;cursor:pointer;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
+          <div style="position:relative;">
+            ${CD.Avatar({team: p.iplTeam || p.t, name, size: 46})}
+            ${isOs ? '<div style="position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;box-shadow:0 0 0 2px var(--bg-1,#0C0D14);">★</div>' : ''}
+          </div>
+          <div style="font-size:10px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,0.8);max-width:80px;overflow:hidden;text-overflow:ellipsis;">${esc(last || first)}</div>
+          <div style="font-family:var(--display);font-size:11px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${pts>0?'rgba(182,255,60,0.3)':'rgba(255,255,255,0.15)'};border:1px solid ${pts>0?'rgba(182,255,60,0.5)':'rgba(255,255,255,0.2)'};color:${pts>0?'var(--lime)':pts<0?'var(--red)':'#fff'};">${pts>=0?'+':''}${Math.round(pts)}</div>
+        </div>
+      `;
+    };
+
+    const roleRow = (players, gap = 40) => {
+      if(!players.length) return '';
+      return `<div style="display:flex;justify-content:center;gap:${gap}px;flex-wrap:wrap;">${players.map(p => renderPitchPlayer(p, 'xi')).join('')}</div>`;
+    };
+
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">
-        ${CD.Stat({val: roster.length, lbl: 'Squad size', accent: 'var(--electric)'})}
-        ${CD.Stat({val: '₹' + (t.budget||0).toFixed(1) + 'cr', lbl: 'Purse left', accent: 'var(--lime)'})}
-        ${CD.Stat({val: '₹' + spent.toFixed(1) + 'cr', lbl: 'Total spent', accent: 'var(--pink)'})}
-        ${CD.Stat({val: overseas + ' / ' + (rs.maxOverseas || 8), lbl: 'Overseas', accent: 'var(--gold)'})}
+      <!-- Stats banner -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px;">
+        ${CD.Stat({val: xiPlayers.length + '+' + benchPlayers.length, lbl: 'XI + Bench', accent:'var(--electric)'})}
+        ${CD.Stat({val: '₹' + (t.budget||0).toFixed(1), lbl:'Purse left (cr)', accent:'var(--lime)'})}
+        ${CD.Stat({val: '₹' + spent.toFixed(1), lbl:'Total spent (cr)', accent:'var(--pink)'})}
+        ${CD.Stat({val: overseas + '/' + (rs.maxOverseas || 8), lbl:'Overseas', accent:'var(--gold)'})}
+        ${CD.Stat({val: (seasonTotal>=0?'+':'') + seasonTotal, lbl:'Season points', accent:'var(--lime)'})}
       </div>
-      <div class="cd-glass-2" style="padding:24px;border-radius:22px;background:var(--glass-2);border:1px solid var(--line-2);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-          <div class="ed" style="font-size:28px;">${esc(t.name)}</div>
-          ${releaseLocked ? CD.Pill({tone:'red', children:'Releases locked'}) : ''}
+
+      <!-- Hero: Team name + cricket pitch -->
+      <div style="border-radius:22px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:18px;overflow:hidden;position:relative;">
+        <!-- Team header -->
+        <div style="padding:18px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);position:relative;z-index:2;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="font-size:10px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;">Playing XI${xiMult !== 1 ? ' · ' + xiMult + '× multiplier' : ''}</div>
+            <div class="ed" style="font-size:32px;line-height:1;margin-top:3px;">${esc(t.name)}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            ${releaseLocked && !isSuper ? CD.Pill({tone:'red', children:'Releases locked'}) : ''}
+            ${CD.Pill({tone:'lime', children: CD.LiveDot() + ' XI ' + (xiTotal>=0?'+':'') + Math.round(xiTotal)})}
+          </div>
         </div>
-        ${roster.length ? `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
-          ${roster.map((p, idx) => {
-            const name = p.name || p.n || '';
-            const code = teamCode(p.iplTeam || p.t);
-            const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
-            const isOs = !!(p.isOverseas || p.o);
-            return `<div style="padding:12px;border-radius:14px;background:linear-gradient(135deg,${c1}25,${c2}10);border:1px solid var(--line);position:relative;">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                ${CD.Avatar({team: p.iplTeam || p.t, name, size: 36})}
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:600;font-size:13px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(name)}</div>
-                  <div style="font-size:10px;color:var(--mute);letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">${esc(p.role || p.r || '')}${isOs ? ' · OS' : ''}</div>
-                </div>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
-                <span style="font-family:var(--mono);color:var(--lime);">₹${(p.soldPrice||0).toFixed(2)}cr</span>
-                ${(!releaseLocked || isSuper) ? `<button data-team="${esc(t.name)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:4px 10px;border-radius:9999px;background:rgba(255,59,59,0.18);border:1px solid rgba(255,59,59,0.4);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
-              </div>
-            </div>`;
-          }).join('')}
+
+        <!-- Cricket pitch visualization -->
+        <div style="position:relative;min-height:${CD.state.isMobile ? 460 : 540}px;background:
+          radial-gradient(ellipse 80% 100% at 50% 50%, #0d6638 0%, #052918 65%, #0A0B12 100%),
+          #052918;
+          overflow:hidden;">
+
+          <!-- Field ring (boundary) -->
+          <div style="position:absolute;inset:22px;border-radius:50%;border:2px dashed rgba(255,255,255,0.18);pointer-events:none;"></div>
+          <!-- Inner circle (30-yard) -->
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:55%;height:46%;border-radius:50%;border:1px solid rgba(255,255,255,0.14);pointer-events:none;"></div>
+          <!-- Pitch strip (brown) -->
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${CD.state.isMobile ? '14%' : '9%'};height:${CD.state.isMobile ? '22%' : '28%'};background:linear-gradient(180deg,#c9a56d,#8c6a3a);border-radius:2px;pointer-events:none;box-shadow:0 0 24px rgba(201,165,109,0.4);"></div>
+          <!-- Crease marks -->
+          <div style="position:absolute;left:50%;top:calc(50% - ${CD.state.isMobile ? 50 : 72}px);transform:translateX(-50%);width:${CD.state.isMobile ? 40 : 54}px;height:2px;background:#fff;"></div>
+          <div style="position:absolute;left:50%;top:calc(50% + ${CD.state.isMobile ? 50 : 72}px);transform:translateX(-50%);width:${CD.state.isMobile ? 40 : 54}px;height:2px;background:#fff;"></div>
+          <!-- Stumps -->
+          <div style="position:absolute;left:50%;top:calc(50% - ${CD.state.isMobile ? 54 : 78}px);transform:translateX(-50%);display:flex;gap:2px;">
+            ${[0,1,2].map(() => '<div style="width:2px;height:9px;background:#fff;"></div>').join('')}
+          </div>
+          <div style="position:absolute;left:50%;top:calc(50% + ${CD.state.isMobile ? 45 : 69}px);transform:translateX(-50%);display:flex;gap:2px;">
+            ${[0,1,2].map(() => '<div style="width:2px;height:9px;background:#fff;"></div>').join('')}
+          </div>
+
+          <!-- Players positioned by role -->
+          <!-- Bowlers (top-center & scattered deep) -->
+          <div style="position:absolute;top:${CD.state.isMobile ? 30 : 40}px;left:0;right:0;display:flex;justify-content:center;gap:32px;flex-wrap:wrap;padding:0 20px;z-index:3;">
+            ${byRole.bowl.map(p => renderPitchPlayer(p, 'xi')).join('')}
+          </div>
+
+          <!-- All-rounders (mid, left+right of pitch) -->
+          <div style="position:absolute;top:50%;left:${CD.state.isMobile ? '8%' : '15%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:16px;z-index:3;">
+            ${byRole.ar.slice(0, Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
+          </div>
+          <div style="position:absolute;top:50%;right:${CD.state.isMobile ? '8%' : '15%'};transform:translateY(-50%);display:flex;flex-direction:column;gap:16px;z-index:3;">
+            ${byRole.ar.slice(Math.ceil(byRole.ar.length/2)).map(p => renderPitchPlayer(p, 'xi')).join('')}
+          </div>
+
+          <!-- Wicketkeeper (behind stumps, top of pitch) -->
+          <div style="position:absolute;top:calc(50% - ${CD.state.isMobile ? 130 : 160}px);left:50%;transform:translateX(-50%);z-index:3;">
+            ${byRole.wk.map(p => renderPitchPlayer(p, 'xi')).join('')}
+          </div>
+
+          <!-- Batters (bottom, near crease) -->
+          <div style="position:absolute;bottom:${CD.state.isMobile ? 30 : 40}px;left:0;right:0;display:flex;justify-content:center;gap:24px;flex-wrap:wrap;padding:0 20px;z-index:3;">
+            ${byRole.bat.map(p => renderPitchPlayer(p, 'xi')).join('')}
+          </div>
+
+          ${xiPlayers.length === 0 ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4;"><div style="padding:24px 36px;border-radius:16px;background:rgba(0,0,0,0.65);backdrop-filter:blur(16px);text-align:center;border:1px solid rgba(255,255,255,0.14);"><div class="ed" style="font-size:28px;color:#fff;">Empty <span class="ed-i" style="color:var(--pink);">pitch</span></div><div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">Bid on players to build your XI.</div></div></div>` : ''}
         </div>
-        ` : `<div style="padding:30px;text-align:center;color:var(--mute);">No players yet — bid in the auction!</div>`}
       </div>
+
+      <!-- Bench -->
+      ${benchPlayers.length ? `
+      <div style="border-radius:18px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);margin-bottom:16px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+          <div class="ed" style="font-size:20px;">Bench <span class="ed-i" style="color:var(--mute);font-size:16px;">1×</span></div>
+          <span style="font-family:var(--display);font-weight:800;color:${benchTotal>0?'var(--lime)':'var(--mute)'};">${benchTotal>=0?'+':''}${Math.round(benchTotal)} pts</span>
+        </div>
+        <div style="padding:14px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">
+          ${benchPlayers.map((p, idx) => CD._renderRosterCard(p, 'bench', t.name, xiPlayers.length + idx, releaseLocked, isSuper, ptsFor, mcFor)).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Reserves -->
+      ${reservePlayers.length ? `
+      <div style="border-radius:18px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);margin-bottom:16px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--line);">
+          <div class="ed" style="font-size:20px;">Reserves <span class="ed-i" style="color:var(--mute);font-size:16px;">0×</span></div>
+        </div>
+        <div style="padding:14px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">
+          ${reservePlayers.map((p, idx) => CD._renderRosterCard(p, 'reserve', t.name, xiPlayers.length + benchPlayers.length + idx, releaseLocked, isSuper, ptsFor, mcFor)).join('')}
+        </div>
+      </div>` : ''}
     `;
+  };
+
+  // Helper for roster cards in bench/reserve — includes small role/OS pills
+  CD._renderRosterCard = (p, section, teamName, idx, releaseLocked, isSuper, ptsFor, mcFor) => {
+    const name = p.name || p.n || '';
+    const code = teamCode(p.iplTeam || p.t);
+    const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
+    const isOs = !!(p.isOverseas || p.o);
+    const pts = ptsFor(name);
+    const mc = mcFor(name);
+    const role = p.role || p.r || '';
+    const roleShort = role.toLowerCase().includes('bowl') ? 'BOWL' : role.toLowerCase().includes('wicket') || role.toLowerCase().includes('keep') ? 'WK' : role.toLowerCase().includes('all') ? 'AR' : 'BAT';
+    const roleTone = roleShort==='BOWL'?'pink':roleShort==='WK'?'gold':roleShort==='AR'?'lime':'electric';
+    return `<div style="padding:10px;border-radius:12px;background:linear-gradient(135deg,${c1}20,${c2}10);border:1px solid var(--line);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        ${CD.Avatar({team: p.iplTeam || p.t, name, size: 34})}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:12.5px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${esc(name)}</div>
+          <div style="display:flex;gap:3px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+            ${CD.Pill({style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: esc(code)})}
+            ${CD.Pill({tone:roleTone, style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: roleShort})}
+            ${isOs ? CD.Pill({tone:'gold', style:'font-size:8.5px;padding:1px 6px;letter-spacing:0.06em;', children: '★ OS'}) : ''}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;">
+        <span style="font-family:var(--mono);color:var(--mute);">₹${(p.soldPrice||0).toFixed(2)}</span>
+        <span style="font-family:var(--display);font-weight:800;color:${pts>0?'var(--lime)':pts<0?'var(--red)':'var(--mute)'};">${pts>=0?'+':''}${pts}${mc?' <span style="color:var(--mute);font-weight:500;font-size:10px;">· '+mc+'m</span>':''}</span>
+        ${(!releaseLocked || isSuper) ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
+      </div>
+    </div>`;
+  };
+
+  // NEW: Player Points by Match — table showing every player's points for every match incl. multiplier
+  CD.renderPointsByMatch = () => {
+    const rs = window.roomState || {};
+    const teams = rs.teams || {};
+    const myTeam = window.myTeamName || '';
+    const t = teams[myTeam];
+    if(!t) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;">Register your team first to see your players' points by match.</div>`;
+    const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
+    const matches = rs.matches || {};
+    const matchIds = Object.keys(matches).sort((a,b) => (matches[a].timestamp||0) - (matches[b].timestamp||0));
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
+
+    if(!matchIds.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;backdrop-filter:blur(20px);"><div class="ed" style="font-size:22px;margin-bottom:6px;">No matches <span class="ed-i" style="color:var(--pink);">yet</span></div><div style="font-size:13px;">Points per match will appear here after scorecards are submitted.</div></div>`;
+    if(!roster.length) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;">You have no players on your roster yet.</div>`;
+
+    const scope = window._cdPbmScope || 'my'; // 'my' | 'all'
+
+    // Determine which teams to show
+    const teamsToShow = scope === 'my' ? [t] : Object.values(teams);
+
+    const renderTeamBlock = (tt) => {
+      const rostr = Array.isArray(tt.roster) ? tt.roster : (tt.roster ? Object.values(tt.roster) : []);
+      if(!rostr.length) return '';
+      const activeSq = Array.isArray(tt.activeSquad) ? tt.activeSquad : null;
+      const xiSet = new Set((activeSq ? activeSq.slice(0,11) : rostr.slice(0,11).map(p => p.name||p.n||'')));
+
+      let teamTotal = 0;
+      const rows = rostr.map(p => {
+        const name = p.name || p.n || '';
+        const isXI = xiSet.has(name);
+        const perMatch = {};
+        let total = 0;
+        matchIds.forEach(mid => {
+          const m = matches[mid];
+          const snap = m.squadSnapshots?.[tt.name];
+          let xiThisMatch = xiSet;
+          if(snap){ xiThisMatch = new Set((snap.xi || []).map(n => n.toLowerCase().trim())); }
+          const rec = m.players ? Object.values(m.players).find(pp => (pp.name||'').toLowerCase().trim() === name.toLowerCase().trim()) : null;
+          if(!rec){ perMatch[mid] = null; return; }
+          const raw = rec.pts || 0;
+          const isSnapXI = snap ? xiThisMatch.has(name.toLowerCase().trim()) : isXI;
+          const mult = isSnapXI ? xiMult : 1;
+          const val = Math.round(raw * mult);
+          perMatch[mid] = { val, mult, raw };
+          total += val;
+        });
+        teamTotal += total;
+        return { p, name, perMatch, total, isXI };
+      }).sort((a,b) => b.total - a.total);
+
+      return `
+        <div style="border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);overflow:hidden;margin-bottom:18px;">
+          <div style="padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              ${CD.Avatar({name: tt.name, size: 40})}
+              <div>
+                <div class="ed" style="font-size:22px;line-height:1;">${esc(tt.name)}</div>
+                <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-top:3px;">${rows.length} players · ${matchIds.length} matches</div>
+              </div>
+            </div>
+            <div style="font-family:var(--display);font-weight:800;font-size:28px;color:${teamTotal>0?'var(--lime)':teamTotal<0?'var(--red)':'var(--mute)'};">${teamTotal>=0?'+':''}${Math.round(teamTotal)}</div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead>
+                <tr style="background:rgba(0,0,0,0.25);">
+                  <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);position:sticky;left:0;background:rgba(10,12,18,0.95);z-index:2;">Player</th>
+                  <th style="padding:10px 8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--mute);">Role</th>
+                  ${matchIds.map((mid, i) => {
+                    const label = matches[mid].label || mid;
+                    const short = label.length > 10 ? 'M' + (i+1) : label;
+                    return `<th title="${esc(label)}" style="padding:10px 8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--mute);min-width:52px;">${esc(short)}</th>`;
+                  }).join('')}
+                  <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);background:rgba(0,0,0,0.3);">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(({p, name, perMatch, total, isXI}) => `
+                  <tr style="border-top:1px solid var(--line);">
+                    <td style="padding:10px 14px;position:sticky;left:0;background:${isXI?'rgba(46,91,255,0.06)':'var(--glass,rgba(18,20,30,0.55))'};backdrop-filter:blur(16px);z-index:1;">
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        ${CD.Avatar({team: p.iplTeam || p.t, name, size: 24})}
+                        <div>
+                          <div style="font-weight:600;font-size:12px;">${esc(name)}</div>
+                          <div style="font-size:9.5px;color:var(--mute);">${esc(teamCode(p.iplTeam||p.t))}${(p.isOverseas||p.o)?' · OS':''}${isXI?' · <span style="color:var(--electric);">XI</span>':' · Bench'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="padding:10px 8px;text-align:center;font-size:10.5px;color:var(--ink-2);">${esc((p.role||p.r||'').split('-')[0].slice(0,4))}</td>
+                    ${matchIds.map(mid => {
+                      const cell = perMatch[mid];
+                      if(cell == null) return `<td style="padding:10px 8px;text-align:center;color:var(--mute-2);font-family:var(--mono);">—</td>`;
+                      const color = cell.val > 0 ? 'var(--lime)' : cell.val < 0 ? 'var(--red)' : 'var(--mute)';
+                      const multBadge = cell.mult > 1 ? `<span style="font-size:8px;color:var(--gold);margin-left:2px;">${cell.mult}×</span>` : '';
+                      return `<td title="${cell.raw} × ${cell.mult} = ${cell.val}" style="padding:10px 8px;text-align:center;font-family:var(--mono);font-weight:700;color:${color};">${cell.val>=0?'+':''}${cell.val}${multBadge}</td>`;
+                    }).join('')}
+                    <td style="padding:10px 14px;text-align:right;font-family:var(--display);font-weight:800;font-size:16px;color:${total>0?'var(--lime)':total<0?'var(--red)':'var(--mute)'};background:rgba(0,0,0,0.2);">${total>=0?'+':''}${total}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+
+    return `
+      <!-- Scope toggle + CSV -->
+      <div style="padding:12px 16px;border-radius:14px;background:var(--glass);border:1px solid var(--line);margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-right:4px;">Showing</div>
+        <div style="display:flex;gap:4px;">
+          <button onclick="window._cdPbmScope='my';CD.render();" style="padding:7px 14px;border-radius:9999px;background:${scope==='my'?'linear-gradient(180deg,var(--electric-2),var(--electric))':'var(--glass)'};border:1px solid ${scope==='my'?'transparent':'var(--line)'};color:${scope==='my'?'#fff':'var(--ink-2)'};font-size:11px;font-weight:700;cursor:pointer;">My team</button>
+          <button onclick="window._cdPbmScope='all';CD.render();" style="padding:7px 14px;border-radius:9999px;background:${scope==='all'?'linear-gradient(180deg,var(--electric-2),var(--electric))':'var(--glass)'};border:1px solid ${scope==='all'?'transparent':'var(--line)'};color:${scope==='all'?'#fff':'var(--ink-2)'};font-size:11px;font-weight:700;cursor:pointer;">All teams</button>
+        </div>
+        <div style="flex:1"></div>
+        <div style="font-size:11px;color:var(--mute);">XI multiplier: <span style="color:var(--gold);font-weight:700;">${xiMult}×</span> · Bench 1× · Reserves 0×</div>
+        <button onclick="CD.downloadPointsByMatchCSV()" style="padding:7px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--lime-2),var(--lime));color:#000;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
+      </div>
+
+      ${teamsToShow.map(renderTeamBlock).join('')}
+    `;
+  };
+
+  CD.downloadPointsByMatchCSV = () => {
+    const rs = window.roomState || {};
+    const teams = rs.teams || {};
+    const matches = rs.matches || {};
+    const matchIds = Object.keys(matches).sort((a,b) => (matches[a].timestamp||0) - (matches[b].timestamp||0));
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
+    const scope = window._cdPbmScope || 'my';
+    const myTeam = window.myTeamName || '';
+    const teamsToShow = scope === 'my' && teams[myTeam] ? [teams[myTeam]] : Object.values(teams);
+    if(!teamsToShow.length || !matchIds.length){ window.showAlert?.('No data.','err'); return; }
+
+    const csvEscape = (v) => { const s = String(v == null ? '' : v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const header = ['Team','Player','IPL Team','Role','Section'];
+    matchIds.forEach(mid => header.push(matches[mid].label || mid));
+    header.push('Total');
+    const rows = [header];
+
+    teamsToShow.forEach(tt => {
+      const rostr = Array.isArray(tt.roster) ? tt.roster : (tt.roster ? Object.values(tt.roster) : []);
+      const activeSq = Array.isArray(tt.activeSquad) ? tt.activeSquad : null;
+      const xiSet = new Set((activeSq ? activeSq.slice(0,11) : rostr.slice(0,11).map(p => p.name||p.n||'')));
+      rostr.forEach(p => {
+        const name = p.name || p.n || '';
+        const isXI = xiSet.has(name);
+        const row = [tt.name, name, p.iplTeam || p.t || '', p.role || p.r || '', isXI ? 'XI' : 'Bench'];
+        let total = 0;
+        matchIds.forEach(mid => {
+          const m = matches[mid];
+          const snap = m.squadSnapshots?.[tt.name];
+          const xiThisMatch = snap ? new Set((snap.xi || []).map(n => n.toLowerCase().trim())) : xiSet;
+          const rec = m.players ? Object.values(m.players).find(pp => (pp.name||'').toLowerCase().trim() === name.toLowerCase().trim()) : null;
+          if(!rec){ row.push(''); return; }
+          const raw = rec.pts || 0;
+          const isSnapXI = snap ? xiThisMatch.has(name.toLowerCase().trim()) : isXI;
+          const mult = isSnapXI ? xiMult : 1;
+          const val = Math.round(raw * mult);
+          row.push(val);
+          total += val;
+        });
+        row.push(total);
+        rows.push(row);
+      });
+    });
+    const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'points-by-match.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    if(typeof window.showAlert === 'function') window.showAlert('Points-by-match CSV downloaded','ok');
   };
 
   // Helper: compute per-team points from stored leaderboardTotals, per-team roster, per-team points details
@@ -1084,52 +1431,87 @@
     `;
   };
 
-  // Helper — render a team's roster grouped by role, for expandable squad view
+  // Helper — render a team's roster split into XI / Bench / Reserves with season points
   CD._renderTeamRoster = (t, c1, c2) => {
     if(!t.roster.length) return `<div style="padding:14px 18px;color:var(--mute);font-size:12px;border-top:1px solid var(--line);">Empty roster</div>`;
-    // Group by role
-    const byRole = { 'Batter': [], 'All-rounder': [], 'Wicketkeeper': [], 'Bowler': [] };
-    t.roster.forEach(p => {
-      const role = (p.role || p.r || 'Batter').toLowerCase();
-      if(role.includes('bowl')) byRole['Bowler'].push(p);
-      else if(role.includes('all')) byRole['All-rounder'].push(p);
-      else if(role.includes('wicket') || role.includes('keep')) byRole['Wicketkeeper'].push(p);
-      else byRole['Batter'].push(p);
-    });
-    // Compute per-player season points from matches
     const rs = window.roomState || {};
+    const xiMult = parseFloat(rs.xiMultiplier) || 1;
     const matches = rs.matches || {};
     const playerPts = {};
     Object.values(matches).forEach(m => {
       if(!m.players) return;
       Object.values(m.players).forEach(p => {
         if(p.ownedBy !== t.name) return;
-        const key = (p.name||'').toLowerCase();
+        const key = (p.name||'').toLowerCase().trim();
         playerPts[key] = (playerPts[key] || 0) + (p.pts || 0);
       });
     });
+
+    // Split by activeSquad: first 11 = XI, next 5 = Bench, rest = Reserves
+    const activeSq = Array.isArray(t.activeSquad) ? t.activeSquad : null;
+    const rosterNames = t.roster.map(p => p.name || p.n || '');
+    let xiNames, benchNames;
+    if(activeSq && activeSq.length) {
+      xiNames = activeSq.slice(0, 11);
+      benchNames = activeSq.slice(11, 16);
+    } else {
+      xiNames = rosterNames.slice(0, 11);
+      benchNames = rosterNames.slice(11, 16);
+    }
+    const reserveNames = rosterNames.filter(n => !xiNames.includes(n) && !benchNames.includes(n));
+    const findP = (name) => t.roster.find(p => (p.name||p.n||'') === name) || null;
+    const xi = xiNames.map(findP).filter(Boolean);
+    const bench = benchNames.map(findP).filter(Boolean);
+    const reserves = reserveNames.map(findP).filter(Boolean);
+
+    const xiTotal = xi.reduce((s,p) => s + Math.round((playerPts[(p.name||p.n||'').toLowerCase().trim()] || 0) * xiMult), 0);
+    const benchTotal = bench.reduce((s,p) => s + Math.round(playerPts[(p.name||p.n||'').toLowerCase().trim()] || 0), 0);
+
+    const renderSection = (label, players, mult, totalPts, sectionColor) => {
+      if(!players.length) return '';
+      const multBadge = mult === 0
+        ? CD.Pill({tone:'red', style:'font-size:9px;padding:2px 7px;', children:'0× (no scoring)'})
+        : mult === 1
+          ? CD.Pill({style:'font-size:9px;padding:2px 7px;', children:'1× points'})
+          : CD.Pill({tone:'gold', style:'font-size:9px;padding:2px 7px;', children: mult + '× multiplier'});
+      return `
+        <div style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+            <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:10px;color:${sectionColor};letter-spacing:0.14em;text-transform:uppercase;font-weight:700;">${label} · ${players.length}</span>
+              ${multBadge}
+            </div>
+            <span style="font-family:var(--display);font-weight:800;color:${totalPts>0?'var(--lime)':totalPts<0?'var(--red)':'var(--mute)'};font-size:16px;">${totalPts>=0?'+':''}${totalPts} <span style="font-size:9px;color:var(--mute);font-weight:500;letter-spacing:0.1em;text-transform:uppercase;">pts</span></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;">
+            ${players.map(p => {
+              const pName = p.name || p.n || '';
+              const raw = Math.round(playerPts[pName.toLowerCase().trim()] || 0);
+              const val = Math.round(raw * mult);
+              const isOs = !!(p.isOverseas || p.o);
+              const showMultExpr = mult !== 1 && raw !== 0;
+              return `<div title="${raw} raw × ${mult}× = ${val}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
+                ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 24})}
+                <div style="flex:1;min-width:0;overflow:hidden;">
+                  <div style="font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(pName)}${isOs ? ' <span style="color:var(--gold);font-size:9px;">★</span>' : ''}</div>
+                  <div style="font-size:10px;color:var(--mute);">${esc(teamCode(p.iplTeam||p.t))} · ${esc((p.role||p.r||'').split('-')[0].slice(0,3))}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:700;color:${val>0?'var(--lime)':val<0?'var(--red)':'var(--mute)'};">${val>=0?'+':''}${val}</div>
+                  ${showMultExpr ? `<div style="font-size:9px;color:var(--mute);font-family:var(--mono);">${raw}×${mult}</div>` : ''}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    };
+
     return `
       <div style="padding:16px 18px 18px;border-top:1px solid var(--line);background:linear-gradient(180deg,${c1}10,transparent);">
-        ${Object.entries(byRole).filter(([, list]) => list.length).map(([role, list]) => `
-          <div style="margin-bottom:12px;">
-            <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">${role}s · ${list.length}</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
-              ${list.sort((a,b) => ((playerPts[(b.name||b.n||'').toLowerCase()]||0) - (playerPts[(a.name||a.n||'').toLowerCase()]||0))).map(p => {
-                const pName = p.name || p.n || '';
-                const pts = Math.round(playerPts[pName.toLowerCase()] || 0);
-                const isOs = !!(p.isOverseas || p.o);
-                return `<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
-                  ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 26})}
-                  <div style="flex:1;min-width:0;overflow:hidden;">
-                    <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(pName)}${isOs ? ' <span style="color:var(--gold);font-size:9px;">★</span>' : ''}</div>
-                    <div style="font-size:10px;color:var(--mute);">${esc(teamCode(p.iplTeam||p.t))} · ₹${(p.soldPrice||0).toFixed(1)}</div>
-                  </div>
-                  <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:${pts>0?'var(--lime)':pts<0?'var(--red)':'var(--mute)'};">${pts>=0?'+':''}${pts}</div>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>
-        `).join('')}
+        ${renderSection('Playing XI', xi, xiMult, xiTotal, 'var(--electric)')}
+        ${renderSection('Bench', bench, 1, benchTotal, 'var(--ink-2)')}
+        ${reserves.length ? renderSection('Reserves', reserves, 0, 0, 'var(--mute)') : ''}
       </div>
     `;
   };
