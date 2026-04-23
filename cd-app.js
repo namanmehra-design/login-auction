@@ -425,33 +425,71 @@
     const nav = CD.state.activeNav;
     const sub = CD.state.activeSub;
     try {
-      if(nav === 'setup') return CD.renderSetup();
-      if(nav === 'auction'){
-        if(sub === 'purses') return CD.renderPurses();
-        if(sub === 'ledger') return CD.renderLedger();
-        return CD.renderAuctionLive();
-      }
-      if(nav === 'squad'){
-        if(sub === 'trades') return CD.renderTrades();
-        return CD.renderMyTeam();
-      }
-      if(nav === 'league'){
-        if(sub === 'points') return CD.renderPoints();
-        return CD.renderLeaderboard();
-      }
-      if(nav === 'players'){
-        if(sub === 'analytics') return CD.renderAnalytics();
-        return CD.renderPlayersPool();
-      }
-      if(nav === 'matches'){
-        if(sub === 'schedule') return CD.renderSchedule();
-        return CD.renderMatches();
-      }
+      // Map nav+sub → legacy classic tab ID — every tab embeds for full feature parity
+      const map = {
+        'setup:setup':         'setup',
+        'auction:live':        'auction',
+        'auction:purses':      'teams',
+        'auction:ledger':      'roster',
+        'squad:myteam':        'myteam',
+        'squad:trades':        'trades',
+        'league:leaderboard':  'leaderboard',
+        'league:points':       'points',
+        'players:pool':        'players-season',
+        'players:analytics':   'analytics',
+        'matches:data':        'matches',
+        'matches:schedule':    'schedule'
+      };
+      const legacyId = map[`${nav}:${sub || ''}`] || (nav === 'setup' ? 'setup' : nav === 'auction' ? 'auction' : nav === 'squad' ? 'myteam' : nav === 'league' ? 'leaderboard' : nav === 'players' ? 'players-season' : nav === 'matches' ? 'matches' : 'setup');
+      requestAnimationFrame(() => CD.embedClassicTab(legacyId));
+      return `<div id="cd-classic-host" style="min-height:280px;"><div style="padding:40px;text-align:center;color:var(--mute);font-size:13px;">Loading…</div></div>`;
     } catch(e){
       console.error('CD tab error:', e);
-      return `<div class="cd-glass" style="padding:24px;border-radius:14px;background:var(--glass);border:1px solid var(--line);color:var(--ink-2);">Error loading: ${esc(e.message)}</div>`;
+      return `<div style="padding:24px;border-radius:14px;background:var(--glass);border:1px solid var(--line);color:var(--ink-2);">Error loading: ${esc(e.message)}</div>`;
     }
-    return '';
+  };
+
+  // ── EMBED CLASSIC TAB CONTENT INTO CD SHELL ────────────────────
+  // Moves the classic tab div into #cd-classic-host so all classic features
+  // (search, filters, modals, Cricbuzz photos, scorecard upload) work.
+  // Previously-mounted tabs are stashed off-screen so app.js's switchTab can still find them.
+  CD.embedClassicTab = (legacyId) => {
+    if(!legacyId) return;
+    // Ensure stash exists
+    let stash = document.getElementById('cd-tab-stash');
+    if(!stash){
+      stash = document.createElement('div');
+      stash.id = 'cd-tab-stash';
+      stash.style.cssText = 'position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;overflow:hidden;visibility:hidden;pointer-events:none;';
+      document.body.appendChild(stash);
+    }
+    // Trigger app.js to render this tab (calls renderXxx if needed)
+    if(typeof window.switchTab === 'function'){
+      try { window.switchTab(legacyId); } catch(e){ console.error('switchTab:', e); }
+    }
+    // Move previously-mounted tabs back to stash to free up the host
+    const host = document.getElementById('cd-classic-host');
+    if(!host){ setTimeout(() => CD.embedClassicTab(legacyId), 100); return; }
+    Array.from(host.querySelectorAll('[id$="-tab"]')).forEach(el => {
+      stash.appendChild(el);
+    });
+    host.innerHTML = '';
+    const tabEl = document.getElementById(legacyId + '-tab');
+    if(tabEl){
+      // Reset display + visibility (switchTab uses display:none)
+      tabEl.style.display = 'block';
+      tabEl.style.visibility = 'visible';
+      tabEl.style.position = 'static';
+      tabEl.style.left = 'auto';
+      tabEl.style.top = 'auto';
+      tabEl.style.width = '100%';
+      tabEl.style.height = 'auto';
+      tabEl.style.pointerEvents = 'auto';
+      tabEl.style.opacity = '1';
+      host.appendChild(tabEl);
+    } else {
+      host.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mute);">Tab content not yet loaded. Try clicking again in a moment.</div>';
+    }
   };
 
   // ── INDIVIDUAL TAB RENDERS ──────────────────────────────────────

@@ -9,9 +9,10 @@
 <link rel="stylesheet" href="cd-styles.css">
 <link rel="stylesheet" href="styles.css">
 <style>
-  /* New design is the only visible UI. Classic UI exists hidden so app.js render targets don't crash. */
+  /* New design wraps classic UI. Classic chrome (header/nav/aurora) hidden;
+     classic tab content gets MOVED into CD shell so all features work. */
   #cd-root { position: relative; z-index: 5; min-height: 100vh; }
-  #app-shell, #auth-view, .aurora, .hamburger, .sidebar, .sidebar-overlay, .theme-toggle {
+  #auth-view, .aurora, .hamburger, .sidebar, .sidebar-overlay, .theme-toggle {
     position: absolute !important;
     left: -99999px !important;
     top: -99999px !important;
@@ -21,6 +22,29 @@
     pointer-events: none !important;
     visibility: hidden !important;
   }
+  /* Stash app-shell + dashboard chrome off-screen by default; we'll relocate tab divs */
+  body:not(.cd-room-mounted) #app-shell {
+    position: absolute !important;
+    left: -99999px !important;
+    top: -99999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+  /* When tab content is mounted into CD, hide classic chrome inside it but show tab content */
+  #cd-classic-host {
+    background: var(--glass, rgba(18,20,30,0.55));
+    border: 1px solid var(--line-2, rgba(255,255,255,0.14));
+    border-radius: 14px;
+    padding: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  #cd-classic-host > .anav, #cd-classic-host > .top-nav-consolidated,
+  #cd-classic-host > .sub-nav-consolidated, #cd-classic-host > .stat-row,
+  #cd-classic-host > .room-header { display: none !important; }
   body { background: #07070C; min-height: 100vh; }
   @media (max-width: 900px) { body { padding-bottom: 80px; } }
 </style>
