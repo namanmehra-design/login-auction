@@ -1137,43 +1137,36 @@
       } catch(e){}
     }, 400);
 
-    // Poll for room list (dashboard)
-    let lastDash = '';
-    setInterval(() => {
+    // Listen for room list updates (fired by app.js when Firebase data loads)
+    const updateRoomGrids = () => {
       try {
         if(CD.state.view !== 'dashboard') return;
-        // The classic UI populates #roomListContainer and #joinedRoomListContainer when loadDash runs
-        const my = document.getElementById('roomListContainer');
-        const joined = document.getElementById('joinedRoomListContainer');
-        const myCards = my ? Array.from(my.querySelectorAll('button.btn-primary, [onclick*="loadRoom"]')) : [];
-        const joinedCards = joined ? Array.from(joined.querySelectorAll('button.btn-primary, [onclick*="loadRoom"]')) : [];
-        const key = (myCards.length || 0) + ':' + (joinedCards.length || 0) + ':' + (my?.textContent||'').slice(0,50) + ':' + (joined?.textContent||'').slice(0,50);
-        if(key === lastDash) return;
-        lastDash = key;
+        const myRooms = window.userAuctionRooms || [];
+        const joinedRooms = window.userJoinedRooms || [];
         const myGrid = document.getElementById('cd-my-rooms-grid');
         const joinedGrid = document.getElementById('cd-joined-rooms-grid');
-        const buildCards = (cards, isOwner) => {
-          if(!cards.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">No rooms yet.</div>';
-          return cards.map(card => {
-            const onclickAttr = card.getAttribute('onclick') || '';
-            const ridMatch = onclickAttr.match(/loadRoom\(['"]([^'"]+)['"]\)/);
-            const rid = ridMatch ? ridMatch[1] : '';
-            // Try to find name from sibling text in classic card
-            const cardEl = card.closest('.rc, .rc-card, .room-card, div') || card;
-            const name = (cardEl.querySelector('.rc-name')?.textContent || cardEl.querySelector('.tname')?.textContent || cardEl.textContent.slice(0, 40)).trim();
-            return `<div data-rid="${esc(rid)}" onclick="CD.handleRoomClick(this)" style="padding:20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);cursor:pointer;transition:all 0.2s;backdrop-filter:blur(20px);" onmouseover="this.style.borderColor='var(--electric)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='var(--line-2)';this.style.transform='translateY(0)';">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-                <div class="ed" style="font-size:20px;">${esc(name)}</div>
-                ${isOwner ? '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.16);border:1px solid rgba(255,200,61,0.4);color:#FFD97D;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Owner</span>' : '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(46,91,255,0.18);border:1px solid rgba(46,91,255,0.4);color:#8EA9FF;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Joined</span>'}
+        const buildCards = (rooms, isOwner) => {
+          if(!rooms.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">' + (isOwner ? 'No rooms yet — create one above.' : 'No joined rooms yet.') + '</div>';
+          return rooms.map(r => {
+            return `<div data-rid="${esc(r.id)}" onclick="CD.handleRoomClick(this)" style="padding:20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);cursor:pointer;transition:all 0.2s;backdrop-filter:blur(20px);" onmouseover="this.style.borderColor='var(--electric)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='var(--line-2)';this.style.transform='translateY(0)';">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">
+                <div class="ed" style="font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.name)}</div>
+                ${isOwner ? '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.16);border:1px solid rgba(255,200,61,0.4);color:#FFD97D;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0;">Owner</span>' : '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(46,91,255,0.18);border:1px solid rgba(46,91,255,0.4);color:#8EA9FF;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0;">Joined</span>'}
               </div>
-              <div style="font-size:11px;color:var(--mute);">Tap to enter</div>
+              <div style="font-size:11px;color:var(--mute);">${r.budget ? '₹' + r.budget + ' Cr' : ''}${r.maxTeams ? ' · ' + r.maxTeams + ' teams' : ''}${r.maxPlayers ? ' · ' + r.maxPlayers + ' players' : ''}</div>
+              <div style="font-size:11px;color:var(--electric);margin-top:8px;">Tap to enter →</div>
             </div>`;
           }).join('');
         };
-        if(myGrid) myGrid.innerHTML = buildCards(myCards, true);
-        if(joinedGrid) joinedGrid.innerHTML = buildCards(joinedCards, false);
-      } catch(e){ /* ignore */ }
-    }, 600);
+        if(myGrid) myGrid.innerHTML = buildCards(myRooms, true);
+        if(joinedGrid) joinedGrid.innerHTML = buildCards(joinedRooms, false);
+      } catch(e){ console.error('CD updateRoomGrids:', e); }
+    };
+    window.addEventListener('cd-rooms-update', updateRoomGrids);
+    // Also poll every 800ms as a backup, in case the event was missed
+    setInterval(updateRoomGrids, 800);
+    // Initial call after a moment, to catch already-loaded data
+    setTimeout(updateRoomGrids, 200);
   };
 
   // ── BOOT ───────────────────────────────────────────────────────

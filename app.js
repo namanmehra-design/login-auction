@@ -351,6 +351,9 @@ function loadDash(){
  if(window._dashListenerA2){window._dashListenerA2();window._dashListenerA2=null;}
  window._dashListenerA1=onValue(ref(db,`users/${user.uid}/auctions`),snap=>{
  const rooms=snap.val(),c=document.getElementById('roomListContainer');
+ // Expose to window for cd-app.js bridge
+ window.userAuctionRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,maxTeams:r.maxTeams,maxPlayers:r.maxPlayers,createdAt:r.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
+ window.dispatchEvent(new CustomEvent('cd-rooms-update'));
  if(!c) return;
  if(!rooms){c.innerHTML='<div class="empty">No rooms yet -- create one above.</div>';return;}
  const _entries=Object.entries(rooms).sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
@@ -358,6 +361,9 @@ function loadDash(){
  });
  window._dashListenerA2=onValue(ref(db,`users/${user.uid}/joined`),snap=>{
  const rooms=snap.val(),c=document.getElementById('joinedRoomListContainer');
+ // Expose to window for cd-app.js bridge
+ window.userJoinedRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,joinedAt:r.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+ window.dispatchEvent(new CustomEvent('cd-rooms-update'));
  if(!c) return;
  if(!rooms){c.innerHTML='<div class="empty">No joined rooms yet.</div>';return;}
  const _entries=Object.entries(rooms).sort((a,b)=>(b[1].joinedAt||0)-(a[1].joinedAt||0));
