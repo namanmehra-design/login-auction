@@ -499,6 +499,60 @@
         #cd-root .adm-info{padding:10px 14px;border-radius:10px;background:rgba(46,91,255,0.08);border:1px solid rgba(46,91,255,0.3);font-size:12px;color:var(--ink-2);margin:10px 0;}
         #cd-root .adm-warn{padding:10px 14px;border-radius:10px;background:rgba(255,59,59,0.10);border:1px solid rgba(255,59,59,0.35);font-size:12px;color:#FFB0B0;margin:10px 0;}
         #cd-root .adm-ok{color:var(--lime);} #cd-root .adm-err{color:#FF8B8B;}
+
+        /* ── Cricbuzz match pills (glass broadcast cards) ───────────── */
+        #cd-root .match-pill{position:relative;padding:16px 14px 14px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015));border:1px solid var(--line-2);cursor:pointer;transition:transform .15s ease,border-color .15s,box-shadow .15s,background .15s;display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+        #cd-root .match-pill:hover{transform:translateY(-2px);border-color:rgba(255,200,61,0.55);box-shadow:0 10px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(255,200,61,0.15);background:linear-gradient(180deg,rgba(255,200,61,0.07),rgba(255,255,255,0.02));}
+        #cd-root .match-pill.selected{border-color:var(--electric);box-shadow:0 0 0 2px rgba(46,91,255,0.35),0 12px 32px rgba(46,91,255,0.25);background:linear-gradient(180deg,rgba(46,91,255,0.12),rgba(46,91,255,0.03));}
+        #cd-root .match-pill::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,0.08),transparent 60%);pointer-events:none;}
+        #cd-root .match-pill .match-pill-teams{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-0.01em;color:var(--ink);line-height:1.1;}
+        #cd-root .match-pill .match-pill-meta{font-family:var(--mono);font-size:11px;color:var(--ink-2);letter-spacing:0.02em;}
+        #cd-root .match-pill .match-pill-meta.text-truncate{font-family:var(--sans);font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:0.14em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        #cd-root .match-pill .match-pill-live{position:absolute;top:10px;right:10px;padding:3px 9px;border-radius:9999px;background:linear-gradient(180deg,#ff3b5c,#c81d3b);color:#fff;font-family:var(--sans);font-size:9px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;box-shadow:0 0 14px rgba(255,59,92,0.55),inset 0 0 0 1px rgba(255,255,255,0.18);animation:admPulse 1.6s ease-in-out infinite;}
+        @keyframes admPulse{0%,100%{box-shadow:0 0 14px rgba(255,59,92,0.55),inset 0 0 0 1px rgba(255,255,255,0.18);}50%{box-shadow:0 0 22px rgba(255,59,92,0.9),inset 0 0 0 1px rgba(255,255,255,0.3);}}
+
+        /* ── Saved-scorecard history rows (leaderboard tiles) ─────── */
+        #cd-root .gsc-history-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;margin-bottom:10px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015));border:1px solid var(--line-2);flex-wrap:wrap;transition:border-color .15s,transform .15s;}
+        #cd-root .gsc-history-row:hover{border-color:rgba(255,200,61,0.45);transform:translateY(-1px);}
+        #cd-root .gsc-history-row>div:first-child{flex:1 1 320px;min-width:0;}
+        #cd-root .gsc-history-label{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-0.01em;color:var(--ink);line-height:1.15;margin-bottom:8px;}
+        #cd-root .gsc-history-row .text-dim{font-size:12px;color:var(--ink-2);line-height:1.6;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;}
+        #cd-root .gsc-history-row .text-dim strong{color:var(--ink);font-weight:700;}
+        #cd-root .gsc-history-row .text-dim .gsc-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-family:var(--sans);font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;}
+        #cd-root .gsc-history-row .text-dim .gsc-chip.win{background:rgba(125,255,179,0.14);border:1px solid rgba(125,255,179,0.45);color:#A8FFD1;}
+        #cd-root .gsc-history-row .text-dim .gsc-chip.motm{background:rgba(255,45,135,0.14);border:1px solid rgba(255,45,135,0.45);color:#FFB0D4;}
+        #cd-root .gsc-history-row .text-dim .gsc-chip.count{background:var(--glass);border:1px solid var(--line-2);color:var(--ink-2);font-family:var(--mono);letter-spacing:0.06em;text-transform:none;}
+        #cd-root .gsc-history-row .text-dim .gsc-chip.top{background:linear-gradient(180deg,rgba(255,200,61,0.22),rgba(255,200,61,0.08));border:1px solid rgba(255,200,61,0.55);color:#FFE49A;}
+        #cd-root .gsc-history-row .btn-group{display:flex;gap:8px;flex-shrink:0;}
+        #cd-root .gsc-history-row .btn{padding:9px 16px;border-radius:9999px;font-family:var(--sans);font-size:11px;font-weight:700;cursor:pointer;border:none;letter-spacing:0.06em;text-transform:uppercase;}
+        #cd-root .gsc-history-row .btn.btn-ghost{background:linear-gradient(180deg,rgba(255,200,61,0.25),rgba(255,200,61,0.12));color:#FFE49A;border:1px solid rgba(255,200,61,0.5);}
+        #cd-root .gsc-history-row .btn.btn-danger{background:rgba(255,59,59,0.18);color:#FF8B8B;border:1px solid rgba(255,59,59,0.45);}
+        #cd-root .gsc-history-row .btn-sm{padding:8px 14px;font-size:10.5px;}
+        #cd-root #gscHistoryList .empty{padding:20px;text-align:center;color:var(--mute);font-size:12px;border:1px dashed var(--line-2);border-radius:14px;background:var(--glass);}
+
+        /* ── All Rooms list (sa-room-card) ────────────────────────── */
+        #cd-root .sa-section-hdr{font-family:var(--display);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.18em;color:var(--mute);padding:14px 4px 8px;border-bottom:1px solid var(--line);margin:14px 0 10px;}
+        #cd-root .sa-room-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;margin-bottom:10px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015));border:1px solid var(--line-2);flex-wrap:wrap;transition:border-color .15s,transform .15s;}
+        #cd-root .sa-room-card:hover{border-color:rgba(46,91,255,0.45);transform:translateY(-1px);}
+        #cd-root .sa-room-card .sa-room-main{flex:1 1 280px;min-width:0;}
+        #cd-root .sa-room-card .sa-room-name{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-0.01em;color:var(--ink);display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.15;}
+        #cd-root .sa-room-card .room-type-pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-family:var(--sans);font-size:9.5px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;}
+        #cd-root .sa-room-card .room-type-pill.auction{background:rgba(255,45,135,0.16);border:1px solid rgba(255,45,135,0.5);color:#FFB0D4;}
+        #cd-root .sa-room-card .room-type-pill.draft{background:rgba(125,255,179,0.14);border:1px solid rgba(125,255,179,0.45);color:#A8FFD1;}
+        #cd-root .sa-room-card .sa-room-meta{font-family:var(--sans);font-size:11.5px;color:var(--ink-2);margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;}
+        #cd-root .sa-room-card .sa-room-meta .sa-meta-k{font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--mute);margin-right:4px;}
+        #cd-root .sa-room-card .sa-room-meta code,#cd-root .sa-room-card .code-pill{font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--glass);border:1px solid var(--line);color:var(--ink-2);letter-spacing:0.02em;}
+        #cd-root .sa-room-card .sa-room-count{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:9999px;background:var(--glass);border:1px solid var(--line-2);color:var(--ink-2);}
+        #cd-root .sa-room-card .btn-group{display:flex;gap:8px;flex-shrink:0;}
+        #cd-root .sa-room-card .btn{padding:9px 16px;border-radius:9999px;font-family:var(--sans);font-size:11px;font-weight:700;cursor:pointer;border:none;letter-spacing:0.06em;text-transform:uppercase;}
+        #cd-root .sa-room-card .btn.btn-ghost{background:var(--glass);color:var(--ink-2);border:1px solid var(--line-2);}
+        #cd-root .sa-room-card .btn.btn-danger{background:rgba(255,59,59,0.18);color:#FF8B8B;border:1px solid rgba(255,59,59,0.45);}
+        #cd-root .sa-room-card .btn-sm{padding:8px 14px;font-size:10.5px;}
+        #cd-root #saRoomsList .empty{padding:18px;text-align:center;color:var(--mute);font-size:12px;border:1px dashed var(--line-2);border-radius:12px;background:var(--glass);margin-bottom:10px;}
+        #cd-root #saRoomsList .empty.text-err{color:#FF8B8B;border-color:rgba(255,59,59,0.4);}
+
+        /* ── Scorecard select option styling (native selects) ─────── */
+        #cd-root select#saScorecardSelect,#cd-root select#saOsRoomSelect,#cd-root select#saMultRoomSelect{font-family:var(--sans);font-weight:600;}
       </style>
     `;
   };
