@@ -378,6 +378,23 @@ function loadDash(){
  const _saSection=document.getElementById('tab-superadmin') || document.querySelector('#cd-root [data-role="superadmin"]');
  if(_saSection) _saSection.style.display=isSuperAdminEmail(user?.email)?'block':'none';
  if(isSuperAdminEmail(user?.email)) renderSuperAdminPanel();
+ // Self-healing fallback: directly reads user's auction rooms once, bypassing the listener.
+ // Used when the listener fails to attach or fire (token refresh, caching glitch).
+ window.cdForceLoadRooms = async function(){
+  try{
+   if(!user||!user.uid) return;
+   const [aSnap, jSnap] = await Promise.all([
+     get(ref(db,`users/${user.uid}/auctions`)),
+     get(ref(db,`users/${user.uid}/joined`))
+   ]);
+   const aRooms = aSnap.val();
+   const jRooms = jSnap.val();
+   window.userAuctionRooms = aRooms ? Object.entries(aRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,maxTeams:r.maxTeams,maxPlayers:r.maxPlayers,createdAt:r.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
+   window.userJoinedRooms  = jRooms ? Object.entries(jRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,joinedAt:r.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+   window.dispatchEvent(new CustomEvent('cd-rooms-update'));
+   console.log('[CD] forceLoadRooms — auction:', window.userAuctionRooms.length, 'joined:', window.userJoinedRooms.length);
+  }catch(e){ console.warn('cdForceLoadRooms:', e); }
+ };
  // Unsubscribe previous dashboard listeners to prevent memory leak / lag
  if(window._dashListenerA1){window._dashListenerA1();window._dashListenerA1=null;}
  if(window._dashListenerA2){window._dashListenerA2();window._dashListenerA2=null;}

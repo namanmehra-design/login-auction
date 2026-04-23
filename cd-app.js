@@ -3723,6 +3723,83 @@
     CD.render();
   };
 
+  // ── FORM-EDIT GUARD ────────────────────────────────────────────
+  // User's core complaint: auto-refresh wipes form inputs mid-entry
+  // (especially Admin > Scorecards batting/bowling/fielding rows).
+  // Track when the user is actively typing in any CD form so that
+  // automatic re-renders (Firebase snapshot storms, poll-diff, ticker
+  // updates) defer until the user pauses typing.
+  CD._userEditingUntil = 0;
+  CD._markUserEditing = () => { CD._userEditingUntil = Date.now() + 2000; };
+  CD._isUserEditing = () => {
+    if(Date.now() >= CD._userEditingUntil) return false;
+    const ae = document.activeElement;
+    if(!ae) return false;
+    const tag = ae.tagName;
+    if(tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return false;
+    const root = document.getElementById('cd-root');
+    if(!root || !root.contains(ae)) return false;
+    return true;
+  };
+  CD._wireEditGuard = () => {
+    if(CD._editGuardWired) return;
+    const root = document.getElementById('cd-root');
+    if(!root) return;
+    CD._editGuardWired = true;
+    root.addEventListener('input',   CD._markUserEditing, true);
+    root.addEventListener('keydown', CD._markUserEditing, true);
+    root.addEventListener('focusin', CD._markUserEditing, true);
+  };
+
+  // ── FORM-STATE PRESERVATION ────────────────────────────────────
+  // Even with the guard, some legitimate state changes (tab switch,
+  // auth change) must force a render mid-edit. Capture form values
+  // before the innerHTML wipe and restore them afterwards.
+  CD._captureFormState = () => {
+    try {
+      const root = document.getElementById('cd-root');
+      if(!root) return null;
+      const snap = { fields: {}, activeId: '', selStart: 0, selEnd: 0 };
+      const sel = 'input[id^="gsc"], textarea[id^="gsc"], select[id^="gsc"], input[id^="cd"], textarea[id^="cd"], select[id^="cd"]';
+      root.querySelectorAll(sel).forEach(el => {
+        if(!el.id) return;
+        if(el.type === 'checkbox' || el.type === 'radio') snap.fields[el.id] = { checked: el.checked };
+        else snap.fields[el.id] = { value: el.value };
+      });
+      const ae = document.activeElement;
+      if(ae && ae.id && root.contains(ae)){
+        snap.activeId = ae.id;
+        try {
+          if('selectionStart' in ae){ snap.selStart = ae.selectionStart || 0; snap.selEnd = ae.selectionEnd || 0; }
+        } catch(e){ /* input type does not support selection */ }
+      }
+      return snap;
+    } catch(e){ return null; }
+  };
+  CD._restoreFormState = (snap) => {
+    if(!snap) return;
+    try {
+      const root = document.getElementById('cd-root');
+      if(!root) return;
+      Object.keys(snap.fields).forEach(id => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        const v = snap.fields[id];
+        if('checked' in v) el.checked = v.checked;
+        else if(el.value !== v.value) el.value = v.value;
+      });
+      if(snap.activeId){
+        const ae = document.getElementById(snap.activeId);
+        if(ae && typeof ae.focus === 'function'){
+          ae.focus();
+          try {
+            if('setSelectionRange' in ae) ae.setSelectionRange(snap.selStart, snap.selEnd);
+          } catch(e){ /* input type does not support selection */ }
+        }
+      }
+    } catch(e){ console.warn('CD restore form state:', e); }
+  };
+
   // ── MAIN RENDER ────────────────────────────────────────────────
   // Debounced render: coalesces bursts of state changes into a single render.
   // Uses a short setTimeout (collects close-together changes), then hands off
@@ -3730,7 +3807,20 @@
   // — this keeps the UI thread free during Firebase snapshot storms.
   let _renderTimer = null;
   let _renderRaf = null;
+  let _deferredRenderTimer = null;
   CD.scheduleRender = () => {
+    // If the user is actively typing in a form, defer. A single follow-up
+    // render is queued to run ~2.5s after last input.
+    if(CD._isUserEditing()){
+      if(!_deferredRenderTimer){
+        _deferredRenderTimer = setTimeout(() => {
+          _deferredRenderTimer = null;
+          if(CD._isUserEditing()){ CD.scheduleRender(); return; }
+          try { CD.render(); } catch(e){ console.error('CD deferred render:', e); }
+        }, 2500);
+      }
+      return;
+    }
     if(_renderTimer) clearTimeout(_renderTimer);
     _renderTimer = setTimeout(() => {
       _renderTimer = null;
@@ -3755,6 +3845,14 @@
   CD.render = () => {
     const r = document.getElementById('cd-root');
     if(!r) return;
+    // Guard: if user is typing in a form, defer to scheduleRender. Always
+    // render on view transitions — otherwise splash/auth can't recover.
+    if(!CD.state.authPending && CD.state.view === _lastRenderedView && CD._isUserEditing()){
+      CD.scheduleRender();
+      return;
+    }
+    // Capture form state (values + focus + selection) before the wipe.
+    const _formSnap = CD._captureFormState();
     let html = '';
     let viewKey = CD.state.view;
     if(CD.state.authPending){ html = CD.renderSplash(); viewKey = 'splash'; }
@@ -3766,6 +3864,10 @@
     const viewChanged = _lastRenderedView !== viewKey;
     _lastRenderedView = viewKey;
     r.innerHTML = `<div class="cd-view${viewChanged ? ' cd-view-enter' : ''}">${html}</div>`;
+    // Restore captured form state (values + focus + selection).
+    CD._restoreFormState(_formSnap);
+    // (Re-)wire the delegate listeners; cheap no-op if already wired.
+    CD._wireEditGuard();
     if(!CD.state.authPending && CD.state.view === 'dashboard') CD.injectRoomCards();
     try { CD._paintRosterStaleBanner && CD._paintRosterStaleBanner(); } catch(e){ console.warn('paintRosterStaleBanner:', e); }
   };
@@ -3882,14 +3984,18 @@
     // Listen for room list updates (fired by app.js when Firebase data loads)
     const updateRoomGrids = () => {
       try {
-        if(CD.state.view !== 'dashboard') return;
-        const myRooms = window.userAuctionRooms || [];
-        const joinedRooms = window.userJoinedRooms || [];
         const myGrid = document.getElementById('cd-my-rooms-grid');
         const joinedGrid = document.getElementById('cd-joined-rooms-grid');
-        // Always write — the diff-guard caused bugs where pre-render calls
-        // cached an empty key and blocked subsequent renders of real data.
-        // Writing a few room cards every 800ms is negligible perf cost.
+        // If the grids don't exist (we're not on dashboard), nothing to do.
+        if(!myGrid && !joinedGrid) return;
+        const myRooms = window.userAuctionRooms || [];
+        const joinedRooms = window.userJoinedRooms || [];
+        // Self-healing: if after 2.5s from boot we still have no rooms data
+        // AND user is logged in, try to poke the Firebase bridge directly.
+        if(!window._cdBootTime) window._cdBootTime = Date.now();
+        if(Date.now() - window._cdBootTime > 2500 && !window.userAuctionRooms && window.user && window.user.uid){
+          if(typeof window.cdForceLoadRooms === 'function') window.cdForceLoadRooms();
+        }
         const buildCards = (rooms, isOwner) => {
           if(!rooms.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">' + (isOwner ? 'No rooms yet — create one above.' : 'No joined rooms yet.') + '</div>';
           return rooms.map(r => {
