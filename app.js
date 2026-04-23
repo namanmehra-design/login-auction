@@ -279,6 +279,9 @@ getRedirectResult(auth).then(r=>{
 onAuthStateChanged(auth,u=>{
  user=u;
  window.user=u; // expose for cd-app.js bridge
+ // Signal CD that auth has resolved so it can stop showing the splash and
+ // render the real view (dashboard / room / auth) without a login-screen flash.
+ window._cdAuthReady=true;
  const params=new URLSearchParams(window.location.search);
  const rp=params.get('room'),dp=params.get('draft');
  if(u){

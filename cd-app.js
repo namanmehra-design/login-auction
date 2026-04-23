@@ -262,7 +262,8 @@
 
   // ── STATE ───────────────────────────────────────────────────────
   CD.state = {
-    view: 'auth',           // auth | dashboard | room
+    view: 'auth',           // auth | dashboard | room | admin
+    authPending: true,      // true until first onAuthStateChanged fires — show splash, not auth screen
     activeNav: 'auction',   // current top-nav
     activeSub: 'live',      // current sub-tab
     isMobile: window.innerWidth < 900,
@@ -3723,21 +3724,49 @@
   };
 
   // ── MAIN RENDER ────────────────────────────────────────────────
+  // Debounced render: coalesces bursts of state changes into a single render.
+  // Uses a short setTimeout (collects close-together changes), then hands off
+  // to requestAnimationFrame so the actual DOM write lands on the next frame
+  // — this keeps the UI thread free during Firebase snapshot storms.
   let _renderTimer = null;
+  let _renderRaf = null;
   CD.scheduleRender = () => {
     if(_renderTimer) clearTimeout(_renderTimer);
-    _renderTimer = setTimeout(() => { try { CD.render(); } catch(e){ console.error('CD render:', e); } }, 100);
+    _renderTimer = setTimeout(() => {
+      _renderTimer = null;
+      if(_renderRaf) cancelAnimationFrame(_renderRaf);
+      _renderRaf = requestAnimationFrame(() => {
+        _renderRaf = null;
+        try { CD.render(); } catch(e){ console.error('CD render:', e); }
+      });
+    }, 60);
   };
+  // Splash shown while auth is still resolving on initial page load.
+  // Prevents the login screen from flashing for users who are already signed in.
+  CD.renderSplash = () => `
+    <div class="cd-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;background:var(--bg,#06060a);z-index:9999;">
+      <div class="cd-splash-logo" style="display:flex;align-items:center;gap:12px;">
+        ${CD.Brand ? CD.Brand(40) : ''}
+        <div class="ed" style="font-size:28px;line-height:0.95;">Crick<span class="ed-i" style="color:var(--pink);">et</span></div>
+      </div>
+      <div style="font-size:10px;color:var(--mute);letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">Loading…</div>
+    </div>`;
+  let _lastRenderedView = null;
   CD.render = () => {
     const r = document.getElementById('cd-root');
     if(!r) return;
     let html = '';
-    if(CD.state.view === 'auth') html = CD.renderAuth();
+    let viewKey = CD.state.view;
+    if(CD.state.authPending){ html = CD.renderSplash(); viewKey = 'splash'; }
+    else if(CD.state.view === 'auth') html = CD.renderAuth();
     else if(CD.state.view === 'dashboard') html = CD.renderDashboard();
     else if(CD.state.view === 'room') html = CD.renderRoom();
     else if(CD.state.view === 'admin') html = CD.renderAdmin();
-    r.innerHTML = html;
-    if(CD.state.view === 'dashboard') CD.injectRoomCards();
+    // Page-level fade when the top-level view changes
+    const viewChanged = _lastRenderedView !== viewKey;
+    _lastRenderedView = viewKey;
+    r.innerHTML = `<div class="cd-view${viewChanged ? ' cd-view-enter' : ''}">${html}</div>`;
+    if(!CD.state.authPending && CD.state.view === 'dashboard') CD.injectRoomCards();
     try { CD._paintRosterStaleBanner && CD._paintRosterStaleBanner(); } catch(e){ console.warn('paintRosterStaleBanner:', e); }
   };
 
@@ -3775,13 +3804,30 @@
     // CRITICAL: detect login/logout by polling window.user (showAuth/showApp are module-scoped, can't override)
     let lastUserUid = null;
     let lastRoomId = null;
+    let _authResolved = false;
+    // Fallback: after 1500ms always clear pending so we never stall forever
+    // if Firebase fails to init (e.g. offline). This is the worst-case splash time.
+    setTimeout(() => {
+      if(!_authResolved){
+        _authResolved = true;
+        if(CD.state.authPending){ CD.state.authPending = false; CD.render(); }
+      }
+    }, 1500);
     setInterval(() => {
       try {
         const u = window.user;
         const uid = u && u.uid;
         const rid = window.roomId;
+        // First tick where auth has hydrated — flip authPending off so render picks real view.
+        if(!_authResolved){
+          if(uid || window._cdAuthReady){
+            _authResolved = true;
+            if(CD.state.authPending){ CD.state.authPending = false; CD.render(); }
+          }
+        }
         if(uid !== lastUserUid){
           lastUserUid = uid;
+          if(_authResolved && CD.state.authPending){ CD.state.authPending = false; }
           if(uid){
             // Logged in
             if(rid){
@@ -3834,11 +3880,17 @@
     }, 400);
 
     // Listen for room list updates (fired by app.js when Firebase data loads)
+    let _lastRoomsKey = '';
     const updateRoomGrids = () => {
       try {
         if(CD.state.view !== 'dashboard') return;
         const myRooms = window.userAuctionRooms || [];
         const joinedRooms = window.userJoinedRooms || [];
+        // Skip re-render if rooms list hasn't changed — avoids rebuilding
+        // innerHTML every 800ms, which was causing dashboard lag.
+        const key = JSON.stringify([myRooms.map(r=>r.id+':'+r.name), joinedRooms.map(r=>r.id+':'+r.name)]);
+        if(key === _lastRoomsKey) return;
+        _lastRoomsKey = key;
         const myGrid = document.getElementById('cd-my-rooms-grid');
         const joinedGrid = document.getElementById('cd-joined-rooms-grid');
         const buildCards = (rooms, isOwner) => {
@@ -3871,9 +3923,12 @@
     if(window.user && window.user.uid){
       CD.state.view = window.roomId ? 'room' : 'dashboard';
       if(CD.state.view === 'room'){ CD.state.activeNav = 'auction'; CD.state.activeSub = 'live'; }
-    } else if(window.location.search.includes('room=')){
-      // URL has ?room= — likely going to a room after auth restores
+      // User already hydrated — no need for splash
+      CD.state.authPending = false;
+    } else if(window.location.search.includes('room=') || window.location.search.includes('draft=')){
+      // URL has ?room= — likely going to a room after auth restores; show splash, not auth screen
       CD.state.view = 'auth';
+      CD.state.authPending = true;
     }
     CD.hook();
     CD.fetchTicker();
@@ -3902,6 +3957,18 @@
     @keyframes cd-fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
     @keyframes cd-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     @keyframes cd-shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
+    @keyframes cd-splash-pulse { 0%,100%{opacity:0.55;transform:scale(1);} 50%{opacity:1;transform:scale(1.04);} }
+    @keyframes cd-view-in { 0%{opacity:0;} 100%{opacity:1;} }
+    @keyframes cd-sub-in  { 0%{opacity:0;transform:translateY(4px);} 100%{opacity:1;transform:translateY(0);} }
+    @keyframes cd-modal-in { 0%{opacity:0;transform:scale(0.97);} 100%{opacity:1;transform:scale(1);} }
+    .cd-splash-logo { animation: cd-splash-pulse 1.2s ease-in-out infinite; will-change: opacity, transform; }
+    .cd-view-enter { animation: cd-view-in 180ms ease-out both; }
+    .cd-sub-enter  { animation: cd-sub-in 140ms ease-out both; }
+    .cd-modal-enter{ animation: cd-modal-in 180ms ease-out both; }
+    #cd-tab-content { animation: cd-sub-in 140ms ease-out both; }
+    @media (prefers-reduced-motion: reduce) {
+      .cd-splash-logo, .cd-view-enter, .cd-sub-enter, .cd-modal-enter, #cd-tab-content { animation: none !important; }
+    }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
