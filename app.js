@@ -345,7 +345,9 @@ function loadDash(){
  // Super admin section
  const _saTab=document.getElementById('dt-superadmin');
  if(_saTab) _saTab.style.display=isSuperAdminEmail(user?.email)?'block':'none';
- const _saSection=document.getElementById('tab-superadmin');
+ // tab-superadmin classic id was removed from index.html (CD surface replaces it);
+ // fallback: CD root section gets the same admin gating via its own renderer.
+ const _saSection=document.getElementById('tab-superadmin') || document.querySelector('#cd-root [data-role="superadmin"]');
  if(_saSection) _saSection.style.display=isSuperAdminEmail(user?.email)?'block':'none';
  if(isSuperAdminEmail(user?.email)) renderSuperAdminPanel();
  // Unsubscribe previous dashboard listeners to prevent memory leak / lag
@@ -386,7 +388,7 @@ function loadDash(){
        Object.keys(ownedSnap.val() || {}).forEach(k => myKnownRooms.add(k));
        const joinedSnap = await get(ref(db, `users/${uid}/joined`));
        Object.keys(joinedSnap.val() || {}).forEach(k => myKnownRooms.add(k));
-     } catch(e){}
+     } catch(e){ console.warn('room-scan owned/joined fetch:', e); }
      // Scan all rooms for membership
      const recoveredRooms = [];
      const heal = {};
@@ -662,7 +664,7 @@ window.confirmRelease=function(){
  window.closeReleaseModal();
  window.showAlert(`${releasePlayerName} released. \u20b9${actualPrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
  // Auto-heal stored leaderboardTotals so future reads can't drift.
- try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){}
+ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); }
  }).catch(e=>window.showAlert('Release failed: '+e.message));
  }).catch(e=>window.showAlert('Could not read room data: '+e.message));
 };
@@ -767,7 +769,7 @@ function loadRoom(rid){
  // now with the current xiMultiplier + snapshots.
  if(!window._recalcLBDone||window._recalcLBDone!==rid){
   window._recalcLBDone=rid;
-  setTimeout(()=>{ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){} }, 400);
+  setTimeout(()=>{ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); } }, 400);
  }
  document.getElementById('roomTitleDisplay').textContent=data.roomName||`Room ${rid.substring(0,5).toUpperCase()}`;
 
@@ -4665,8 +4667,8 @@ window.cbzPushToRoom = function(){
   if(!innings.length){ cbzSetStatus('cbzPushStatus','No innings data loaded.','fail'); return; }
   cbzSetStatus('cbzPushStatus','Populating Scorecards tab with all innings...','loading');
 
-  // Scroll to scorecards section (scroll layout — no tab switching)
-  const _scEl=document.getElementById('tab-scorecards');
+  // Scroll to scorecards section (classic id removed — fall back to CD admin surface)
+  const _scEl=document.getElementById('tab-scorecards') || document.querySelector('#cd-root main') || document.getElementById('gscFormBody');
   if(_scEl) _scEl.scrollIntoView({behavior:'smooth',block:'start'});
 
   setTimeout(()=>{
@@ -5882,6 +5884,6 @@ window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
   upd[`auctions/${roomId}/players/${newPlayer.id}/soldPrice`]=oldSoldPrice;
   await update(ref(db),upd);
   // Auto-heal stored leaderboardTotals so future reads can't drift.
-  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){}
+  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); }
   window.showAlert(`${oldName} replaced with ${newPlayer.name}. Points history preserved.`,'ok');
 };

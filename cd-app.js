@@ -150,7 +150,7 @@
           if(!url) return;
           const el = document.getElementById(uid);
           if(el) el.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;animation:cd-fadein 0.3s ease;">`;
-        } catch(e){}
+        } catch(e){ console.warn('CD.Avatar cbz photo:', e); }
       }, 0);
     }
     return `<div id="${uid}" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--display);font-weight:800;font-size:${Math.round(size*0.36)}px;letter-spacing:0.05em;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2),0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;overflow:hidden;position:relative;">${esc(init)}</div>`;
@@ -168,7 +168,7 @@
           if(!url) return;
           const el = document.getElementById(uid);
           if(el) el.innerHTML = `<img src="${url}" alt="${c}" style="width:100%;height:100%;object-fit:contain;padding:15%;animation:cd-fadein 0.3s ease;">`;
-        } catch(e){}
+        } catch(e){ console.warn('CD.TeamLogo cbz img:', e); }
       }, 0);
     }
     return `<div id="${uid}" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--display);font-weight:800;font-size:${Math.round(size*0.34)}px;letter-spacing:0.03em;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2),0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;overflow:hidden;position:relative;">${esc(c || '')}</div>`;
@@ -453,9 +453,9 @@
     CD.render();
     // Populate dynamic bits after DOM is in place
     setTimeout(() => {
-      try { if(typeof window.renderSuperAdminPanel === 'function') window.renderSuperAdminPanel(); } catch(e){}
-      try { if(typeof window.refreshGlobalScorecardList === 'function') window.refreshGlobalScorecardList(); } catch(e){}
-      try { if(typeof window.populateScorecardSelect === 'function') window.populateScorecardSelect(); } catch(e){}
+      try { if(typeof window.renderSuperAdminPanel === 'function') window.renderSuperAdminPanel(); } catch(e){ console.warn('CD.openAdmin renderSuperAdminPanel:', e); }
+      try { if(typeof window.refreshGlobalScorecardList === 'function') window.refreshGlobalScorecardList(); } catch(e){ console.warn('CD.openAdmin refreshGlobalScorecardList:', e); }
+      try { if(typeof window.populateScorecardSelect === 'function') window.populateScorecardSelect(); } catch(e){ console.warn('CD.openAdmin populateScorecardSelect:', e); }
     }, 60);
   };
   CD.closeAdmin = () => {
@@ -471,7 +471,7 @@
         if(sub === 'rooms'   && typeof window.renderSuperAdminPanel === 'function') window.renderSuperAdminPanel();
         if(sub === 'push'    && typeof window.populateScorecardSelect === 'function') window.populateScorecardSelect();
         if(sub === 'scorecards' && typeof window.refreshGlobalScorecardList === 'function') window.refreshGlobalScorecardList();
-      } catch(e){}
+      } catch(e){ console.warn('CD.setAdminSub:', e); }
     }, 40);
   };
 
@@ -3621,7 +3621,7 @@
       setup:'setup', auction:'auction', squad:'myteam',
       league:'leaderboard', players:'players-season', matches:'matches'
     };
-    if(typeof window.switchTab === 'function') try { window.switchTab(legacyMap[navId] || navId); } catch(e){}
+    if(typeof window.switchTab === 'function') try { window.switchTab(legacyMap[navId] || navId); } catch(e){ console.warn('CD nav switchTab:', e); }
     CD.render();
   };
   CD.goSub = (subId) => {
@@ -3633,7 +3633,7 @@
       pool:'players-season', analytics:'analytics',
       data:'matches', schedule:'schedule'
     };
-    if(typeof window.switchTab === 'function') try { window.switchTab(legacyMap[subId] || subId); } catch(e){}
+    if(typeof window.switchTab === 'function') try { window.switchTab(legacyMap[subId] || subId); } catch(e){ console.warn('CD sub switchTab:', e); }
     CD.render();
   };
 
@@ -3679,11 +3679,11 @@
     // Override window.* helpers (these ARE on window, so override works)
     const _origLoadRoom = window.loadRoom;
     if(typeof _origLoadRoom === 'function'){
-      window.loadRoom = function(rid){ try { _origLoadRoom(rid); } catch(e){} CD.state.view = 'room'; CD.state.activeNav = 'auction'; CD.state.activeSub = 'live'; setTimeout(CD.render, 100); };
+      window.loadRoom = function(rid){ try { _origLoadRoom(rid); } catch(e){ console.warn('loadRoom bridge:', e); } CD.state.view = 'room'; CD.state.activeNav = 'auction'; CD.state.activeSub = 'live'; setTimeout(CD.render, 100); };
     }
     const _origBack = window.backToDashboard;
     if(typeof _origBack === 'function'){
-      window.backToDashboard = function(){ try { _origBack(); } catch(e){} CD.state.view = 'dashboard'; CD.render(); };
+      window.backToDashboard = function(){ try { _origBack(); } catch(e){ console.warn('backToDashboard bridge:', e); } CD.state.view = 'dashboard'; CD.render(); };
     }
 
     // CRITICAL: detect login/logout by polling window.user (showAuth/showApp are module-scoped, can't override)
@@ -3744,7 +3744,7 @@
           rl: rs.releaseLocked
         });
         if(key !== lastKey){ lastKey = key; CD.scheduleRender(); }
-      } catch(e){}
+      } catch(e){ console.warn('CD poll-diff:', e); }
     }, 400);
 
     // Listen for room list updates (fired by app.js when Firebase data loads)
