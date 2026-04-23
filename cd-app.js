@@ -3708,6 +3708,11 @@
       league:'leaderboard', players:'players-season', matches:'matches'
     };
     if(typeof window.switchTab === 'function') try { window.switchTab(legacyMap[navId] || navId); } catch(e){ console.warn('CD nav switchTab:', e); }
+    // League (leaderboard/points) and Squad (points by match) read stored
+    // match data; force one fresh pull so recent pushes are reflected.
+    if(navId === 'league' || navId === 'squad'){
+      try{ typeof window._cdForceRoomRefresh === 'function' && window._cdForceRoomRefresh(); }catch(_){}
+    }
     CD.render();
   };
   CD.goSub = (subId) => {
@@ -3720,6 +3725,12 @@
       data:'matches', schedule:'schedule'
     };
     if(typeof window.switchTab === 'function') try { window.switchTab(legacyMap[subId] || subId); } catch(e){ console.warn('CD sub switchTab:', e); }
+    // When entering a points/leaderboard-facing sub-tab, force one fresh
+    // Firebase read so any scorecard push that slipped past the listener
+    // (tab throttling, network hiccup) still gets reflected immediately.
+    if(subId === 'leaderboard' || subId === 'points' || subId === 'weeks' || subId === 'ptsbymatch'){
+      try{ typeof window._cdForceRoomRefresh === 'function' && window._cdForceRoomRefresh(); }catch(_){}
+    }
     CD.render();
   };
 
@@ -4088,11 +4099,27 @@
 
     // Poll for room data changes. Debounced via scheduleRender (which now
     // has a rAF + edit-guard wrapper).
+    //
+    // The matches-fingerprint (mh) is critical: scorecard re-pushes overwrite
+    // an existing match in place, so the count doesn't change but contents
+    // do. We hash (mid + label + timestamp + player count) per match so any
+    // push — new, overwrite, or edit — flips the diff key. Also include the
+    // sum of leaderboardTotals so a recalc-only write triggers a re-render.
     let lastKey = '';
     setInterval(() => {
       try {
         if(CD.state.view !== 'room') return;
         const rs = window.roomState; if(!rs) return;
+        const matches = rs.matches || {};
+        const _mids = Object.keys(matches);
+        let mtSig = '';
+        for(let i=0;i<_mids.length;i++){
+          const m = matches[_mids[i]] || {};
+          mtSig += _mids[i] + ':' + (m.label||'') + ':' + (m.timestamp||0) + ':' + (m.players?Object.keys(m.players).length:0) + '|';
+        }
+        let mh = 2166136261;
+        for(let i=0;i<mtSig.length;i++){ mh ^= mtSig.charCodeAt(i); mh = (mh + ((mh<<1)+(mh<<4)+(mh<<7)+(mh<<8)+(mh<<24)))>>>0; }
+        const lbSum = rs.leaderboardTotals ? Object.values(rs.leaderboardTotals).reduce((s,v)=>s+((v&&v.pts)||0),0) : 0;
         const key = JSON.stringify({
           bid: rs.currentBlock?.currentBid,
           ldr: rs.currentBlock?.lastBidderTeam,
@@ -4100,7 +4127,9 @@
           act: rs.currentBlock?.active,
           tn: Object.keys(rs.teams||{}).length,
           ni: Object.keys(rs.currentBlock?.notInterested||{}).length,
-          mt: Object.keys(rs.matches||{}).length,
+          mt: _mids.length,
+          mh: mh,
+          lb: Math.round(lbSum*100),
           ps: Object.values(rs.players||{}).filter(p=>p.status==='sold').length,
           rl: rs.releaseLocked
         });
