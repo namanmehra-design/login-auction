@@ -377,6 +377,30 @@
     }, 40);
   };
 
+  // Cricbuzz Step 4 — switch to scorecards sub-tab first (so gsc* DOM ids exist),
+  // then call the legacy populate which fills the form from cbzParsedScorecard.
+  CD.sendCbzToScorecards = () => {
+    // Guard: must have parsed data before switching
+    const hasData = (typeof window !== 'undefined') && window.cbzParsedScorecard
+                    && Array.isArray(window.cbzParsedScorecard.innings)
+                    && window.cbzParsedScorecard.innings.length > 0;
+    if(!hasData) {
+      const s = document.getElementById('cbzPushStatus');
+      if(s) { s.textContent = 'No innings data loaded. Fetch a scorecard first.'; s.className = 'adm-status cbz-status fail'; }
+      return;
+    }
+    CD.state.adminSub = 'scorecards';
+    CD.render();
+    // Wait for DOM, populate, then scroll the CD admin main into view (not the stripped tab-scorecards)
+    setTimeout(() => {
+      try {
+        if(typeof window.cbzPushToRoom === 'function') window.cbzPushToRoom();
+        const mainEl = document.querySelector('#cd-root main');
+        if(mainEl) mainEl.scrollIntoView({behavior:'smooth', block:'start'});
+      } catch(e){ console.warn('sendCbzToScorecards:', e); }
+    }, 80);
+  };
+
   CD.renderAdmin = () => {
     const sub = CD.state.adminSub || 'scorecards';
     const subs = [
@@ -533,9 +557,7 @@
           <div id="gscPreviewContent"></div>
         </div>
         <div class="adm-row" style="margin-top:14px;">
-          <button class="adm-btn adm-btn-ghost" onclick="window.previewGlobalScorecard && window.previewGlobalScorecard()">Preview</button>
           <button class="adm-btn adm-btn-cta" onclick="window.saveGlobalScorecard && window.saveGlobalScorecard()">Save &amp; push to all rooms</button>
-          <button class="adm-btn adm-btn-ghost" onclick="window.resetGlobalScorecardForm && window.resetGlobalScorecardForm()">Clear</button>
         </div>
         <div class="adm-status ai-status" id="gscSaveStatus"></div>
       </div>
@@ -566,7 +588,6 @@
 
       <div class="adm-row" style="margin-top:14px;">
         <button class="adm-btn adm-btn-cta" onclick="window.saPushToAll && window.saPushToAll()">Push to all rooms</button>
-        <button class="adm-btn adm-btn-gold" onclick="window.saDeleteAndRepush && window.saDeleteAndRepush()">Delete &amp; re-push</button>
         <button class="adm-btn adm-btn-danger" onclick="window.saDeleteMatchFromAll && window.saDeleteMatchFromAll()">Delete from all rooms</button>
       </div>
       <div class="adm-status ai-status" id="saPushStatus"></div>
@@ -611,7 +632,7 @@
       <div id="cbzStep4" style="display:none;padding:16px;border-radius:12px;background:var(--glass);border:1px solid var(--line);">
         <div class="adm-lbl" style="color:var(--gold);margin-bottom:10px;">Step 4 — Send to Scorecards Tab</div>
         <div style="font-size:12px;color:var(--ink-2);margin-bottom:12px;">Sends <strong style="color:var(--ink);">both innings combined</strong> to the Scorecards tab, ready for save &amp; fan-out.</div>
-        <button class="adm-btn adm-btn-cta" onclick="window.cbzPushToRoom && window.cbzPushToRoom()">Send to Scorecards Tab →</button>
+        <button class="adm-btn adm-btn-cta" onclick="CD.sendCbzToScorecards()">Send to Scorecards Tab →</button>
         <div class="adm-status cbz-status" id="cbzPushStatus"></div>
       </div>
     </div>
