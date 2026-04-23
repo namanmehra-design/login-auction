@@ -419,23 +419,31 @@
       </div>
     ` : '';
 
+    // On mobile the sidebar is hidden, so promote a compact "← Dashboard"
+    // control into the room header. Shown on desktop too for consistency.
+    const dashBackBtn = `<button onclick="CD.goDashboard()" aria-label="Back to dashboard" style="padding:8px 12px;border-radius:9999px;background:var(--glass);border:1px solid var(--line-2);color:var(--ink-2);font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;letter-spacing:0.06em;text-transform:uppercase;flex-shrink:0;">${I('back',13)}${CD.state.isMobile ? '' : ' Dashboard'}</button>`;
+
     const main = `
       <main style="display:flex;flex-direction:column;min-width:0;">
         ${CD.renderTicker()}
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px;">
-          <div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <h1 class="ed" style="font-size:36px;letter-spacing:-0.03em;line-height:1;">${esc(NAV.find(n=>n.id===CD.state.activeNav)?.label || 'Room')}</h1>
-              <div class="ed-i" style="font-size:28px;color:var(--mute);">${esc(activeSub)}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:${CD.state.isMobile ? '14px 16px 0' : '20px 32px 0'};border-bottom:1px solid var(--line);flex-wrap:wrap;gap:${CD.state.isMobile ? 8 : 12}px;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            ${CD.state.isMobile ? dashBackBtn : ''}
+            <div style="min-width:0;flex:1;">
+              <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+                <h1 class="ed" style="font-size:${CD.state.isMobile ? 26 : 36}px;letter-spacing:-0.03em;line-height:1;">${esc(NAV.find(n=>n.id===CD.state.activeNav)?.label || 'Room')}</h1>
+                <div class="ed-i" style="font-size:${CD.state.isMobile ? 20 : 28}px;color:var(--mute);">${esc(activeSub)}</div>
+              </div>
+              <div style="font-size:${CD.state.isMobile ? 10 : 11}px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-top:${CD.state.isMobile ? 4 : 6}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(roomName)}${isAdmin ? ' · Admin' : myTeam ? ' · ' + esc(myTeam) : ''}</div>
             </div>
-            <div style="font-size:11px;color:var(--mute);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-top:6px;">${esc(roomName)}${isAdmin ? ' · Admin' : myTeam ? ' · ' + esc(myTeam) : ''}</div>
           </div>
-          <div style="display:flex;gap:10px;align-items:center;">
-            <button onclick="window.copyInviteLink()" style="padding:8px 14px;border-radius:9999px;background:var(--glass-2);border:1px solid var(--line-2);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">${I('copy',14)} Invite</button>
+          <div style="display:flex;gap:${CD.state.isMobile ? 6 : 10}px;align-items:center;flex-shrink:0;">
+            ${!CD.state.isMobile ? dashBackBtn : ''}
+            <button onclick="window.copyInviteLink()" style="padding:8px 14px;border-radius:9999px;background:var(--glass-2);border:1px solid var(--line-2);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">${I('copy',14)}${CD.state.isMobile ? '' : ' Invite'}</button>
           </div>
         </div>
         ${subTabBar}
-        <div style="padding:20px 32px;flex:1;" id="cd-tab-content">
+        <div style="padding:${CD.state.isMobile ? '14px 16px 80px' : '20px 32px'};flex:1;" id="cd-tab-content">
           ${CD.renderTabContent()}
         </div>
       </main>`;
