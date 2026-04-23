@@ -380,18 +380,18 @@
   // Cricbuzz Step 4 — switch to scorecards sub-tab first (so gsc* DOM ids exist),
   // then call the legacy populate which fills the form from cbzParsedScorecard.
   CD.sendCbzToScorecards = () => {
-    // Guard: must have parsed data before switching
-    const hasData = (typeof window !== 'undefined') && window.cbzParsedScorecard
-                    && Array.isArray(window.cbzParsedScorecard.innings)
-                    && window.cbzParsedScorecard.innings.length > 0;
-    if(!hasData) {
+    // cbzParsedScorecard is module-scope in app.js and not exposed on window.
+    // Use Step 4 visibility (only shown after a successful Fetch Scorecard)
+    // as the signal that innings data is ready.
+    const step4 = document.getElementById('cbzStep4');
+    const step4Visible = step4 && step4.style.display !== 'none';
+    if(!step4Visible) {
       const s = document.getElementById('cbzPushStatus');
-      if(s) { s.textContent = 'No innings data loaded. Fetch a scorecard first.'; s.className = 'adm-status cbz-status fail'; }
+      if(s) { s.textContent = 'Fetch a scorecard first.'; s.className = 'adm-status cbz-status fail'; }
       return;
     }
     CD.state.adminSub = 'scorecards';
     CD.render();
-    // Wait for DOM, populate, then scroll the CD admin main into view (not the stripped tab-scorecards)
     setTimeout(() => {
       try {
         if(typeof window.cbzPushToRoom === 'function') window.cbzPushToRoom();
