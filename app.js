@@ -18,11 +18,10 @@ function getGeminiModel(){
  }
 }
 
-const SUPER_ADMINS=['namanmehra@gmail.com','nmehra1@babson.edu'];
-const SUPER_ADMIN=SUPER_ADMINS[0]; // primary (kept for any legacy references)
-function isSuperAdminEmail(email){ return SUPER_ADMINS.includes((email||'').toLowerCase().trim()); }
+const SUPER_ADMIN='namanmehra@gmail.com';
+function isSuperAdminEmail(email){ return (email||'').toLowerCase().trim()==='namanmehra@gmail.com'; }
 // Expose for cd-app.js (classic script, can't import module scope)
-if(typeof window !== 'undefined'){ window.isSuperAdminEmail = isSuperAdminEmail; window.SUPER_ADMINS = SUPER_ADMINS; }
+if(typeof window !== 'undefined'){ window.isSuperAdminEmail = isSuperAdminEmail; }
 function escapeHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
