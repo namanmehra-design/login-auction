@@ -174,7 +174,7 @@
 </div>
 
 <!-- Player Performance Modal -->
-<div class="modal-bg" id="playerModal">
+<div class="modal-bg" id="playerModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal modal-lg">
     <div class="modal-header">
       <h3 id="pmPlayerName">Player</h3>
@@ -182,6 +182,9 @@
     </div>
     <div id="pmPlayerMeta" class="modal-meta"></div>
     <div id="pmPlayerBody"></div>
+    <div style="text-align:right;padding:12px;border-top:1px solid var(--b1,rgba(255,255,255,0.06));margin-top:12px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('playerModal').classList.remove('open')">Close</button>
+    </div>
   </div>
 </div>
 
