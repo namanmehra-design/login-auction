@@ -389,10 +389,19 @@ function loadDash(){
    ]);
    const aRooms = aSnap.val();
    const jRooms = jSnap.val();
-   window.userAuctionRooms = aRooms ? Object.entries(aRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,maxTeams:r.maxTeams,maxPlayers:r.maxPlayers,createdAt:r.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
-   window.userJoinedRooms  = jRooms ? Object.entries(jRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,joinedAt:r.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+   // Null-overwrite guard — only write if we actually got data OR current is empty.
+   // Prevents wiping populated data when Firebase returns null due to
+   // permission races, token refresh, or cold-cache edge cases.
+   const aNew = aRooms ? Object.entries(aRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,maxTeams:r.maxTeams,maxPlayers:r.maxPlayers,createdAt:r.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
+   const jNew = jRooms ? Object.entries(jRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,joinedAt:r.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+   if(aRooms || !window.userAuctionRooms || window.userAuctionRooms.length === 0){
+     window.userAuctionRooms = aNew;
+   }
+   if(jRooms || !window.userJoinedRooms || window.userJoinedRooms.length === 0){
+     window.userJoinedRooms = jNew;
+   }
    window.dispatchEvent(new CustomEvent('cd-rooms-update'));
-   console.log('[CD] forceLoadRooms — auction:', window.userAuctionRooms.length, 'joined:', window.userJoinedRooms.length);
+   console.log('[CD] forceLoadRooms — auction:', (window.userAuctionRooms||[]).length, 'joined:', (window.userJoinedRooms||[]).length);
   }catch(e){ console.warn('cdForceLoadRooms:', e); }
  };
  // Unsubscribe previous dashboard listeners to prevent memory leak / lag

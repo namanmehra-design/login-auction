@@ -4158,11 +4158,14 @@
             });
           }
         }
-        // Diff-guard: only rewrite when the room-list actually changed.
-        // Stops the 800ms interval from hammering innerHTML on idle dashboard.
+        // Diff-guard: only rewrite when the room-list actually changed OR the
+        // grid DOM was recreated (e.g. user navigated back to dashboard).
+        // Detecting DOM recreation: check if the grid still contains the
+        // "Loading rooms…" placeholder — that only exists on a fresh mount.
         const gridKey = myRooms.map(r=>r.id+':'+(r.name||'')+':'+(r.budget||'')+':'+(r.maxTeams||'')+':'+(r.maxPlayers||'')).join('|')
           + '##' + joinedRooms.map(r=>r.id+':'+(r.name||'')+':'+(r.budget||'')+':'+(r.maxTeams||'')+':'+(r.maxPlayers||'')).join('|');
-        if(gridKey === _lastGridKey) return;
+        const gridIsFresh = myGrid && /Loading rooms/i.test(myGrid.textContent || '');
+        if(!gridIsFresh && gridKey === _lastGridKey) return;
         _lastGridKey = gridKey;
         const buildCards = (rooms, isOwner) => {
           if(!rooms.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">' + (isOwner ? 'No rooms yet — create one above.' : 'No joined rooms yet.') + '</div>';
