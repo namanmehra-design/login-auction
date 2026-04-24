@@ -413,7 +413,14 @@ function loadDash(){
  try{
  const rooms=snap.val(),c=document.getElementById('roomListContainer');
  // Expose to window for cd-app.js bridge
- window.userAuctionRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,maxTeams:r?.maxTeams,maxPlayers:r?.maxPlayers,createdAt:r?.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
+ // Guard against null-overwrite during initial race: if the snapshot is
+ // null but cdForceLoadRooms already populated data, don't blank it out.
+ // (Firebase sometimes fires onValue with null before data hydrates.)
+ const newVal = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,maxTeams:r?.maxTeams,maxPlayers:r?.maxPlayers,createdAt:r?.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
+ if(rooms || !window.userAuctionRooms || window.userAuctionRooms.length === 0){
+   // Only write when we have real data OR current is empty (safe to confirm empty).
+   window.userAuctionRooms = newVal;
+ }
  window.dispatchEvent(new CustomEvent('cd-rooms-update'));
  if(!c) return;
  if(!rooms){c.innerHTML='<div class="empty">No rooms yet -- create one above.</div>';return;}
@@ -424,8 +431,11 @@ function loadDash(){
  window._dashListenerA2=onValue(ref(db,`users/${user.uid}/joined`),snap=>{
  try{
  const rooms=snap.val(),c=document.getElementById('joinedRoomListContainer');
- // Expose to window for cd-app.js bridge
- window.userJoinedRooms = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,joinedAt:r?.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+ // Expose to window for cd-app.js bridge — same null-overwrite guard
+ const newVal = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,joinedAt:r?.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
+ if(rooms || !window.userJoinedRooms || window.userJoinedRooms.length === 0){
+   window.userJoinedRooms = newVal;
+ }
  window.dispatchEvent(new CustomEvent('cd-rooms-update'));
  if(!c) return;
  if(!rooms){c.innerHTML='<div class="empty">No joined rooms yet.</div>';return;}
