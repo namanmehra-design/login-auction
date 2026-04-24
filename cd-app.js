@@ -4147,11 +4147,16 @@
         if(!myGrid && !joinedGrid) return;
         const myRooms = window.userAuctionRooms || [];
         const joinedRooms = window.userJoinedRooms || [];
-        // Self-healing: if after 2.5s from boot we still have no rooms data
-        // AND user is logged in, try to poke the Firebase bridge directly.
-        if(!window._cdBootTime) window._cdBootTime = Date.now();
-        if(Date.now() - window._cdBootTime > 2500 && !window.userAuctionRooms && window.user && window.user.uid){
-          if(typeof window.cdForceLoadRooms === 'function') window.cdForceLoadRooms();
+        // Self-healing: if the grid is visible AND we have no rooms data yet
+        // AND user is logged in, ALWAYS poke the Firebase bridge directly.
+        // Fires immediately on every tick where data is missing — no wait.
+        if(!window.userAuctionRooms && window.user && window.user.uid){
+          if(typeof window.cdForceLoadRooms === 'function' && !window._cdForceLoadInFlight){
+            window._cdForceLoadInFlight = true;
+            window.cdForceLoadRooms().finally(() => {
+              setTimeout(() => { window._cdForceLoadInFlight = false; }, 800);
+            });
+          }
         }
         // Diff-guard: only rewrite when the room-list actually changed.
         // Stops the 800ms interval from hammering innerHTML on idle dashboard.
@@ -4179,22 +4184,26 @@
     window.addEventListener('cd-rooms-update', updateRoomGrids);
     // Also poll every 800ms as a backup, in case the event was missed
     setInterval(updateRoomGrids, 800);
-    // Initial call after a moment, to catch already-loaded data
-    setTimeout(updateRoomGrids, 200);
-    // ** Aggressive fallback ** — after 3s if the grid is still stuck on
-    // the "Loading rooms…" placeholder (listener never fired, permission
-    // issue, token refresh race), replace with a sensible empty state
-    // + a tap-to-retry button. User is never stuck on "Loading…".
+    // Initial call immediately — no setTimeout delay
+    updateRoomGrids();
+    // Also fire cdForceLoadRooms immediately if user is already authed
+    setTimeout(() => {
+      if(window.user?.uid && typeof window.cdForceLoadRooms === 'function'){
+        window.cdForceLoadRooms();
+      }
+    }, 50);
+    // Then after 1.5s if the grid is still stuck on "Loading rooms…"
+    // placeholder, replace with empty state + tap-to-retry button.
     setTimeout(() => {
       try {
         const myGrid = document.getElementById('cd-my-rooms-grid');
         if(myGrid && /Loading rooms/i.test(myGrid.textContent)){
-          console.warn('[CD] rooms never loaded — forcing empty state + retry');
+          console.warn('[CD] rooms stuck at 1.5s — forcing empty state + retry');
           myGrid.innerHTML = '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">No rooms yet — create one above, or <a href="javascript:void(0)" onclick="window.cdForceLoadRooms&&window.cdForceLoadRooms()" style="color:var(--electric);text-decoration:underline;cursor:pointer;">tap to reload</a>.</div>';
           if(typeof window.cdForceLoadRooms === 'function') window.cdForceLoadRooms();
         }
       } catch(e){ console.warn('rooms-fallback:', e); }
-    }, 3000);
+    }, 1500);
   };
 
   // ── BOOT ───────────────────────────────────────────────────────
