@@ -3314,13 +3314,42 @@ window.parseGlobalScorecard=async function(){
 // -- Row builders for global scorecard form --
 function gscInputStyle(){ return 'padding:8px 10px;font-size:.83rem;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);color:var(--txt);font-family:var(--f);'; }
 
+// -- Rebuild the Man-of-the-Match datalist from names currently in batting/bowling/fielding rows --
+let _gscMotmDbTimer=null;
+window.refreshMotmOptions=function(){
+ const dl=document.getElementById('gscMotmOptions');
+ if(!dl) return;
+ const seen=new Map();
+ const ids=['gscBattingRows','gscBowlingRows','gscFieldingRows'];
+ ids.forEach(rid=>{
+  const root=document.getElementById(rid); if(!root) return;
+  root.querySelectorAll('input[id$="name"]').forEach(inp=>{
+   const v=(inp.value||'').trim(); if(!v) return;
+   const k=v.toLowerCase(); if(!seen.has(k)) seen.set(k,v);
+  });
+ });
+ const frag=document.createDocumentFragment();
+ [...seen.values()].forEach(n=>{ const o=document.createElement('option'); o.value=n; frag.appendChild(o); });
+ dl.innerHTML='';
+ dl.appendChild(frag);
+};
+function _gscBindMotmOnInput(row){
+ if(!row) return;
+ row.querySelectorAll('input[id$="name"]').forEach(inp=>{
+  inp.addEventListener('input',()=>{
+   clearTimeout(_gscMotmDbTimer);
+   _gscMotmDbTimer=setTimeout(()=>{ try{ window.refreshMotmOptions(); }catch(e){} },200);
+  });
+ });
+}
+
 window.addGscBattingRow=function(){
  const id=gscBattingCount++;
  const div=document.createElement('div');
  div.id=`gscbr${id}`;
  div.className='sc-row sc-row--gsc';
  div.innerHTML=`
- <input list="gscDlPlayers" placeholder="Player name" id="gscbr${id}name" class="sc-input"><input type="number" placeholder="R" id="gscbr${id}runs" min="0" class="sc-input"><input type="number" placeholder="B" id="gscbr${id}balls" min="0" class="sc-input"><input type="number" placeholder="4s" id="gscbr${id}fours" min="0" class="sc-input"><input type="number" placeholder="6s" id="gscbr${id}sixes" min="0" class="sc-input"><select id="gscbr${id}dis" class="sc-input"><option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option></select><button onclick="document.getElementById('gscbr${id}').remove();gscBattingCount--;" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
+ <input list="gscDlPlayers" placeholder="Player name" id="gscbr${id}name" class="sc-input"><input type="number" placeholder="R" id="gscbr${id}runs" min="0" class="sc-input"><input type="number" placeholder="B" id="gscbr${id}balls" min="0" class="sc-input"><input type="number" placeholder="4s" id="gscbr${id}fours" min="0" class="sc-input"><input type="number" placeholder="6s" id="gscbr${id}sixes" min="0" class="sc-input"><select id="gscbr${id}dis" class="sc-input"><option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option></select><button onclick="document.getElementById('gscbr${id}').remove();gscBattingCount--;try{window.refreshMotmOptions&&window.refreshMotmOptions();}catch(e){}" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
  document.getElementById('gscBattingRows').appendChild(div);
  if(!document.getElementById('gscDlPlayers')){
  const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
@@ -3329,6 +3358,8 @@ window.addGscBattingRow=function(){
  playerNames.forEach(n=>{ const o=document.createElement('option'); o.value=n; dl.appendChild(o); });
  document.getElementById('gscBattingRows').insertAdjacentElement('beforebegin',dl);
  }
+ _gscBindMotmOnInput(div);
+ try{ window.refreshMotmOptions(); }catch(e){}
 };
 
 window.addGscBowlingRow=function(){
@@ -3337,8 +3368,10 @@ window.addGscBowlingRow=function(){
  div.id=`gscbow${id}`;
  div.className='sc-row sc-row--gsc';
  div.innerHTML=`
- <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" class="sc-input"><input type="number" placeholder="Ov" id="gscbow${id}overs" min="0" step="0.1" class="sc-input"><input type="number" placeholder="R" id="gscbow${id}runs" min="0" class="sc-input"><input type="number" placeholder="Eco" id="gscbow${id}eco" min="0" step="0.01" class="sc-input"><input type="number" placeholder="W" id="gscbow${id}wkts" min="0" class="sc-input"><input type="number" placeholder="0s" id="gscbow${id}dots" min="0" class="sc-input"><input type="number" placeholder="Mdns" id="gscbow${id}maidens" min="0" class="sc-input"><button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
+ <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" class="sc-input"><input type="number" placeholder="Ov" id="gscbow${id}overs" min="0" step="0.1" class="sc-input"><input type="number" placeholder="R" id="gscbow${id}runs" min="0" class="sc-input"><input type="number" placeholder="Eco" id="gscbow${id}eco" min="0" step="0.01" class="sc-input"><input type="number" placeholder="W" id="gscbow${id}wkts" min="0" class="sc-input"><input type="number" placeholder="0s" id="gscbow${id}dots" min="0" class="sc-input"><input type="number" placeholder="Mdns" id="gscbow${id}maidens" min="0" class="sc-input"><button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;try{window.refreshMotmOptions&&window.refreshMotmOptions();}catch(e){}" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
  document.getElementById('gscBowlingRows').appendChild(div);
+ _gscBindMotmOnInput(div);
+ try{ window.refreshMotmOptions(); }catch(e){}
 };
 
 window.addGscFieldingRow=function(){
@@ -3347,8 +3380,10 @@ window.addGscFieldingRow=function(){
  div.id=`gscfld${id}`;
  div.className='sc-row sc-row--fielding';
  div.innerHTML=`
- <input list="gscDlPlayers" placeholder="Player name" id="gscfld${id}name" class="sc-input"><input type="number" placeholder="Catches" id="gscfld${id}catches" min="0" class="sc-input"><input type="number" placeholder="Stumpings" id="gscfld${id}stumpings" min="0" class="sc-input"><input type="number" placeholder="Run-outs" id="gscfld${id}runouts" min="0" class="sc-input"><button onclick="document.getElementById('gscfld${id}').remove();gscFieldingCount--;" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
+ <input list="gscDlPlayers" placeholder="Player name" id="gscfld${id}name" class="sc-input"><input type="number" placeholder="Catches" id="gscfld${id}catches" min="0" class="sc-input"><input type="number" placeholder="Stumpings" id="gscfld${id}stumpings" min="0" class="sc-input"><input type="number" placeholder="Run-outs" id="gscfld${id}runouts" min="0" class="sc-input"><button onclick="document.getElementById('gscfld${id}').remove();gscFieldingCount--;try{window.refreshMotmOptions&&window.refreshMotmOptions();}catch(e){}" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
  document.getElementById('gscFieldingRows').appendChild(div);
+ _gscBindMotmOnInput(div);
+ try{ window.refreshMotmOptions(); }catch(e){}
 };
 
 // -- Populate form from Gemini output --
@@ -3395,6 +3430,7 @@ function populateGscForm(parsed){
  sv('name',f.name||''); sv('catches',f.catches||'');
  sv('stumpings',f.stumpings||''); sv('runouts',f.runouts||'');
  });
+ try{ window.refreshMotmOptions && window.refreshMotmOptions(); }catch(e){}
 }
 
 // -- Collect global form data --
@@ -4997,6 +5033,7 @@ window.cbzPushToRoom = function(){
       sv(`gscfld${id}runouts`,   f.runouts||'');
     });
 
+    try{ window.refreshMotmOptions && window.refreshMotmOptions(); }catch(e){}
     cbzSetStatus('cbzPushStatus',`\u2705 ${allBatting.length} batters . ${allBowling.length} bowlers . ${allFielding.filter(f=>f.catches||f.stumpings||f.runouts).length} fielders from ${innings.length} innings. Add dot balls then Save & Push.`,'done');
   }, 300);
 };;;;;

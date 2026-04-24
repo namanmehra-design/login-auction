@@ -750,7 +750,7 @@
       <div id="gscFormBody" style="display:none;margin-top:18px;">
         <div class="adm-grid-3">
           <div><label class="adm-lbl">Winning IPL Team</label><input type="text" id="gscWinner" class="adm-inp" placeholder="e.g. CSK"></div>
-          <div><label class="adm-lbl">Man of the Match</label><input type="text" id="gscMotm" class="adm-inp" placeholder="Player name"></div>
+          <div><label class="adm-lbl">Man of the Match</label><input type="text" id="gscMotm" class="adm-inp" placeholder="Player name" list="gscMotmOptions" autocomplete="off"><datalist id="gscMotmOptions"></datalist></div>
           <div><label class="adm-lbl">Result</label>
             <select id="gscResult" class="adm-sel">
               <option value="normal">Normal Result</option>
