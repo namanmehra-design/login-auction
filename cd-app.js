@@ -3811,9 +3811,13 @@
       const root = document.getElementById('cd-root');
       if(!root) return null;
       const snap = { fields: {}, activeId: '', selStart: 0, selEnd: 0 };
-      const sel = 'input[id^="gsc"], textarea[id^="gsc"], select[id^="gsc"], input[id^="cd"], textarea[id^="cd"], select[id^="cd"]';
-      root.querySelectorAll(sel).forEach(el => {
-        if(!el.id) return;
+      // Snapshot EVERY input / textarea / select with an id inside
+      // #cd-root. Any field the user might be interacting with when a
+      // render fires needs value-and-focus preservation. Previously this
+      // was a prefix allow-list (gsc*, cd*) that missed sa* admin tools,
+      // auth* sign-in, and manualPlayerSelect (auction) — a Firebase
+      // snapshot mid-type would wipe those.
+      root.querySelectorAll('input[id], textarea[id], select[id]').forEach(el => {
         if(el.type === 'checkbox' || el.type === 'radio') snap.fields[el.id] = { checked: el.checked };
         else snap.fields[el.id] = { value: el.value };
       });
