@@ -4189,24 +4189,35 @@
     setInterval(updateRoomGrids, 800);
     // Initial call immediately — no setTimeout delay
     updateRoomGrids();
-    // Also fire cdForceLoadRooms immediately if user is already authed
-    setTimeout(() => {
-      if(window.user?.uid && typeof window.cdForceLoadRooms === 'function'){
-        window.cdForceLoadRooms();
-      }
-    }, 50);
-    // Then after 1.5s if the grid is still stuck on "Loading rooms…"
-    // placeholder, replace with empty state + tap-to-retry button.
+    // Fire cdForceLoadRooms as soon as possible — poll for user up to 5s.
+    // If onAuthStateChanged hasn't fired yet, wait for it instead of giving up.
+    (() => {
+      let tries = 0;
+      const tick = () => {
+        if(window.user?.uid && typeof window.cdForceLoadRooms === 'function'){
+          window.cdForceLoadRooms();
+          return;
+        }
+        tries++;
+        if(tries < 50) setTimeout(tick, 100); // up to 5s
+      };
+      tick();
+    })();
+    // Proper button-based fallback after 4s (not 1.5s — was too aggressive).
+    // Uses a real <button> with onclick — no javascript:void href that Chrome
+    // treats as "dangerous" scheme. Only fires if grid is still on Loading…
+    // AND cdForceLoadRooms hasn't already populated data.
     setTimeout(() => {
       try {
         const myGrid = document.getElementById('cd-my-rooms-grid');
-        if(myGrid && /Loading rooms/i.test(myGrid.textContent)){
-          console.warn('[CD] rooms stuck at 1.5s — forcing empty state + retry');
-          myGrid.innerHTML = '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">No rooms yet — create one above, or <a href="javascript:void(0)" onclick="window.cdForceLoadRooms&&window.cdForceLoadRooms()" style="color:var(--electric);text-decoration:underline;cursor:pointer;">tap to reload</a>.</div>';
+        const hasRooms = (window.userAuctionRooms || []).length > 0;
+        if(myGrid && /Loading rooms/i.test(myGrid.textContent) && !hasRooms){
+          console.warn('[CD] rooms stuck after 4s — showing retry button');
+          myGrid.innerHTML = '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">Couldn\'t load rooms — <button type="button" onclick="window.cdForceLoadRooms && window.cdForceLoadRooms()" style="background:none;border:none;color:var(--electric);text-decoration:underline;cursor:pointer;padding:0;font:inherit;">tap to retry</button></div>';
           if(typeof window.cdForceLoadRooms === 'function') window.cdForceLoadRooms();
         }
       } catch(e){ console.warn('rooms-fallback:', e); }
-    }, 1500);
+    }, 4000);
   };
 
   // ── BOOT ───────────────────────────────────────────────────────
