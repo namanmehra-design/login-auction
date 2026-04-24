@@ -267,7 +267,7 @@
       <div class="auth-lbl" id="authLabel">Sign in to continue</div>
       <div class="fld">
         <label>Email</label>
-        <input type="email" id="authEmail" placeholder="you@example.com">
+        <input type="email" id="authEmail" placeholder="you@example.com" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('authPassword')?.focus();}">
       </div>
       <div class="fld">
         <label>Password</label>
@@ -749,8 +749,8 @@
   </div><!-- /content -->
 </div><!-- /app-shell -->
 
-<script type="module" src="app.js?v=20260423z"></script>
+<script type="module" src="app.js?v=20260424a"></script>
 <!-- New Cricket Design — single unified file loaded after app.js so window.* handlers exist -->
-<script src="cd-app.js?v=20260423z"></script>
+<script src="cd-app.js?v=20260424a"></script>
 </body>
 </html>

@@ -3314,6 +3314,17 @@ window.parseGlobalScorecard=async function(){
 // -- Row builders for global scorecard form --
 function gscInputStyle(){ return 'padding:8px 10px;font-size:.83rem;background:var(--surface);border:1px solid var(--b1);border-radius:var(--r);color:var(--txt);font-family:var(--f);'; }
 
+// -- Ensure the shared #gscDlPlayers datalist exists. Safe to call from any row builder. --
+function _ensureGscDatalist(){
+ if(document.getElementById('gscDlPlayers')) return;
+ const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
+ const playerNames=[...new Set((rawData||[]).map(p=>p.n||'').filter(Boolean))].sort();
+ playerNames.forEach(n=>{ const o=document.createElement('option'); o.value=n; dl.appendChild(o); });
+ const anchor=document.getElementById('gscBattingRows')||document.getElementById('gscBowlingRows')||document.getElementById('gscFieldingRows');
+ if(anchor) anchor.insertAdjacentElement('beforebegin',dl);
+ else document.body.appendChild(dl);
+}
+
 // -- Rebuild the Man-of-the-Match datalist from names currently in batting/bowling/fielding rows --
 let _gscMotmDbTimer=null;
 window.refreshMotmOptions=function(){
@@ -3351,13 +3362,7 @@ window.addGscBattingRow=function(){
  div.innerHTML=`
  <input list="gscDlPlayers" placeholder="Player name" id="gscbr${id}name" class="sc-input"><input type="number" placeholder="R" id="gscbr${id}runs" min="0" class="sc-input"><input type="number" placeholder="B" id="gscbr${id}balls" min="0" class="sc-input"><input type="number" placeholder="4s" id="gscbr${id}fours" min="0" class="sc-input"><input type="number" placeholder="6s" id="gscbr${id}sixes" min="0" class="sc-input"><select id="gscbr${id}dis" class="sc-input"><option value="out">Out</option><option value="notout">Not Out</option><option value="duck">Duck</option></select><button onclick="document.getElementById('gscbr${id}').remove();gscBattingCount--;try{window.refreshMotmOptions&&window.refreshMotmOptions();}catch(e){}" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
  document.getElementById('gscBattingRows').appendChild(div);
- if(!document.getElementById('gscDlPlayers')){
- const dl=document.createElement('datalist'); dl.id='gscDlPlayers';
- // Populate from the 250-player rawData array (always available)
- const playerNames=[...new Set((rawData||[]).map(p=>p.n||'').filter(Boolean))];
- playerNames.forEach(n=>{ const o=document.createElement('option'); o.value=n; dl.appendChild(o); });
- document.getElementById('gscBattingRows').insertAdjacentElement('beforebegin',dl);
- }
+ _ensureGscDatalist();
  _gscBindMotmOnInput(div);
  try{ window.refreshMotmOptions(); }catch(e){}
 };
@@ -3370,6 +3375,7 @@ window.addGscBowlingRow=function(){
  div.innerHTML=`
  <input list="gscDlPlayers" placeholder="Player name" id="gscbow${id}name" class="sc-input"><input type="number" placeholder="Ov" id="gscbow${id}overs" min="0" step="0.1" class="sc-input"><input type="number" placeholder="R" id="gscbow${id}runs" min="0" class="sc-input"><input type="number" placeholder="Eco" id="gscbow${id}eco" min="0" step="0.01" class="sc-input"><input type="number" placeholder="W" id="gscbow${id}wkts" min="0" class="sc-input"><input type="number" placeholder="0s" id="gscbow${id}dots" min="0" class="sc-input"><input type="number" placeholder="Mdns" id="gscbow${id}maidens" min="0" class="sc-input"><button onclick="document.getElementById('gscbow${id}').remove();gscBowlingCount--;try{window.refreshMotmOptions&&window.refreshMotmOptions();}catch(e){}" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
  document.getElementById('gscBowlingRows').appendChild(div);
+ _ensureGscDatalist();
  _gscBindMotmOnInput(div);
  try{ window.refreshMotmOptions(); }catch(e){}
 };
@@ -3382,6 +3388,7 @@ window.addGscFieldingRow=function(){
  div.innerHTML=`
  <input list="gscDlPlayers" placeholder="Player name" id="gscfld${id}name" class="sc-input"><input type="number" placeholder="Catches" id="gscfld${id}catches" min="0" class="sc-input"><input type="number" placeholder="Stumpings" id="gscfld${id}stumpings" min="0" class="sc-input"><input type="number" placeholder="Run-outs" id="gscfld${id}runouts" min="0" class="sc-input"><button onclick="document.getElementById('gscfld${id}').remove();gscFieldingCount--;try{window.refreshMotmOptions&&window.refreshMotmOptions();}catch(e){}" class="btn btn-danger btn-sm sc-remove-btn">Remove</button>`;
  document.getElementById('gscFieldingRows').appendChild(div);
+ _ensureGscDatalist();
  _gscBindMotmOnInput(div);
  try{ window.refreshMotmOptions(); }catch(e){}
 };
@@ -4357,6 +4364,8 @@ window.saPopulateOsRooms=async function(){
       o.textContent=`${name}  ·  (${info.ownerEmail||'—'})  ·  draft  ·  ${rid.substring(0,6)}  ·  OS:${curOs}`;
       sel.appendChild(o);
     }
+    // Cache the populated options so a CD re-render can restore them instead of wiping to the placeholder.
+    window._saOsRoomsCacheHTML = sel.innerHTML;
   }catch(e){console.error('saPopulateOsRooms:',e);}
 };
 
@@ -4417,6 +4426,8 @@ window.saPopulateMultRooms=async function(){
       o2.textContent=`${name2}  ·  (${info.ownerEmail||'—'})  ·  draft  ·  ${rid.substring(0,6)}  ·  XI:${curMult2}x`;
       sel.appendChild(o2);
     }
+    // Cache the populated options so a CD re-render can restore them instead of wiping to the placeholder.
+    window._saMultRoomsCacheHTML = sel.innerHTML;
   }catch(e){console.error('saPopulateMultRooms:',e);}
 };
 
