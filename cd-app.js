@@ -3867,18 +3867,11 @@
     if(CD._shouldBlockRender()){
       return;
     }
-    // If the user is actively typing in a form, defer. A single follow-up
-    // render is queued to run ~3.5s after last input.
-    if(CD._isUserEditing()){
-      if(!_deferredRenderTimer){
-        _deferredRenderTimer = setTimeout(() => {
-          _deferredRenderTimer = null;
-          if(CD._isUserEditing() || CD._shouldBlockRender()){ CD.scheduleRender(); return; }
-          try { CD.render(); } catch(e){ console.error('CD deferred render:', e); }
-        }, 3500);
-      }
-      return;
-    }
+    // Previously deferred renders while ANY input was focused. That broke
+    // search/filter debounced renders (analytics search, players pool
+    // filter) because their own CD.render() call was deferred indefinitely.
+    // Form state across legitimate renders is preserved by
+    // _captureFormState / _restoreFormState, so dropping the guard is safe.
     if(_renderTimer) clearTimeout(_renderTimer);
     _renderTimer = setTimeout(() => {
       _renderTimer = null;
@@ -3924,11 +3917,10 @@
     if(!isNavTransition && isOnScorecards && CD._isScorecardFormActive()){
       return;
     }
-    // Soft guard: user typing + same view/sub → defer.
-    if(!isNavTransition && CD._isUserEditing()){
-      CD.scheduleRender();
-      return;
-    }
+    // Previously deferred renders when user was typing in any input.
+    // Removed — broke search/filter UX (analytics search couldn't apply
+    // its filter because the debounced CD.render() was deferred).
+    // _captureFormState / _restoreFormState still handle input preservation.
     // Capture form state (values + focus + selection) before the wipe.
     const _formSnap = CD._captureFormState();
     let html = '';
