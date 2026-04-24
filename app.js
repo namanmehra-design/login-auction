@@ -394,10 +394,15 @@ function loadDash(){
    // permission races, token refresh, or cold-cache edge cases.
    const aNew = aRooms ? Object.entries(aRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,maxTeams:r.maxTeams,maxPlayers:r.maxPlayers,createdAt:r.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
    const jNew = jRooms ? Object.entries(jRooms).map(([k,r])=>({id:k,name:r.name||'Auction Room',budget:r.budget,joinedAt:r.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
-   if(aRooms || !window.userAuctionRooms || window.userAuctionRooms.length === 0){
+   // Stronger guard: check for actual keys, not just truthiness.
+   // Firebase sometimes returns {} (truthy!) instead of null in transient states;
+   // treating {} like null prevents that from wiping populated data.
+   const aHasData = aRooms && typeof aRooms === 'object' && Object.keys(aRooms).length > 0;
+   const jHasData = jRooms && typeof jRooms === 'object' && Object.keys(jRooms).length > 0;
+   if(aHasData || !window.userAuctionRooms || window.userAuctionRooms.length === 0){
      window.userAuctionRooms = aNew;
    }
-   if(jRooms || !window.userJoinedRooms || window.userJoinedRooms.length === 0){
+   if(jHasData || !window.userJoinedRooms || window.userJoinedRooms.length === 0){
      window.userJoinedRooms = jNew;
    }
    window.dispatchEvent(new CustomEvent('cd-rooms-update'));
@@ -426,8 +431,10 @@ function loadDash(){
  // null but cdForceLoadRooms already populated data, don't blank it out.
  // (Firebase sometimes fires onValue with null before data hydrates.)
  const newVal = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,maxTeams:r?.maxTeams,maxPlayers:r?.maxPlayers,createdAt:r?.createdAt,isOwner:true})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)) : [];
- if(rooms || !window.userAuctionRooms || window.userAuctionRooms.length === 0){
-   // Only write when we have real data OR current is empty (safe to confirm empty).
+ const hasData = rooms && typeof rooms === 'object' && Object.keys(rooms).length > 0;
+ if(hasData || !window.userAuctionRooms || window.userAuctionRooms.length === 0){
+   // Write only when we have actual keys OR current is empty. Empty object
+   // {} is truthy in JS but represents no data — treat it like null.
    window.userAuctionRooms = newVal;
  }
  window.dispatchEvent(new CustomEvent('cd-rooms-update'));
@@ -442,7 +449,8 @@ function loadDash(){
  const rooms=snap.val(),c=document.getElementById('joinedRoomListContainer');
  // Expose to window for cd-app.js bridge — same null-overwrite guard
  const newVal = rooms ? Object.entries(rooms).map(([k,r])=>({id:k,name:r?.name||'Auction Room',budget:r?.budget,joinedAt:r?.joinedAt,isOwner:false})).sort((a,b)=>(b.joinedAt||0)-(a.joinedAt||0)) : [];
- if(rooms || !window.userJoinedRooms || window.userJoinedRooms.length === 0){
+ const hasData = rooms && typeof rooms === 'object' && Object.keys(rooms).length > 0;
+ if(hasData || !window.userJoinedRooms || window.userJoinedRooms.length === 0){
    window.userJoinedRooms = newVal;
  }
  window.dispatchEvent(new CustomEvent('cd-rooms-update'));
