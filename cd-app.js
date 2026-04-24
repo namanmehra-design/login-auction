@@ -4249,6 +4249,8 @@
 })();
 
 /* Animations — tab-specialised transitions. CSS-only, scoped to #cd-root. */
+/* Bold/playful rewrite: overshoot springs, pops, card-flips, ripple, ticker shimmer.
+   All motion collapses to a 1ms fade under prefers-reduced-motion. */
 (function(){
   const css = `
     /* ── Legacy / shared keyframes ─────────────────────────────── */
@@ -4257,26 +4259,37 @@
     @keyframes cd-fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
     @keyframes cd-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     @keyframes cd-shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
-    @keyframes cd-splash-pulse { 0%,100%{opacity:0.55;transform:scale(1);} 50%{opacity:1;transform:scale(1.04);} }
-    .cd-splash-logo { animation: cd-splash-pulse 1.2s ease-in-out infinite; will-change: opacity, transform; }
+
+    /* Splash: bouncing logo + breathing glow (replaces quiet pulse). */
+    @keyframes cd-splash-pulse {
+      0%,100% { transform: scale(1);     filter: drop-shadow(0 0 4px rgba(255,45,135,0.35)); }
+      50%     { transform: scale(1.12);  filter: drop-shadow(0 0 18px rgba(255,45,135,0.75)); }
+    }
+    .cd-splash-logo {
+      animation: cd-splash-pulse 0.9s ease-in-out infinite;
+      will-change: transform, filter;
+      transform-origin: center center;
+    }
 
     /* ── View-level transitions ────────────────────────────────── */
     @keyframes cd-view-in { 0%{opacity:0;} 100%{opacity:1;} }
-    /* Dashboard → Room: "stepping into the stadium" */
+
+    /* Dashboard → Room: overshoot spring "stepping into the stadium". */
     @keyframes cd-enter-room {
-      0%   { opacity: 0; transform: scale(0.97) translateY(8px); }
-      60%  { opacity: 1; }
-      100% { opacity: 1; transform: scale(1) translateY(0); }
+      0%   { opacity: 0; transform: scale(0.85) translateY(24px); }
+      55%  { opacity: 1; transform: scale(1.02) translateY(-2px); }
+      100% { opacity: 1; transform: scale(1)    translateY(0); }
     }
-    /* Auth → Dashboard: "doors opening" with blur unblur */
+    /* Auth → Dashboard: "doors opening" with blur unblur. */
     @keyframes cd-enter-dashboard {
-      0%   { opacity: 0; transform: translateY(-6px) scale(1.01); filter: blur(6px); }
-      55%  { filter: blur(0); }
+      0%   { opacity: 0; transform: translateY(-10px) scale(1.02); filter: blur(10px); }
+      50%  { filter: blur(0); }
       100% { opacity: 1; transform: none; filter: blur(0); }
     }
-    /* Room → Dashboard: faster reverse */
+    /* Room → Dashboard: subtle scale-down bounce before settling. */
     @keyframes cd-enter-dashboard-back {
-      0%   { opacity: 0; transform: scale(1.02); }
+      0%   { opacity: 0; transform: scale(1); }
+      50%  { opacity: 1; transform: scale(1.08); }
       100% { opacity: 1; transform: scale(1); }
     }
     @keyframes cd-enter-admin { 0%{opacity:0;} 100%{opacity:1;} }
@@ -4285,108 +4298,152 @@
     .cd-view { will-change: opacity, transform, filter; }
     .cd-view-enter                { animation: cd-view-in          180ms ease-out both; }
     /* Variant classes — these override .cd-view-enter via the combined-class selectors below. */
-    .cd-enter-room                { animation: cd-enter-room       220ms cubic-bezier(0.34, 1.28, 0.64, 1) both; transform-origin: center 40%; }
-    .cd-enter-dashboard           { animation: cd-enter-dashboard  260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-    .cd-enter-dashboard-back      { animation: cd-enter-dashboard-back 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .cd-enter-room                { animation: cd-enter-room       320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-origin: center 40%; }
+    .cd-enter-dashboard           { animation: cd-enter-dashboard  320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .cd-enter-dashboard-back      { animation: cd-enter-dashboard-back 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-origin: center 50%; }
+    /* Admin areas stay professional — quick fade, no clown motion. */
     .cd-enter-admin               { animation: cd-enter-admin      140ms ease-out both; }
     .cd-enter-admin-sub           { animation: cd-enter-admin      140ms ease-out both; }
     .cd-enter-auth                { animation: cd-enter-auth       220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
     /* Explicit override when the generic class is also present. */
-    .cd-view-enter.cd-enter-room            { animation: cd-enter-room            220ms cubic-bezier(0.34, 1.28, 0.64, 1) both; }
-    .cd-view-enter.cd-enter-dashboard       { animation: cd-enter-dashboard       260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-    .cd-view-enter.cd-enter-dashboard-back  { animation: cd-enter-dashboard-back  180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .cd-view-enter.cd-enter-room            { animation: cd-enter-room            320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .cd-view-enter.cd-enter-dashboard       { animation: cd-enter-dashboard       320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .cd-view-enter.cd-enter-dashboard-back  { animation: cd-enter-dashboard-back  260ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
     .cd-view-enter.cd-enter-admin           { animation: cd-enter-admin           140ms ease-out both; }
     .cd-view-enter.cd-enter-auth            { animation: cd-enter-auth            220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
     /* ── Sub-tab transitions (scoped to #cd-tab-content) ───────── */
     @keyframes cd-sub-in          { 0%{opacity:0;transform:translateY(4px);} 100%{opacity:1;transform:translateY(0);} }
-    @keyframes cd-sub-slide-right { 0%{opacity:0;transform:translateX(22px);} 100%{opacity:1;transform:translateX(0);} }
-    @keyframes cd-sub-slide-left  { 0%{opacity:0;transform:translateX(-22px);} 100%{opacity:1;transform:translateX(0);} }
+    /* Setup: smooth slide-up + pop (translateY 20→-4→0). */
+    @keyframes cd-sub-pop-up {
+      0%   { opacity: 0; transform: translateY(20px); }
+      65%  { opacity: 1; transform: translateY(-4px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    /* Squad / My Team: slide-in from right with spring (40→-8→0). */
+    @keyframes cd-sub-slide-right {
+      0%   { opacity: 0; transform: translateX(40px); }
+      65%  { opacity: 1; transform: translateX(-8px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    /* Analytics: slide from left with overshoot bounce. */
+    @keyframes cd-sub-slide-left {
+      0%   { opacity: 0; transform: translateX(-30px); }
+      65%  { opacity: 1; transform: translateX(4px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
     @keyframes cd-sub-fade-rise   { 0%{opacity:0;transform:translateY(8px) scale(0.995);} 100%{opacity:1;transform:translateY(0) scale(1);} }
+    /* Matches: bold card-flip with overshoot. */
     @keyframes cd-sub-flip {
-      0%   { opacity: 0; transform: perspective(1000px) rotateX(-8deg) translateY(6px); }
-      100% { opacity: 1; transform: perspective(1000px) rotateX(0) translateY(0); }
+      0%   { opacity: 0; transform: perspective(1200px) rotateX(-15deg) translateY(10px); }
+      65%  { opacity: 1; transform: perspective(1200px) rotateX(4deg) translateY(-2px); }
+      100% { opacity: 1; transform: perspective(1200px) rotateX(0) translateY(0); }
     }
 
-    /* Default: restrained fade on every render (matches prior behavior). */
+    /* Default: gentle fade on every render (matches prior behavior). */
     #cd-root #cd-tab-content                                                 { animation: cd-sub-in 140ms ease-out both; will-change: opacity, transform; transform-origin: top center; }
     /* Variant sub-tab transitions ONLY fire on actual sub/nav switches — gated by .cd-sub-enter. */
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="setup"]                            { animation: cd-sub-in 140ms ease-out both; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="auction"]                          { animation: cd-sub-fade-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="squad"]                            { animation: cd-sub-slide-right 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"]                           { animation: cd-sub-in 180ms ease-out both; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"]      { animation: cd-sub-in 180ms ease-out both; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] { animation: cd-sub-slide-left 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="matches"]                          { animation: cd-sub-flip 240ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top center; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="setup"]                            { animation: cd-sub-pop-up     240ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="auction"]                          { animation: cd-sub-fade-rise  280ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="squad"]                            { animation: cd-sub-slide-right 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"]                           { animation: cd-sub-pop-up     260ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"]      { animation: cd-sub-fade-rise  240ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] { animation: cd-sub-slide-left 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="matches"]                          { animation: cd-sub-flip       340ms cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-origin: top center; }
 
     /* ── Stagger / waterfall keyframes & targets ────────────────── */
-    @keyframes cd-stagger-fade  { 0%{opacity:0;transform:translateY(6px);} 100%{opacity:1;transform:translateY(0);} }
-    @keyframes cd-stagger-scale { 0%{opacity:0;transform:scale(0.95);} 100%{opacity:1;transform:scale(1);} }
-    @keyframes cd-stagger-left  { 0%{opacity:0;transform:translateX(-12px);} 100%{opacity:1;transform:translateX(0);} }
+    /* League: rise + scale together, bigger stagger. */
+    @keyframes cd-stagger-fade  {
+      0%   { opacity: 0; transform: translateY(20px) scale(0.9); }
+      100% { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+    /* Pool: POP — scale 0.3 → 1.1 → 1 with a big bounce. */
+    @keyframes cd-stagger-pop {
+      0%   { opacity: 0; transform: scale(0.3); }
+      60%  { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Analytics: slide left with bounce — translateX -30 → 4 → 0. */
+    @keyframes cd-stagger-left  {
+      0%   { opacity: 0; transform: translateX(-30px); }
+      65%  { opacity: 1; transform: translateX(4px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
 
-    /* League → Leaderboard: waterfall team rows. 20ms per row, capped ~400ms.
-       Only fires on actual nav/sub change (gated by .cd-sub-enter). */
+    /* League → Leaderboard: 40ms per row, capped at 600ms. */
     #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div {
-      animation: cd-stagger-fade 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: cd-stagger-fade 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      transform-origin: center top;
     }
     #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(1)  { animation-delay:   0ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(2)  { animation-delay:  20ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(3)  { animation-delay:  40ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(4)  { animation-delay:  60ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(5)  { animation-delay:  80ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(6)  { animation-delay: 100ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(7)  { animation-delay: 120ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(8)  { animation-delay: 140ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(9)  { animation-delay: 160ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(10) { animation-delay: 180ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(n+11) { animation-delay: 200ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(2)  { animation-delay:  40ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(3)  { animation-delay:  80ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(4)  { animation-delay: 120ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(5)  { animation-delay: 160ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(6)  { animation-delay: 200ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(7)  { animation-delay: 240ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(8)  { animation-delay: 280ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(9)  { animation-delay: 320ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(10) { animation-delay: 360ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(11) { animation-delay: 400ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(12) { animation-delay: 440ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(13) { animation-delay: 480ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(14) { animation-delay: 520ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(15) { animation-delay: 560ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="league"] .cd-league-list > div:nth-child(n+16) { animation-delay: 600ms; }
 
-    /* Players → Pool: grid/table items fade+scale, 8ms per row, cap ~320ms.
-       Gated so the stagger only plays on an actual Pool tab switch, not on every re-render. */
+    /* Players → Pool: per-item 260ms pop with 25ms stagger, cap 500ms. */
     #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr {
-      animation: cd-stagger-scale 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-      transform-origin: center left;
+      animation: cd-stagger-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      transform-origin: center center;
     }
     #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(1)  { animation-delay:   0ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(2)  { animation-delay:   8ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(3)  { animation-delay:  16ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(4)  { animation-delay:  24ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(5)  { animation-delay:  32ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(6)  { animation-delay:  40ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(7)  { animation-delay:  48ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(8)  { animation-delay:  56ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(9)  { animation-delay:  64ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(10) { animation-delay:  72ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(11) { animation-delay:  80ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(12) { animation-delay:  88ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(13) { animation-delay:  96ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(14) { animation-delay: 104ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(15) { animation-delay: 112ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(16) { animation-delay: 120ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(17) { animation-delay: 128ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(18) { animation-delay: 136ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(19) { animation-delay: 144ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(20) { animation-delay: 152ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+21) { animation-delay: 200ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+31) { animation-delay: 260ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+41) { animation-delay: 320ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(2)  { animation-delay:  25ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(3)  { animation-delay:  50ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(4)  { animation-delay:  75ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(5)  { animation-delay: 100ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(6)  { animation-delay: 125ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(7)  { animation-delay: 150ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(8)  { animation-delay: 175ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(9)  { animation-delay: 200ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(10) { animation-delay: 225ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(11) { animation-delay: 250ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(12) { animation-delay: 275ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(13) { animation-delay: 300ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(14) { animation-delay: 325ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(15) { animation-delay: 350ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(16) { animation-delay: 375ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(17) { animation-delay: 400ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(18) { animation-delay: 425ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(19) { animation-delay: 450ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(20) { animation-delay: 475ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="pool"] tbody.cd-pool-tbody > tr:nth-child(n+21) { animation-delay: 500ms; }
 
-    /* Players → Analytics: rows slide in from the left with stagger (on tab switch only). */
+    /* Players → Analytics: rows slide from left with bounce, 30ms stagger. */
     #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr {
-      animation: cd-stagger-left 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: cd-stagger-left 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
     #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(1)  { animation-delay:   0ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(2)  { animation-delay:  14ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(3)  { animation-delay:  28ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(4)  { animation-delay:  42ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(5)  { animation-delay:  56ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(6)  { animation-delay:  70ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(7)  { animation-delay:  84ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(8)  { animation-delay:  98ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(9)  { animation-delay: 112ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(10) { animation-delay: 126ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(n+11) { animation-delay: 140ms; }
-    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(n+21) { animation-delay: 220ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(2)  { animation-delay:  30ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(3)  { animation-delay:  60ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(4)  { animation-delay:  90ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(5)  { animation-delay: 120ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(6)  { animation-delay: 150ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(7)  { animation-delay: 180ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(8)  { animation-delay: 210ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(9)  { animation-delay: 240ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(10) { animation-delay: 270ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(11) { animation-delay: 300ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(12) { animation-delay: 330ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(13) { animation-delay: 360ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(14) { animation-delay: 390ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(15) { animation-delay: 420ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(16) { animation-delay: 450ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(17) { animation-delay: 480ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(18) { animation-delay: 510ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(19) { animation-delay: 540ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(20) { animation-delay: 570ms; }
+    #cd-root #cd-tab-content.cd-sub-enter[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr:nth-child(n+21) { animation-delay: 600ms; }
 
     /* ── Pill / sub-tab underline indicator ─────────────────────── */
     @keyframes cd-subtab-underline {
@@ -4407,36 +4464,133 @@
       border-radius: 2px;
     }
 
-    /* ── Modal transitions (backdrop + box) ─────────────────────── */
+    /* ── Modal transitions (backdrop + box) — bouncy scale ──────── */
     @keyframes cd-modal-in {
-      0%   { opacity: 0; transform: scale(0.94) translateY(8px); }
-      100% { opacity: 1; transform: scale(1) translateY(0); }
+      0%   { opacity: 0; transform: scale(0);    }
+      60%  { opacity: 1; transform: scale(1.08); }
+      100% { opacity: 1; transform: scale(1);    }
     }
     @keyframes cd-modal-backdrop-in { 0%{opacity:0;} 100%{opacity:1;} }
-    .cd-modal-enter { animation: cd-modal-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
-    .modal-bg.open, .modal-bg.active { animation: cd-modal-backdrop-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .cd-modal-enter { animation: cd-modal-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .modal-bg.open, .modal-bg.active { animation: cd-modal-backdrop-in 200ms ease-out both; }
     .modal-bg.open > .modal,
     .modal-bg.active > .modal {
-      animation: cd-modal-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+      animation: cd-modal-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
       will-change: transform, opacity;
+      transform-origin: center center;
     }
 
-    /* ── Room card 3D tilt hover (dashboard) ────────────────────── */
+    /* ── Room card 3D tilt hover (dashboard) — bigger + springy ─── */
     #cd-root #cd-my-rooms-grid .rc,
     #cd-root #cd-joined-rooms-grid .rc {
-      transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms ease-out, border-color 200ms ease-out;
+      transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 260ms ease-out, border-color 260ms ease-out;
       transform-style: preserve-3d;
       will-change: transform;
     }
     #cd-root #cd-my-rooms-grid .rc:hover,
     #cd-root #cd-joined-rooms-grid .rc:hover {
-      transform: perspective(800px) rotateX(4deg) translateY(-3px);
+      transform: perspective(600px) rotateX(6deg) rotateY(-3deg) translateY(-6px) scale(1.02);
+      box-shadow: 0 18px 48px rgba(46, 91, 255, 0.35);
+    }
+    #cd-root #cd-my-rooms-grid .rc:active,
+    #cd-root #cd-joined-rooms-grid .rc:active {
+      transform: scale(0.96);
+      transition: transform 100ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* ── Ticker edge fade-mask ──────────────────────────────────── */
+    /* ── Button feedback: hover lift + visceral active-press ─────── */
+    #cd-root .adm-btn,
+    #cd-root .btn {
+      transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease-out, filter 200ms ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Non-touch hover: lift + shadow. */
+    @media (hover: hover) and (pointer: fine) {
+      #cd-root .adm-btn:hover,
+      #cd-root .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(255, 255, 255, 0.08) inset;
+        filter: brightness(1.05);
+      }
+    }
+    /* Active/press: snappy scale-down for tactile feedback. */
+    #cd-root .adm-btn:active,
+    #cd-root .btn:active {
+      transform: scale(0.94);
+      transition: transform 100ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* CSS ripple — radial gradient that expands on press. Pure CSS, no JS. */
+    #cd-root .adm-btn::after,
+    #cd-root .btn::after {
+      content: '';
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 70%);
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms ease-out;
+    }
+    #cd-root .adm-btn:active::after,
+    #cd-root .btn:active::after {
+      transform: translate(-50%, -50%) scale(40);
+      opacity: 1;
+      transition: transform 0ms, opacity 0ms;
+    }
+
+    /* Roster-card tap (generic fallback — any .rc inside #cd-root gets visceral tap). */
+    #cd-root .rc { transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+    #cd-root .rc:active { transform: scale(0.94); transition: transform 100ms cubic-bezier(0.4, 0, 0.2, 1); }
+
+    /* ── Ticker edge fade-mask + periodic gold shimmer sweep ────── */
     #cd-root .cd-ticker-viewport {
       -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 48px), transparent 100%);
               mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 48px), transparent 100%);
+      position: relative;
+    }
+    @keyframes cd-ticker-shimmer {
+      0%   { transform: translateX(-120%); opacity: 0; }
+      10%  { opacity: 0.9; }
+      40%  { opacity: 0.9; }
+      50%  { transform: translateX(120%);  opacity: 0; }
+      100% { transform: translateX(120%);  opacity: 0; }
+    }
+    #cd-root .cd-ticker-track {
+      position: relative;
+    }
+    #cd-root .cd-ticker-track::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(100deg,
+        transparent 0%,
+        transparent 40%,
+        rgba(255, 215, 61, 0.35) 48%,
+        rgba(255, 235, 150, 0.75) 50%,
+        rgba(255, 215, 61, 0.35) 52%,
+        transparent 60%,
+        transparent 100%);
+      mix-blend-mode: screen;
+      pointer-events: none;
+      transform: translateX(-120%);
+      animation: cd-ticker-shimmer 4s ease-in-out infinite;
+      will-change: transform, opacity;
+    }
+
+    /* ── "Pop in" attention nudge for live score bumps ──────────── */
+    @keyframes cd-pts-pop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.4); }
+      100% { transform: scale(1); }
+    }
+    .cd-pts-pop {
+      display: inline-block;
+      animation: cd-pts-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      transform-origin: center center;
+      will-change: transform;
     }
 
     /* Keep legacy helpers around for callers elsewhere. */
@@ -4461,13 +4615,22 @@
       #cd-root #cd-tab-content[data-cd-nav="players"][data-cd-sub="analytics"] tbody.cd-analytics-tbody > tr,
       #cd-root .cd-subtab-bar button[data-sub-active="1"]::after,
       .modal-bg.open, .modal-bg.active,
-      .modal-bg.open > .modal, .modal-bg.active > .modal {
+      .modal-bg.open > .modal, .modal-bg.active > .modal,
+      .cd-pts-pop,
+      #cd-root .cd-ticker-track::after {
         animation: cd-view-in 1ms linear both !important;
       }
       #cd-root #cd-my-rooms-grid .rc,
-      #cd-root #cd-joined-rooms-grid .rc { transition: none !important; }
+      #cd-root #cd-joined-rooms-grid .rc,
+      #cd-root .adm-btn, #cd-root .btn, #cd-root .rc { transition: none !important; }
       #cd-root #cd-my-rooms-grid .rc:hover,
-      #cd-root #cd-joined-rooms-grid .rc:hover { transform: none !important; }
+      #cd-root #cd-joined-rooms-grid .rc:hover,
+      #cd-root .adm-btn:hover, #cd-root .btn:hover { transform: none !important; box-shadow: none !important; filter: none !important; }
+      #cd-root #cd-my-rooms-grid .rc:active,
+      #cd-root #cd-joined-rooms-grid .rc:active,
+      #cd-root .adm-btn:active, #cd-root .btn:active, #cd-root .rc:active { transform: none !important; }
+      #cd-root .adm-btn::after, #cd-root .btn::after,
+      #cd-root .adm-btn:active::after, #cd-root .btn:active::after { display: none !important; }
     }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
