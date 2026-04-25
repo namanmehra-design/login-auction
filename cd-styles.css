@@ -461,3 +461,689 @@ body { background: var(--bg); }
   box-shadow: inset 0 1px 0 var(--glass-hi);
 }
 .side-item .icon { width: 16px; height: 16px; opacity: 0.8; flex-shrink: 0; }
+
+/* =========================================================
+   AGENT 3 — INPUTS · BUTTONS · MODALS micro-interactions
+   References: Stripe button taps (spring on press), Linear
+   input focus halos, Apple HIG modal sheet pop, Arc browser
+   subtle button settle. All loops banned on focal content.
+   ========================================================= */
+
+/* ─── KEYFRAMES (a3-* namespace) ─── */
+@keyframes a3-wiggle {
+  0%   { transform: rotateZ(0deg); }
+  30%  { transform: rotateZ(-1deg); }
+  65%  { transform: rotateZ(1deg); }
+  100% { transform: rotateZ(0deg); }
+}
+@keyframes a3-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(3px); }
+}
+@keyframes a3-success-flash {
+  0%   { background-color: rgba(182,255,60,0.0); }
+  30%  { background-color: rgba(182,255,60,0.28); }
+  100% { background-color: rgba(182,255,60,0.0); }
+}
+@keyframes a3-typing-pulse {
+  0%   { border-color: var(--electric); }
+  50%  { border-color: var(--electric-2); }
+  100% { border-color: var(--electric); }
+}
+@keyframes a3-press {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.92); }
+  70%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes a3-press-soft {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+@keyframes a3-ripple {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.55; }
+  80%  { opacity: 0.20; }
+  100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+}
+@keyframes a3-spin-once {
+  to { transform: rotate(360deg); }
+}
+@keyframes a3-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes a3-modal-pop {
+  0%   { transform: scale(0.6) rotateX(-12deg); opacity: 0; }
+  60%  { transform: scale(1.04) rotateX(0deg);  opacity: 1; }
+  100% { transform: scale(1)    rotateX(0deg);  opacity: 1; }
+}
+@keyframes a3-modal-squash {
+  0%   { transform: scale(1, 1);     opacity: 1; }
+  60%  { transform: scale(1.05, .85); opacity: 0.8; }
+  100% { transform: scale(0.85, .7); opacity: 0; }
+}
+@keyframes a3-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  to   { opacity: 1; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+}
+@keyframes a3-form-expand {
+  from { transform: scale(0.96) translateY(6px); opacity: 0; }
+  to   { transform: scale(1) translateY(0);     opacity: 1; }
+}
+@keyframes a3-chip-in {
+  from { transform: translateX(-8px) scale(0.9); opacity: 0; }
+  to   { transform: translateX(0)    scale(1);   opacity: 1; }
+}
+@keyframes a3-check-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes a3-bg-sweep-green {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0    0; }
+}
+@keyframes a3-red-flash {
+  0%   { box-shadow: 0 0 0 0   rgba(255,59,59,0.0); }
+  35%  { box-shadow: 0 0 0 10px rgba(255,59,59,0.45); }
+  100% { box-shadow: 0 0 0 0   rgba(255,59,59,0.0); }
+}
+@keyframes a3-drawer-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes a3-drawer-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes a3-padlock-bounce {
+  0%   { transform: translateY(0)   scale(1); }
+  40%  { transform: translateY(-3px) scale(1.15); }
+  100% { transform: translateY(0)   scale(1); }
+}
+@keyframes a3-undo-slide {
+  0%   { transform: translateX(0); }
+  40%  { transform: translateX(-4px); }
+  100% { transform: translateX(0); }
+}
+
+/* ─── 3.x INPUTS ─── */
+
+/* Float-label container */
+.a3-float {
+  position: relative;
+  margin: 14px 0;
+}
+.a3-float > input,
+.a3-float > select,
+.a3-float > textarea {
+  width: 100%;
+  padding: 18px 14px 8px;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--glass);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  outline: none;
+  font-family: var(--sans);
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+}
+.a3-float > label {
+  position: absolute;
+  left: 14px; top: 14px;
+  font-size: 13px; color: var(--mute);
+  pointer-events: none;
+  transform-origin: 0 50%;
+  transition: transform .18s var(--ease), color .18s var(--ease);
+}
+.a3-float > input:focus + label,
+.a3-float > input:not(:placeholder-shown) + label,
+.a3-float > select:focus + label,
+.a3-float > textarea:focus + label,
+.a3-float > textarea:not(:placeholder-shown) + label {
+  transform: translateY(-9px) scale(0.78);
+  color: var(--electric);
+}
+.a3-float > input:focus,
+.a3-float > select:focus,
+.a3-float > textarea:focus {
+  border-color: var(--electric);
+  box-shadow: 0 0 0 3px rgba(46,91,255,0.22), 0 0 24px rgba(46,91,255,0.14);
+}
+
+/* Auth inputs — one-shot wiggle on focus (3.1/3.2). NOT looping. */
+#authEmail:focus,
+#authPassword:focus {
+  animation: a3-wiggle 220ms var(--spring);
+}
+
+/* Search/filter — focus halo only, no per-keystroke motion (3.3-3.12) */
+.a3-search {
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.a3-search:focus {
+  outline: none;
+  border-color: var(--electric);
+  box-shadow: 0 0 0 3px rgba(46,91,255,0.18);
+}
+
+/* Subtle border pulse while typing — NOT a loop, fires once via JS toggle */
+.a3-typing {
+  animation: a3-typing-pulse 600ms var(--ease) 1;
+}
+
+/* Invalid input — horizontal shake + red border, ONE-SHOT */
+.a3-invalid {
+  animation: a3-shake 240ms cubic-bezier(.36,.07,.19,.97);
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px rgba(255,59,59,0.22) !important;
+}
+
+/* Scorecard import success flash (3.13-3.16) — one-shot */
+.a3-flash-success {
+  animation: a3-success-flash 700ms var(--ease) 1;
+}
+
+/* Form-open expand spring (3.17-3.20) */
+.a3-form-open {
+  animation: a3-form-expand 320ms var(--spring) both;
+  transform-origin: top center;
+}
+
+/* Trade chip slide-in (3.22) */
+.a3-chip-in {
+  animation: a3-chip-in 240ms var(--spring) both;
+}
+
+/* ─── 4.x BUTTONS ─── */
+
+/* Global press (4.5) — light spring, fires on :active via tween via class */
+.a3-btn,
+.btn { /* layered onto existing .btn — no override of look, just press feel */
+  position: relative;
+  overflow: hidden;
+}
+.btn:active,
+.a3-btn:active {
+  animation: a3-press-soft 180ms var(--spring);
+}
+
+/* Bid + button (4.1) — heavier spring on press */
+.a3-bid {
+  position: relative;
+  overflow: hidden;
+}
+.a3-bid:active {
+  animation: a3-press 280ms var(--spring);
+}
+
+/* Ripple (added by JS, expanded from click point) */
+.a3-ripple {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.55);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  animation: a3-ripple 520ms var(--ease) forwards;
+}
+
+/* Hero buttons (4.9/4.10) — heroic press */
+.a3-hero {
+  position: relative;
+  transition: transform .2s var(--spring), box-shadow .25s var(--ease);
+}
+.a3-hero:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(46,91,255,0.55);
+}
+.a3-hero:active {
+  animation: a3-press 320ms var(--spring);
+}
+
+/* Loading spinner inline */
+.a3-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.28);
+  border-top-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: a3-spin .7s linear infinite;
+  vertical-align: middle;
+}
+.a3-loading {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Auth submit loading (4.6) */
+#authBtn.a3-loading { cursor: wait; }
+
+/* Success morph (4.7/4.8/4.20) — green sweep + checkmark draw */
+.a3-success-morph {
+  position: relative;
+  background: linear-gradient(90deg, var(--lime) 0%, var(--lime-2) 50%, transparent 50%, transparent 100%) !important;
+  background-size: 200% 100% !important;
+  background-position: 100% 0 !important;
+  animation: a3-bg-sweep-green 420ms var(--ease) forwards;
+  color: #0A0B12 !important;
+  border-color: var(--lime) !important;
+}
+.a3-check-svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: a3-check-draw 320ms var(--ease) 220ms forwards;
+}
+
+/* Danger button (4.11) — shake on hover, red flash on confirm */
+.btn-danger:hover,
+.a3-danger:hover {
+  animation: a3-shake 320ms var(--ease);
+}
+.a3-confirm-danger {
+  animation: a3-red-flash 360ms var(--ease);
+}
+
+/* Random Player dice spin (4.14) — one-shot per click */
+.a3-spin-once {
+  display: inline-block;
+  animation: a3-spin-once 600ms var(--spring);
+}
+
+/* Refresh spin (4.19) — one-shot */
+.a3-refresh-spin {
+  display: inline-block;
+  animation: a3-spin-once 700ms var(--ease);
+}
+
+/* Number-tween reveal (4.15) */
+.a3-num-reveal {
+  display: inline-block;
+  animation: a3-form-expand 320ms var(--spring) both;
+}
+
+/* Recalculate success pulse (4.18) */
+.a3-success-pulse {
+  animation: a3-press 360ms var(--spring), a3-success-flash 700ms var(--ease);
+}
+
+/* Undo (4.21) */
+.a3-undo {
+  animation: a3-undo-slide 280ms var(--spring);
+}
+
+/* Lock changes (4.22) */
+.a3-padlock {
+  display: inline-block;
+  animation: a3-padlock-bounce 360ms var(--spring);
+}
+
+/* ─── 5.x MODALS ─── */
+
+/* Apply via .a3-modal class on the inner modal element */
+.a3-modal {
+  animation: a3-modal-pop 380ms var(--spring) both;
+  transform-origin: center center;
+  box-shadow: var(--sh-2), 0 0 60px rgba(46,91,255,0.20);
+}
+.a3-modal-closing {
+  animation: a3-modal-squash 220ms var(--ease) forwards;
+}
+.a3-modal-bg {
+  animation: a3-backdrop-in 280ms var(--ease) both;
+}
+
+/* Sidebar drawer (5.10) */
+.a3-drawer {
+  animation: a3-drawer-slide 320ms var(--spring) both;
+}
+.a3-drawer-overlay {
+  animation: a3-drawer-fade 240ms var(--ease) both;
+}
+
+/* Trade reject shake (5.11) */
+.a3-reject {
+  animation: a3-shake 280ms cubic-bezier(.36,.07,.19,.97);
+}
+
+/* Reduced motion — kill all a3 animations */
+@media (prefers-reduced-motion: reduce) {
+  [class*="a3-"], #authEmail:focus, #authPassword:focus,
+  .btn:active, .a3-btn:active {
+    animation: none !important;
+  }
+}
+
+/* =========================================================
+   AGENT 2 — LIST/CARD REVEAL + CARD HOVER/PRESS (a2-* / cd-*)
+   Owns: card hover/press, stagger keyframes, FLIP helpers,
+   3D tilt, one-shot pulses for top-3 / MOTM / captain crown,
+   delta cell flash, trade card slide-in/fly-out, accordion
+   spring, stroke-draw for analytics, team-color flash.
+   References: Paul Lewis FLIP technique, Apple Photos card
+   stagger cadence, Notion list reflow, Linear rank swap,
+   Stripe row hover lift.
+   Rules honored:
+     - Triggered transitions fire ONCE on focal content.
+     - Loops only on ambient (live dots — already pre-existing).
+     - Spring eases for user-facing motion.
+     - Reduced-motion guard at end collapses everything.
+   ========================================================= */
+
+/* ── Easing aliases (motion-only, scoped a2-) ───────────── */
+:root {
+  --a2-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --a2-ease-out:  cubic-bezier(0.22, 1, 0.36, 1);
+  --a2-press:     cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── 6.1 Room-card 3D tilt + first-paint stagger ────────── */
+.cd-room-card-v2 {
+  transition:
+    transform 320ms var(--a2-spring),
+    box-shadow 280ms var(--a2-ease-out),
+    border-color 220ms var(--a2-ease-out);
+  transform-style: preserve-3d;
+  will-change: transform;
+  position: relative;
+  animation: a2-card-fade-up 360ms var(--a2-ease-out) both;
+}
+.cd-room-card-v2::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    160deg,
+    rgba(255,255,255,0.10) 0%,
+    rgba(255,255,255,0.02) 28%,
+    transparent 55%);
+  opacity: 0.5;
+  transition: opacity 280ms var(--a2-ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .cd-room-card-v2:hover {
+    transform: perspective(900px) rotateX(6deg) rotateY(-4deg) translateY(-6px) scale(1.015);
+    box-shadow:
+      0 22px 48px rgba(0,0,0,0.42),
+      0 0 0 1px rgba(46, 91, 255, 0.32),
+      0 12px 36px rgba(46, 91, 255, 0.28);
+    border-color: rgba(46, 91, 255, 0.55) !important;
+  }
+  .cd-room-card-v2:hover::after { opacity: 1; }
+}
+.cd-room-card-v2:active {
+  transform: scale(0.965);
+  transition: transform 110ms var(--a2-press);
+}
+
+@keyframes a2-card-fade-up {
+  0%   { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.cd-room-card-v2:nth-child(1)  { animation-delay:   0ms; }
+.cd-room-card-v2:nth-child(2)  { animation-delay:  30ms; }
+.cd-room-card-v2:nth-child(3)  { animation-delay:  60ms; }
+.cd-room-card-v2:nth-child(4)  { animation-delay:  90ms; }
+.cd-room-card-v2:nth-child(5)  { animation-delay: 120ms; }
+.cd-room-card-v2:nth-child(6)  { animation-delay: 150ms; }
+.cd-room-card-v2:nth-child(7)  { animation-delay: 180ms; }
+.cd-room-card-v2:nth-child(8)  { animation-delay: 210ms; }
+.cd-room-card-v2:nth-child(9)  { animation-delay: 240ms; }
+.cd-room-card-v2:nth-child(10) { animation-delay: 270ms; }
+.cd-room-card-v2:nth-child(n+11) { animation-delay: 300ms; }
+
+/* ── 2.2 Admin all-rooms list reveal stagger ────────────── */
+#cd-root .sa-room-card { animation: a2-card-fade-up 320ms var(--a2-ease-out) both; }
+#cd-root .sa-room-card:nth-child(1) { animation-delay:   0ms; }
+#cd-root .sa-room-card:nth-child(2) { animation-delay:  35ms; }
+#cd-root .sa-room-card:nth-child(3) { animation-delay:  70ms; }
+#cd-root .sa-room-card:nth-child(4) { animation-delay: 105ms; }
+#cd-root .sa-room-card:nth-child(5) { animation-delay: 140ms; }
+#cd-root .sa-room-card:nth-child(6) { animation-delay: 175ms; }
+#cd-root .sa-room-card:nth-child(7) { animation-delay: 210ms; }
+#cd-root .sa-room-card:nth-child(8) { animation-delay: 245ms; }
+#cd-root .sa-room-card:nth-child(n+9) { animation-delay: 280ms; }
+
+/* ── Generic list-stagger utility (2.3, 2.4, 2.10, 2.13) ── */
+@keyframes a2-row-slide-in {
+  0%   { opacity: 0; transform: translateX(-12px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.cd-list-stagger > * {
+  animation: a2-row-slide-in 280ms var(--a2-ease-out) both;
+}
+.cd-list-stagger > *:nth-child(1)  { animation-delay:   0ms; }
+.cd-list-stagger > *:nth-child(2)  { animation-delay:  35ms; }
+.cd-list-stagger > *:nth-child(3)  { animation-delay:  70ms; }
+.cd-list-stagger > *:nth-child(4)  { animation-delay: 105ms; }
+.cd-list-stagger > *:nth-child(5)  { animation-delay: 140ms; }
+.cd-list-stagger > *:nth-child(6)  { animation-delay: 175ms; }
+.cd-list-stagger > *:nth-child(7)  { animation-delay: 210ms; }
+.cd-list-stagger > *:nth-child(8)  { animation-delay: 245ms; }
+.cd-list-stagger > *:nth-child(9)  { animation-delay: 280ms; }
+.cd-list-stagger > *:nth-child(10) { animation-delay: 315ms; }
+.cd-list-stagger > *:nth-child(11) { animation-delay: 350ms; }
+.cd-list-stagger > *:nth-child(12) { animation-delay: 385ms; }
+.cd-list-stagger > *:nth-child(n+13) { animation-delay: 420ms; }
+
+/* ── Card-grid stagger (2.7 columns, 2.11, 2.12) ────────── */
+@keyframes a2-card-rise {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.cd-grid-stagger > * {
+  animation: a2-card-rise 320ms var(--a2-spring) both;
+  transform-origin: center top;
+}
+.cd-grid-stagger > *:nth-child(1)  { animation-delay:   0ms; }
+.cd-grid-stagger > *:nth-child(2)  { animation-delay:  40ms; }
+.cd-grid-stagger > *:nth-child(3)  { animation-delay:  80ms; }
+.cd-grid-stagger > *:nth-child(4)  { animation-delay: 120ms; }
+.cd-grid-stagger > *:nth-child(5)  { animation-delay: 160ms; }
+.cd-grid-stagger > *:nth-child(6)  { animation-delay: 200ms; }
+.cd-grid-stagger > *:nth-child(7)  { animation-delay: 240ms; }
+.cd-grid-stagger > *:nth-child(8)  { animation-delay: 280ms; }
+.cd-grid-stagger > *:nth-child(9)  { animation-delay: 320ms; }
+.cd-grid-stagger > *:nth-child(10) { animation-delay: 360ms; }
+.cd-grid-stagger > *:nth-child(11) { animation-delay: 400ms; }
+.cd-grid-stagger > *:nth-child(n+12) { animation-delay: 440ms; }
+
+/* ── 6.2 Card hover lift (player rows / generic) ────────── */
+.cd-card-lift {
+  transition:
+    transform 220ms var(--a2-spring),
+    box-shadow 220ms var(--a2-ease-out),
+    border-color 180ms var(--a2-ease-out);
+  will-change: transform;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cd-card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.28), 0 0 0 1px var(--line-3);
+  }
+}
+.cd-card-lift:active {
+  transform: scale(0.985);
+  transition: transform 100ms var(--a2-press);
+}
+
+/* ── FLIP helper (Paul Lewis FLIP) ──────────────────────── */
+.cd-flip-anim {
+  transition: transform 420ms var(--a2-spring);
+  will-change: transform;
+}
+
+/* ── 2.9 Spring accordion for collapsibles ──────────────── */
+.cd-accordion-spring {
+  overflow: hidden;
+  transition:
+    height 360ms var(--a2-spring),
+    opacity 240ms var(--a2-ease-out);
+  will-change: height;
+}
+
+/* ── 2.8 Analytics stroke draw + bar grow (one-shot) ───── */
+@keyframes a2-stroke-draw {
+  0%   { stroke-dashoffset: var(--cd-dash, 600); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+.cd-stroke-draw {
+  stroke-dasharray: var(--cd-dash, 600);
+  stroke-dashoffset: var(--cd-dash, 600);
+  animation: a2-stroke-draw 900ms var(--a2-ease-out) both;
+}
+@keyframes a2-bar-grow {
+  0%   { transform: scaleY(0); opacity: 0.4; }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+.cd-bar-grow {
+  transform-origin: bottom center;
+  animation: a2-bar-grow 520ms var(--a2-spring) both;
+}
+
+/* ── 2.10 / 6.5 Trade cards — slide-in + accept/reject ── */
+@keyframes a2-trade-card-in {
+  0%   { opacity: 0; transform: translateX(20px) scale(0.98); }
+  100% { opacity: 1; transform: translateX(0)    scale(1); }
+}
+.cd-trade-card { animation: a2-trade-card-in 360ms var(--a2-spring) both; }
+.cd-trade-card:nth-child(1) { animation-delay:   0ms; }
+.cd-trade-card:nth-child(2) { animation-delay:  45ms; }
+.cd-trade-card:nth-child(3) { animation-delay:  90ms; }
+.cd-trade-card:nth-child(4) { animation-delay: 135ms; }
+.cd-trade-card:nth-child(5) { animation-delay: 180ms; }
+.cd-trade-card:nth-child(n+6) { animation-delay: 220ms; }
+
+@keyframes a2-trade-fly-out {
+  0%   { opacity: 1; transform: translateX(0) scale(1); max-height: 600px; }
+  60%  { opacity: 0.4; transform: translateX(48px) scale(0.94); }
+  100% { opacity: 0; transform: translateX(120%) scale(0.88); max-height: 0; margin: 0; padding: 0; border-width: 0; }
+}
+.cd-trade-fly-out {
+  animation: a2-trade-fly-out 520ms var(--a2-ease-out) forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+@keyframes a2-trade-reject {
+  0%   { transform: translateX(0); opacity: 1; max-height: 600px; }
+  20%  { transform: translateX(-8px); }
+  40%  { transform: translateX(6px); }
+  60%  { transform: translateX(-4px); }
+  100% { transform: translateX(0); opacity: 0; max-height: 0; margin: 0; padding: 0; border-width: 0; }
+}
+.cd-trade-reject {
+  animation: a2-trade-reject 520ms var(--a2-ease-out) forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ── 2.11 / 6.3 Squad card flip on captain/VC toggle ──── */
+@keyframes a2-card-flip {
+  0%   { transform: perspective(800px) rotateY(0); }
+  50%  { transform: perspective(800px) rotateY(90deg); }
+  51%  { transform: perspective(800px) rotateY(-90deg); }
+  100% { transform: perspective(800px) rotateY(0); }
+}
+.cd-card-flip-anim {
+  animation: a2-card-flip 600ms var(--a2-ease-out) both;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* Captain crown one-shot pop */
+@keyframes a2-crown-pop {
+  0%   { transform: scale(0) rotate(-25deg); opacity: 0; }
+  55%  { transform: scale(1.35) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.cd-crown-pop {
+  display: inline-block;
+  animation: a2-crown-pop 480ms var(--a2-spring) both;
+  transform-origin: center bottom;
+}
+
+/* ── 6.4 Top-3 rank pulse (ONE-SHOT — fires on enter) ──── */
+@keyframes a2-rank-pulse-gold {
+  0%   { box-shadow: 0 0 0 0  rgba(255, 200, 61, 0); }
+  35%  { box-shadow: 0 0 0 14px rgba(255, 200, 61, 0.55); }
+  100% { box-shadow: 0 0 0 0  rgba(255, 200, 61, 0); }
+}
+@keyframes a2-rank-pulse-silver {
+  0%   { box-shadow: 0 0 0 0  rgba(220, 225, 240, 0); }
+  35%  { box-shadow: 0 0 0 12px rgba(220, 225, 240, 0.50); }
+  100% { box-shadow: 0 0 0 0  rgba(220, 225, 240, 0); }
+}
+@keyframes a2-rank-pulse-bronze {
+  0%   { box-shadow: 0 0 0 0  rgba(210, 138, 70, 0); }
+  35%  { box-shadow: 0 0 0 12px rgba(210, 138, 70, 0.50); }
+  100% { box-shadow: 0 0 0 0  rgba(210, 138, 70, 0); }
+}
+.cd-rank-pulse-gold   { animation: a2-rank-pulse-gold   1100ms var(--a2-ease-out) 1 both; border-radius: inherit; }
+.cd-rank-pulse-silver { animation: a2-rank-pulse-silver 1100ms var(--a2-ease-out) 1 both; border-radius: inherit; }
+.cd-rank-pulse-bronze { animation: a2-rank-pulse-bronze 1100ms var(--a2-ease-out) 1 both; border-radius: inherit; }
+
+/* ── 6.6 MOTM star one-shot pulse ───────────────────────── */
+@keyframes a2-motm-star-pulse {
+  0%   { transform: scale(0.4) rotate(-30deg); opacity: 0; filter: drop-shadow(0 0 0 var(--gold)); }
+  45%  { transform: scale(1.45) rotate(8deg);  opacity: 1; filter: drop-shadow(0 0 14px var(--gold)); }
+  100% { transform: scale(1) rotate(0);        opacity: 1; filter: drop-shadow(0 0 4px var(--gold)); }
+}
+.cd-motm-star-pulse {
+  display: inline-block;
+  animation: a2-motm-star-pulse 620ms var(--a2-spring) 1 both;
+  transform-origin: center center;
+}
+
+/* ── 2.6 Cell flash on delta (ONE-SHOT, NOT loop) ──────── */
+@keyframes a2-cell-flash {
+  0%   { background-color: rgba(182, 255, 60, 0); }
+  25%  { background-color: rgba(182, 255, 60, 0.32); }
+  100% { background-color: rgba(182, 255, 60, 0); }
+}
+.cd-cell-flash {
+  animation: a2-cell-flash 900ms var(--a2-ease-out) 1 both;
+}
+@keyframes a2-cell-flash-down {
+  0%   { background-color: rgba(255, 59, 59, 0); }
+  25%  { background-color: rgba(255, 59, 59, 0.28); }
+  100% { background-color: rgba(255, 59, 59, 0); }
+}
+.cd-cell-flash-down {
+  animation: a2-cell-flash-down 900ms var(--a2-ease-out) 1 both;
+}
+
+/* ── 6.7 Team-color flash on bidder change (ONE-SHOT) ───
+   Rule 8: color flashes > position flashes for live data.   */
+@keyframes a2-team-flash {
+  0%   { background-color: var(--cd-flash, rgba(46,91,255,0)); }
+  20%  { background-color: var(--cd-flash, rgba(46,91,255,0.45)); }
+  100% { background-color: transparent; }
+}
+.cd-team-flash {
+  animation: a2-team-flash 700ms var(--a2-ease-out) 1 both;
+}
+
+/* ── Reduced-motion guard for Agent 2 ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .cd-room-card-v2,
+  .cd-list-stagger > *, .cd-grid-stagger > *,
+  .cd-trade-card,
+  .cd-card-lift, .cd-flip-anim, .cd-accordion-spring,
+  .cd-stroke-draw, .cd-bar-grow,
+  .cd-card-flip-anim, .cd-crown-pop,
+  .cd-rank-pulse-gold, .cd-rank-pulse-silver, .cd-rank-pulse-bronze,
+  .cd-motm-star-pulse, .cd-cell-flash, .cd-cell-flash-down,
+  .cd-team-flash, .cd-trade-fly-out, .cd-trade-reject,
+  #cd-root .sa-room-card {
+    animation: none !important;
+    transition: none !important;
+  }
+  .cd-room-card-v2:hover,
+  .cd-card-lift:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}

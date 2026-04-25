@@ -3225,3 +3225,60 @@ h1, h2, h3, h4, h5, h6,
   border-bottom: 1px solid var(--b1);
   margin-bottom: 20px;
 }
+
+/* =========================================================
+   AGENT 3 — Legacy hooks for inputs/buttons/modals
+   Pairs with cd-styles.css (a3-* keyframes live there).
+   References: Stripe Checkout button press, Linear focus ring.
+   ========================================================= */
+
+/* Auth input one-shot wiggle on focus */
+#authEmail:focus, #authPassword:focus {
+  animation: a3-wiggle 220ms var(--spring, cubic-bezier(.34,1.56,.64,1));
+}
+
+/* Invalid input shake */
+.fld input.a3-invalid, .fld select.a3-invalid {
+  animation: a3-shake 240ms cubic-bezier(.36,.07,.19,.97);
+  border-color: var(--err) !important;
+  box-shadow: 0 0 0 3px rgba(252,165,165,0.25) !important;
+}
+
+/* Legacy .btn settle on press (no override of look) */
+.btn { position: relative; overflow: hidden; }
+.btn:active { animation: a3-press-soft 180ms var(--spring, cubic-bezier(.34,1.56,.64,1)); }
+
+/* Loading spinner inline (legacy) */
+.a3-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.28);
+  border-top-color: #fff;
+  border-radius: 50%; display: inline-block;
+  animation: a3-spin .7s linear infinite;
+  vertical-align: middle;
+}
+.a3-loading { pointer-events: none; opacity: .85; cursor: wait; }
+
+/* Ripple */
+.a3-ripple {
+  position: absolute; width: 12px; height: 12px;
+  border-radius: 50%; background: rgba(255,255,255,0.55);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  animation: a3-ripple 520ms ease-out forwards;
+}
+
+/* Danger hover shake */
+.btn-danger:hover { animation: a3-shake 320ms ease; }
+
+/* Modal pop / close — supplements existing modalIn */
+.modal.a3-modal { animation: a3-modal-pop 380ms var(--spring, cubic-bezier(.34,1.56,.64,1)) both; }
+.modal.a3-modal-closing { animation: a3-modal-squash 220ms ease forwards; }
+.modal-bg.a3-modal-bg { animation: a3-backdrop-in 280ms ease both; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [class*="a3-"], #authEmail:focus, #authPassword:focus, .btn:active, .btn-danger:hover {
+    animation: none !important;
+  }
+}
