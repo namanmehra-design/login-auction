@@ -4665,24 +4665,8 @@
     #cd-root .cd-ticker-track {
       position: relative;
     }
-    #cd-root .cd-ticker-track::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(100deg,
-        transparent 0%,
-        transparent 40%,
-        rgba(255, 215, 61, 0.35) 48%,
-        rgba(255, 235, 150, 0.75) 50%,
-        rgba(255, 215, 61, 0.35) 52%,
-        transparent 60%,
-        transparent 100%);
-      mix-blend-mode: screen;
-      pointer-events: none;
-      transform: translateX(-120%);
-      animation: cd-ticker-shimmer 4s ease-in-out infinite;
-      will-change: transform, opacity;
-    }
+    /* Yellow ticker shimmer REMOVED — was distracting on focal scroll content. */
+    #cd-root .cd-ticker-track::after { display: none !important; content: none !important; animation: none !important; }
 
     /* ── "Pop in" attention nudge for live score bumps ──────────── */
     @keyframes cd-pts-pop {
