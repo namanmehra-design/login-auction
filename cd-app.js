@@ -3567,7 +3567,7 @@
       const statusTone = t.status === 'accepted' ? 'lime' : t.status === 'rejected' || t.status === 'cancelled' ? 'red' : 'electric';
       const when = t.timestamp ? new Date(t.timestamp).toLocaleDateString() : '';
       return `
-        <div style="border-radius:16px;background:var(--glass);border:1px solid var(--line);overflow:hidden;backdrop-filter:blur(20px);">
+        <div class="cd-trade-card" data-trade-id="${esc(t.id)}" style="border-radius:16px;background:var(--glass);border:1px solid var(--line);overflow:hidden;backdrop-filter:blur(20px);">
           <div style="padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <div style="display:flex;align-items:center;gap:6px;">${CD.Avatar({name: t.from, size: 28})}<span style="font-weight:600;font-size:13px;">${esc(t.from)}</span></div>
@@ -4270,7 +4270,7 @@
         const buildCards = (rooms, isOwner) => {
           if(!rooms.length) return '<div style="padding:20px;color:var(--mute);grid-column:1/-1;text-align:center;background:var(--glass);border:1px dashed var(--line-2);border-radius:14px;">' + (isOwner ? 'No rooms yet — create one above.' : 'No joined rooms yet.') + '</div>';
           return rooms.map(r => {
-            return `<div data-rid="${esc(r.id)}" onclick="CD.handleRoomClick(this)" style="padding:20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);cursor:pointer;transition:all 0.2s;backdrop-filter:blur(20px);" onmouseover="this.style.borderColor='var(--electric)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='var(--line-2)';this.style.transform='translateY(0)';">
+            return `<div data-rid="${esc(r.id)}" class="cd-room-card-v2" onclick="CD.handleRoomClick(this)" style="padding:20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);cursor:pointer;backdrop-filter:blur(20px);">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">
                 <div class="ed" style="font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.name)}</div>
                 ${isOwner ? '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.16);border:1px solid rgba(255,200,61,0.4);color:#FFD97D;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0;">Owner</span>' : '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:9999px;background:rgba(46,91,255,0.18);border:1px solid rgba(46,91,255,0.4);color:#8EA9FF;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0;">Joined</span>'}
