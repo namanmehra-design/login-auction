@@ -3277,7 +3277,7 @@ h1, h2, h3, h4, h5, h6,
 .modal-bg.a3-modal-bg { animation: a3-backdrop-in 280ms ease both; }
 
 /* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: never-match-naman) {
   [class*="a3-"], #authEmail:focus, #authPassword:focus, .btn:active, .btn-danger:hover {
     animation: none !important;
   }

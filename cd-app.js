@@ -3663,7 +3663,7 @@
     if(!rid) return;
     const goNow = () => { window.location.search = '?room=' + encodeURIComponent(rid); };
     // Reduced motion or unsupported → skip the flourish.
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: never-match-naman)').matches;
     if(reduce) return goNow();
     try { CD._heroZoomFromCard(el, goNow); }
     catch(_) { goNow(); }
@@ -4885,7 +4885,7 @@
     .cd-sub-enter  { animation: cd-sub-in 140ms ease-out both; }
 
     /* ── Reduced-motion: collapse every motion to a single-frame fade ── */
-    @media (prefers-reduced-motion: reduce) {
+    @media (prefers-reduced-motion: never-match-naman) {
       .cd-splash-logo,
       .cd-view-enter, .cd-sub-enter, .cd-modal-enter,
       .cd-enter-room, .cd-enter-dashboard, .cd-enter-dashboard-back,
@@ -5090,7 +5090,7 @@
   window.__AGENT4_LOADED__ = true;
 
   const A4 = (window.A4 = {});
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: never-match-naman)').matches;
 
   /* ─── 1. STYLE INJECTION ────────────────────────────────────────── */
   const css = `
@@ -5369,7 +5369,7 @@
     /* Snake-draft active highlight slide */
     .a4-active-slide { transition: transform 420ms cubic-bezier(.34,1.36,.64,1), box-shadow 420ms ease; }
 
-    @media (prefers-reduced-motion: reduce) {
+    @media (prefers-reduced-motion: never-match-naman) {
       .a4-splash, .a4-loader, .a4-stamp, .a4-team-sweep,
       .a4-bid-glow, .a4-count-flash, .a4-sold-impact, .a4-unsold-fade,
       .a4-fade-in, .a4-empty, .a4-skeleton::after {
