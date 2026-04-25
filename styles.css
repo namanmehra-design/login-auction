@@ -3282,3 +3282,7 @@ h1, h2, h3, h4, h5, h6,
     animation: none !important;
   }
 }
+
+/* Agent 4: extend count-flash to all delta cells (one-shot, never loop) */
+[data-delta-flash="1"], .delta-cell.flash, .lb-delta.flash { animation: count-flash .45s ease both; animation-iteration-count: 1 !important; }
+.count-flash, [data-delta-flash="1"] { animation-iteration-count: 1 !important; }
