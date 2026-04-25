@@ -5093,3 +5093,709 @@
     setTimeout(function(){ if (ab.classList.contains('a3-loading')) window.a3.btnLoading(ab, false); }, 6000);
   }, true);
 })();
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AGENT 4 — Live state changes • Loading orchestration • Splash
+              Celebrations (canvas-confetti) • Empty states • Skeleton
+   Self-contained IIFE. All new classes/keyframes prefixed `a4-`.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function AGENT4(){
+  'use strict';
+  if (window.__AGENT4_LOADED__) return;
+  window.__AGENT4_LOADED__ = true;
+
+  const A4 = (window.A4 = {});
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ─── 1. STYLE INJECTION ────────────────────────────────────────── */
+  const css = `
+    /* Splash overlay */
+    .a4-splash {
+      position: fixed; inset: 0; z-index: 100000;
+      background: radial-gradient(ellipse at 50% 40%, #1a1233 0%, #07070C 70%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .a4-splash.a4-out { animation: a4-splash-sweep 600ms cubic-bezier(.7,0,.3,1) forwards; }
+    @keyframes a4-splash-sweep {
+      0% { opacity: 1; transform: translateY(0); clip-path: inset(0 0 0 0); }
+      100% { opacity: 0; transform: translateY(-12px); clip-path: inset(0 0 100% 0); }
+    }
+    .a4-splash-logo {
+      width: 180px; height: 180px; position: relative;
+      animation: a4-splash-logo-in 900ms cubic-bezier(.2,.9,.25,1.1) both;
+    }
+    @keyframes a4-splash-logo-in {
+      0% { opacity: 0; transform: scale(.4) rotate(-12deg); filter: blur(12px); }
+      60% { opacity: 1; filter: blur(0); }
+      100% { opacity: 1; transform: scale(1) rotate(0); filter: blur(0); }
+    }
+    .a4-splash-tag {
+      margin-top: 28px;
+      font-family: var(--display, 'Space Grotesk', sans-serif);
+      font-weight: 800; font-size: 13px; letter-spacing: .35em;
+      text-transform: uppercase;
+      color: #b6ff5e;
+      opacity: 0;
+      animation: a4-splash-tag-in 700ms cubic-bezier(.2,.9,.25,1) 500ms both;
+    }
+    @keyframes a4-splash-tag-in {
+      0% { opacity: 0; letter-spacing: .55em; }
+      100% { opacity: 1; letter-spacing: .35em; }
+    }
+    .a4-splash-tag::after {
+      content: ''; display: block; height: 2px; width: 0; margin: 10px auto 0;
+      background: linear-gradient(90deg, transparent, #b6ff5e, transparent);
+      animation: a4-splash-line 600ms ease 800ms both;
+    }
+    @keyframes a4-splash-line { to { width: 200px; } }
+
+    /* Loader overlay (page-level orchestrator) */
+    .a4-loader {
+      position: fixed; inset: 0; z-index: 99990;
+      background: radial-gradient(ellipse at 50% 50%, #110a22 0%, #07070C 75%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 380ms cubic-bezier(.4,0,.2,1);
+    }
+    .a4-loader.a4-out { opacity: 0; pointer-events: none; }
+    .a4-loader-stage {
+      width: 220px; height: 160px; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .a4-loader-tag {
+      margin-top: 22px;
+      font-family: var(--display, 'Space Grotesk', sans-serif);
+      font-size: 11px; font-weight: 700; letter-spacing: .3em;
+      text-transform: uppercase; color: rgba(255,255,255,.45);
+    }
+    .a4-loader-bar {
+      margin-top: 18px; width: 200px; height: 2px;
+      background: rgba(255,255,255,.08); border-radius: 999px; overflow: hidden;
+    }
+    .a4-loader-bar > i {
+      display: block; height: 100%; width: 40%;
+      background: linear-gradient(90deg, transparent, #b6ff5e, transparent);
+      animation: a4-loader-bar-slide 1.1s ease-in-out infinite;
+    }
+    @keyframes a4-loader-bar-slide {
+      0% { transform: translateX(-100%); } 100% { transform: translateX(350%); }
+    }
+
+    /* Loader variants — all SVG strokes white-ish */
+    .a4-svg { width: 100%; height: 100%; overflow: visible; }
+    .a4-svg path, .a4-svg line, .a4-svg circle, .a4-svg rect, .a4-svg polyline, .a4-svg polygon {
+      stroke: #e6efff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .a4-svg .fill { fill: #e6efff; stroke: none; }
+    .a4-svg .accent { stroke: #b6ff5e; }
+    .a4-svg .accent.fill { fill: #b6ff5e; stroke: none; }
+    .a4-svg .red { stroke: #ff5e7c; }
+
+    /* 1. Bat sweeping */
+    @keyframes a4-bat-swing { 0% {transform:rotate(-65deg);} 55%{transform:rotate(40deg);} 100%{transform:rotate(40deg);} }
+    @keyframes a4-ball-fly { 0%,55%{transform:translate(0,0);opacity:1;} 100%{transform:translate(140px,-90px);opacity:0;} }
+    .a4-v1 .bat { transform-origin: 60px 130px; animation: a4-bat-swing 1.2s cubic-bezier(.6,0,.4,1) infinite; }
+    .a4-v1 .ball { animation: a4-ball-fly 1.2s cubic-bezier(.3,.7,.5,1) infinite; }
+
+    /* 2. Wicket tumble */
+    @keyframes a4-stump-fall { 0%,40%{transform:rotate(0);} 70%,100%{transform:rotate(-22deg);} }
+    @keyframes a4-bail-spin { 0%,40%{transform:translate(0,0) rotate(0);opacity:1;} 100%{transform:translate(50px,-60px) rotate(720deg);opacity:0;} }
+    .a4-v2 .stump { transform-origin: bottom; animation: a4-stump-fall 1.4s ease-in-out infinite; }
+    .a4-v2 .bail { animation: a4-bail-spin 1.4s ease-out infinite; }
+
+    /* 3. Catch arc */
+    @keyframes a4-catch-arc {
+      0% { offset-distance: 0%; opacity: 0; }
+      10%,90% { opacity: 1; }
+      100% { offset-distance: 100%; opacity: 1; }
+    }
+    .a4-v3 .ball {
+      offset-path: path('M 20 130 Q 110 -10 200 130');
+      animation: a4-catch-arc 1.4s cubic-bezier(.5,0,.5,1) infinite;
+    }
+
+    /* 4. Boundary 4/6 light-up */
+    @keyframes a4-bnd-flash { 0%,30%{opacity:.18;} 40%,80%{opacity:1;filter:drop-shadow(0 0 8px #b6ff5e);} 100%{opacity:.18;} }
+    .a4-v4 .digit { animation: a4-bnd-flash 1.5s ease-in-out infinite; }
+    .a4-v4 .rope { stroke-dasharray: 320; stroke-dashoffset: 320; animation: a4-rope-draw 1.5s ease-out infinite; }
+    @keyframes a4-rope-draw { 0%{stroke-dashoffset:320;} 60%,100%{stroke-dashoffset:0;} }
+
+    /* 5. Toss coin */
+    @keyframes a4-coin-flip {
+      0%   { transform: translateY(0)    rotateY(0);    }
+      50%  { transform: translateY(-50px) rotateY(900deg); }
+      100% { transform: translateY(0)    rotateY(1800deg); }
+    }
+    .a4-v5 .coin { transform-origin: center; transform-style: preserve-3d; animation: a4-coin-flip 1.6s cubic-bezier(.4,0,.4,1) infinite; }
+
+    /* 6. Scoreboard split-flap */
+    @keyframes a4-flap { 0%,40%{transform:rotateX(0);} 60%,100%{transform:rotateX(180deg);} }
+    .a4-v6 .flap { transform-origin: center; transform-style: preserve-3d; animation: a4-flap 1.4s cubic-bezier(.6,0,.4,1) infinite; }
+
+    /* 7. Stadium lights */
+    @keyframes a4-light-on { 0%,20%{opacity:.15;} 50%,100%{opacity:1;filter:drop-shadow(0 0 10px currentColor);} }
+    .a4-v7 .lamp { color:#b6ff5e; animation: a4-light-on 1.4s ease-out infinite; }
+    .a4-v7 .lamp:nth-child(2){ animation-delay:.1s; color:#7eb4ff;}
+    .a4-v7 .lamp:nth-child(3){ animation-delay:.2s; color:#ff8fb4;}
+    .a4-v7 .lamp:nth-child(4){ animation-delay:.3s; color:#b6ff5e;}
+
+    /* 8. DRS lines */
+    @keyframes a4-drs-draw { 0%{stroke-dashoffset:200;opacity:0;} 30%{opacity:1;} 100%{stroke-dashoffset:0;opacity:1;} }
+    .a4-v8 .track { stroke-dasharray: 200; stroke-dashoffset: 200; animation: a4-drs-draw 1.5s ease-in-out infinite; }
+
+    /* 9. Bowler run-up */
+    @keyframes a4-bowl-run { 0%{transform:translateX(-50px);} 70%{transform:translateX(60px);} 100%{transform:translateX(60px);} }
+    @keyframes a4-bowl-arm { 0%,40%{transform:rotate(0);} 75%,100%{transform:rotate(280deg);} }
+    .a4-v9 .runner { animation: a4-bowl-run 1.4s cubic-bezier(.4,0,.4,1) infinite; }
+    .a4-v9 .arm { transform-origin: 110px 80px; animation: a4-bowl-arm 1.4s cubic-bezier(.5,0,.4,1) infinite; }
+
+    /* 10. Strike-rate meter */
+    @keyframes a4-meter-fill { 0%{stroke-dashoffset:220;} 100%{stroke-dashoffset:0;} }
+    .a4-v10 .arc { stroke-dasharray: 220; animation: a4-meter-fill 1.6s cubic-bezier(.4,0,.2,1) infinite; }
+    .a4-v10 .needle { transform-origin: 110px 130px; animation: a4-meter-needle 1.6s cubic-bezier(.4,0,.2,1) infinite; }
+    @keyframes a4-meter-needle { 0%{transform:rotate(-90deg);} 100%{transform:rotate(90deg);} }
+
+    /* 11. Helmet shine */
+    @keyframes a4-shine { 0%{transform:translateX(-100px);} 100%{transform:translateX(140px);} }
+    .a4-v11 .shine { animation: a4-shine 1.5s ease-in-out infinite; }
+
+    /* 12. Spinning ball */
+    @keyframes a4-spin { 0%{transform:rotate(0);} 100%{transform:rotate(360deg);} }
+    .a4-v12 .ball { transform-origin: center; animation: a4-spin 1.2s linear infinite; }
+
+    /* Skeleton system */
+    .a4-skeleton {
+      position: relative; overflow: hidden; border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      min-height: 18px;
+    }
+    .a4-skeleton::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.08) 50%, transparent 100%);
+      animation: a4-shimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes a4-shimmer { 0%{transform:translateX(-100%);} 100%{transform:translateX(100%);} }
+    .a4-skel-line { height: 14px; border-radius: 6px; margin: 8px 0; }
+    .a4-skel-card { height: 110px; border-radius: 18px; margin: 12px 0; }
+    .a4-skel-row { height: 56px; border-radius: 12px; margin: 8px 0; }
+
+    /* Skeleton-to-real crossfade */
+    .a4-fade-in { animation: a4-fade-in 380ms cubic-bezier(.2,.9,.25,1) both; }
+    @keyframes a4-fade-in { 0%{opacity:0;transform:translateY(4px);} 100%{opacity:1;transform:translateY(0);} }
+
+    /* Bid live count-up glow (one-shot) */
+    .a4-bid-glow { animation: a4-bid-glow 480ms cubic-bezier(.4,0,.2,1) both; }
+    @keyframes a4-bid-glow {
+      0%   { color: inherit; text-shadow: none; }
+      30%  { color: #b6ff5e; text-shadow: 0 0 14px rgba(182,255,94,.7); }
+      100% { color: inherit; text-shadow: none; }
+    }
+
+    /* Universal count-flash extension (one-shot, never loop) */
+    .a4-count-flash { animation: a4-count-flash 450ms cubic-bezier(.4,0,.2,1) both; }
+    @keyframes a4-count-flash {
+      0% { background: transparent; }
+      30% { background: rgba(182,255,94,.18); }
+      100% { background: transparent; }
+    }
+
+    /* Toast spring-pop + icon shake / checkmark */
+    #toast.a4-spring { animation: a4-toast-spring 520ms cubic-bezier(.34,1.56,.64,1) both; }
+    @keyframes a4-toast-spring {
+      0% { transform: translateX(-50%) translateY(40px) scale(.85); opacity: 0; }
+      60% { transform: translateX(-50%) translateY(-4px) scale(1.04); opacity: 1; }
+      100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+    }
+    #toast.a4-shake .tdot { animation: a4-shake 360ms cubic-bezier(.36,.07,.19,.97) both; }
+    @keyframes a4-shake {
+      10%,90% { transform: translateX(-1px); }
+      20%,80% { transform: translateX(2px); }
+      30%,50%,70% { transform: translateX(-3px); }
+      40%,60% { transform: translateX(3px); }
+    }
+
+    /* FLIP rank-change tween */
+    .a4-flip { transition: transform 480ms cubic-bezier(.4,0,.2,1); }
+
+    /* Player UNSOLD — greyscale fade */
+    .a4-unsold-fade { animation: a4-unsold-fade 700ms cubic-bezier(.4,0,.2,1) both; }
+    @keyframes a4-unsold-fade {
+      0% { filter: grayscale(0) brightness(1); opacity: 1; }
+      100% { filter: grayscale(1) brightness(.7); opacity: .55; }
+    }
+
+    /* SOLD scale impact + sweep + stamp */
+    .a4-sold-impact { animation: a4-sold-impact 520ms cubic-bezier(.34,1.56,.64,1) both; }
+    @keyframes a4-sold-impact {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .a4-team-sweep {
+      position: fixed; left: 0; right: 0; height: 100%; top: 0;
+      pointer-events: none; z-index: 99500;
+      background: linear-gradient(120deg, transparent 30%, var(--a4-team, #b6ff5e) 50%, transparent 70%);
+      opacity: 0; mix-blend-mode: screen;
+      animation: a4-team-sweep 900ms cubic-bezier(.4,0,.2,1) both;
+    }
+    @keyframes a4-team-sweep {
+      0% { opacity: 0; transform: translateX(-100%) skewX(-8deg); }
+      30% { opacity: .55; }
+      70% { opacity: .35; }
+      100% { opacity: 0; transform: translateX(100%) skewX(-8deg); }
+    }
+    .a4-stamp {
+      position: fixed; top: 50%; left: 50%; z-index: 99999;
+      transform: translate(-50%, -50%) scale(.2) rotate(-18deg);
+      font-family: var(--display, 'Space Grotesk', sans-serif);
+      font-weight: 900; font-size: 120px; letter-spacing: .04em;
+      color: #b6ff5e;
+      border: 6px solid #b6ff5e;
+      padding: 14px 36px; border-radius: 14px;
+      text-shadow: 0 0 30px rgba(182,255,94,.6);
+      box-shadow: 0 0 60px rgba(182,255,94,.4);
+      pointer-events: none; opacity: 0;
+      animation: a4-stamp-slam 1100ms cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes a4-stamp-slam {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(2.4) rotate(-18deg); }
+      40%  { opacity: 1; transform: translate(-50%, -50%) scale(.92) rotate(-18deg); }
+      55%  { transform: translate(-50%, -50%) scale(1.04) rotate(-18deg); }
+      80%  { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-18deg); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05) rotate(-18deg); }
+    }
+
+    /* Empty-state illustration (inline SVG; one-shot breathing on entry) */
+    .a4-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 24px; text-align: center;
+      animation: a4-empty-breathe 1100ms cubic-bezier(.4,0,.2,1) both;
+    }
+    @keyframes a4-empty-breathe {
+      0% { opacity: 0; transform: scale(.96); }
+      40% { opacity: 1; transform: scale(1.02); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .a4-empty-svg { width: 180px; height: 140px; margin-bottom: 18px; opacity: .85; }
+    .a4-empty-title { font-family: var(--display, 'Space Grotesk', sans-serif); font-weight: 800; font-size: 18px; color: #e6efff; margin: 0 0 6px; }
+    .a4-empty-sub { color: rgba(230,239,255,.55); font-size: 13px; max-width: 340px; }
+
+    /* Snake-draft active highlight slide */
+    .a4-active-slide { transition: transform 420ms cubic-bezier(.34,1.36,.64,1), box-shadow 420ms ease; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .a4-splash, .a4-loader, .a4-stamp, .a4-team-sweep,
+      .a4-bid-glow, .a4-count-flash, .a4-sold-impact, .a4-unsold-fade,
+      .a4-fade-in, .a4-empty, .a4-skeleton::after {
+        animation: none !important;
+      }
+    }
+  `;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'a4-styles';
+  styleEl.textContent = css;
+  (document.head || document.documentElement).appendChild(styleEl);
+
+  /* ─── 2. CRICKET LOADER VARIANTS (12) ───────────────────────────── */
+  const variants = [
+    /* 1. Bat sweep */ `<svg class="a4-svg a4-v1" viewBox="0 0 220 160">
+      <line x1="20" y1="150" x2="200" y2="150"/>
+      <g class="bat"><rect x="56" y="50" width="8" height="70" rx="3" class="fill"/><rect x="48" y="120" width="24" height="14" rx="4" class="fill"/></g>
+      <circle class="ball accent fill" cx="120" cy="110" r="8"/>
+    </svg>`,
+    /* 2. Wicket */ `<svg class="a4-svg a4-v2" viewBox="0 0 220 160">
+      <line x1="20" y1="150" x2="200" y2="150"/>
+      <g class="bail"><line x1="80" y1="60" x2="105" y2="60"/></g>
+      <g class="bail"><line x1="115" y1="60" x2="140" y2="60"/></g>
+      <line class="stump" x1="85" y1="65" x2="85" y2="148"/>
+      <line class="stump" x1="110" y1="65" x2="110" y2="148"/>
+      <line class="stump" x1="135" y1="65" x2="135" y2="148"/>
+      <circle class="accent fill" cx="180" cy="120" r="7"/>
+    </svg>`,
+    /* 3. Catch arc */ `<svg class="a4-svg a4-v3" viewBox="0 0 220 160">
+      <path d="M 20 130 Q 110 -10 200 130" stroke-dasharray="3 6" opacity=".3"/>
+      <path d="M 180 130 q 10 0 10 12 q 0 8 -10 8 q -10 0 -10 -8 q 0 -12 10 -12 z" class="fill"/>
+      <path d="M 12 130 q 10 0 10 12 q 0 8 -10 8 q -10 0 -10 -8 q 0 -12 10 -12 z" class="fill"/>
+      <circle class="ball accent fill" r="7"/>
+    </svg>`,
+    /* 4. Boundary 4/6 */ `<svg class="a4-svg a4-v4" viewBox="0 0 220 160">
+      <path class="rope" d="M 30 80 Q 110 30 190 80 Q 110 130 30 80 Z"/>
+      <text class="digit fill accent" x="80" y="92" font-size="36" font-weight="900" font-family="Space Grotesk, sans-serif">4</text>
+      <text class="digit fill accent" x="120" y="92" font-size="36" font-weight="900" font-family="Space Grotesk, sans-serif" style="animation-delay:.4s">6</text>
+    </svg>`,
+    /* 5. Toss coin */ `<svg class="a4-svg a4-v5" viewBox="0 0 220 160">
+      <line x1="60" y1="150" x2="160" y2="150"/>
+      <g class="coin">
+        <circle cx="110" cy="80" r="26" class="fill accent"/>
+        <text x="110" y="88" text-anchor="middle" font-size="22" font-weight="900" fill="#07070C" font-family="Space Grotesk, sans-serif">H</text>
+      </g>
+    </svg>`,
+    /* 6. Scoreboard flip */ `<svg class="a4-svg a4-v6" viewBox="0 0 220 160">
+      <rect x="40" y="50" width="40" height="60" rx="6" opacity=".3"/>
+      <rect x="90" y="50" width="40" height="60" rx="6" opacity=".3"/>
+      <rect x="140" y="50" width="40" height="60" rx="6" opacity=".3"/>
+      <g class="flap"><rect x="40" y="50" width="40" height="60" rx="6" class="fill"/></g>
+      <g class="flap" style="animation-delay:.15s"><rect x="90" y="50" width="40" height="60" rx="6" class="fill accent"/></g>
+      <g class="flap" style="animation-delay:.3s"><rect x="140" y="50" width="40" height="60" rx="6" class="fill"/></g>
+    </svg>`,
+    /* 7. Stadium lights */ `<svg class="a4-svg a4-v7" viewBox="0 0 220 160">
+      <line x1="20" y1="140" x2="200" y2="140"/>
+      <g class="lamp"><line x1="40" y1="140" x2="40" y2="80"/><circle cx="40" cy="70" r="10" fill="currentColor"/></g>
+      <g class="lamp"><line x1="90" y1="140" x2="90" y2="60"/><circle cx="90" cy="50" r="10" fill="currentColor"/></g>
+      <g class="lamp"><line x1="140" y1="140" x2="140" y2="60"/><circle cx="140" cy="50" r="10" fill="currentColor"/></g>
+      <g class="lamp"><line x1="190" y1="140" x2="190" y2="80"/><circle cx="190" cy="70" r="10" fill="currentColor"/></g>
+    </svg>`,
+    /* 8. DRS */ `<svg class="a4-svg a4-v8" viewBox="0 0 220 160">
+      <line x1="180" y1="60" x2="180" y2="130"/><line x1="200" y1="60" x2="200" y2="130"/>
+      <line x1="160" y1="60" x2="160" y2="130"/>
+      <path class="track accent" d="M 20 110 Q 100 70 180 95"/>
+      <path class="track" style="animation-delay:.3s" d="M 20 130 Q 100 100 180 110"/>
+      <circle class="accent fill" cx="20" cy="110" r="6"/>
+    </svg>`,
+    /* 9. Bowler */ `<svg class="a4-svg a4-v9" viewBox="0 0 220 160">
+      <line x1="0" y1="150" x2="220" y2="150"/>
+      <g class="runner">
+        <circle cx="110" cy="50" r="10" class="fill"/>
+        <line x1="110" y1="60" x2="110" y2="110"/>
+        <line x1="110" y1="110" x2="100" y2="148"/>
+        <line x1="110" y1="110" x2="120" y2="148"/>
+        <g class="arm"><line x1="110" y1="80" x2="140" y2="60"/><circle cx="143" cy="58" r="5" class="accent fill"/></g>
+      </g>
+    </svg>`,
+    /* 10. Strike-rate meter */ `<svg class="a4-svg a4-v10" viewBox="0 0 220 160">
+      <path d="M 30 130 A 80 80 0 0 1 190 130" opacity=".25"/>
+      <path class="arc accent" d="M 30 130 A 80 80 0 0 1 190 130"/>
+      <line class="needle" x1="110" y1="130" x2="110" y2="60"/>
+      <circle cx="110" cy="130" r="6" class="fill"/>
+    </svg>`,
+    /* 11. Helmet shine */ `<svg class="a4-svg a4-v11" viewBox="0 0 220 160">
+      <defs><clipPath id="a4hclip"><path d="M 70 100 Q 70 50 110 50 Q 150 50 150 100 L 150 110 L 70 110 Z"/></clipPath></defs>
+      <path d="M 70 100 Q 70 50 110 50 Q 150 50 150 100 L 150 110 L 70 110 Z" class="fill"/>
+      <line x1="60" y1="105" x2="160" y2="105"/>
+      <g clip-path="url(#a4hclip)"><rect class="shine accent fill" x="0" y="40" width="20" height="80" opacity=".7" transform="skewX(-20)"/></g>
+      <circle cx="110" cy="80" r="4" class="accent fill"/>
+    </svg>`,
+    /* 12. Spinning ball */ `<svg class="a4-svg a4-v12" viewBox="0 0 220 160">
+      <g class="ball" transform="translate(110 80)">
+        <circle r="32" class="fill accent"/>
+        <path d="M -32 0 Q 0 -10 32 0" stroke="#07070C" stroke-width="2" fill="none"/>
+        <path d="M -32 0 Q 0 10 32 0" stroke="#07070C" stroke-width="2" fill="none"/>
+      </g>
+    </svg>`
+  ];
+  const variantNames = [
+    'Bat sweep','Wicket tumble','Catch arc','Boundary lights','Toss coin',
+    'Scoreboard flip','Stadium lights','DRS tracking','Bowler run-up',
+    'Strike-rate meter','Helmet shine','Spinning ball'
+  ];
+  A4.variants = variantNames;
+
+  /* ─── 3. LOADER ORCHESTRATION ───────────────────────────────────── */
+  let loaderEl = null;
+  let loaderShownAt = 0;
+  const LOADER_MIN_SHOW = 600;
+
+  A4.showLoader = function(label){
+    if (loaderEl) return;
+    const idx = Math.floor(Math.random() * variants.length);
+    loaderShownAt = performance.now();
+    loaderEl = document.createElement('div');
+    loaderEl.className = 'a4-loader';
+    loaderEl.setAttribute('aria-busy','true');
+    loaderEl.innerHTML = `
+      <div class="a4-loader-stage">${variants[idx]}</div>
+      <div class="a4-loader-tag">${(label||'Loading').toUpperCase()}</div>
+      <div class="a4-loader-bar"><i></i></div>
+    `;
+    document.body.appendChild(loaderEl);
+    loaderEl.dataset.variant = String(idx);
+  };
+
+  A4.hideLoader = function(){
+    if (!loaderEl) return;
+    const elapsed = performance.now() - loaderShownAt;
+    const wait = Math.max(0, LOADER_MIN_SHOW - elapsed);
+    const el = loaderEl;
+    loaderEl = null;
+    setTimeout(() => {
+      el.classList.add('a4-out');
+      setTimeout(() => el.remove(), 420);
+    }, wait);
+  };
+
+  /* ─── 4. SPLASH (first visit only) ──────────────────────────────── */
+  A4.runSplash = function(){
+    try { if (sessionStorage.getItem('a4-splash-shown')) return; } catch(_) {}
+    try { sessionStorage.setItem('a4-splash-shown','1'); } catch(_) {}
+    const splash = document.createElement('div');
+    splash.className = 'a4-splash';
+    splash.innerHTML = `
+      <div class="a4-splash-logo">
+        <svg viewBox="0 0 200 200" class="a4-svg" style="width:100%;height:100%">
+          <defs>
+            <radialGradient id="a4sg" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#b6ff5e" stop-opacity="1"/>
+              <stop offset="100%" stop-color="#7eb4ff" stop-opacity=".7"/>
+            </radialGradient>
+          </defs>
+          <circle cx="100" cy="100" r="62" stroke="url(#a4sg)" stroke-width="3" fill="none"/>
+          <path d="M 100 50 Q 70 100 100 150" stroke="#b6ff5e" stroke-width="3" fill="none"/>
+          <path d="M 100 50 Q 130 100 100 150" stroke="#7eb4ff" stroke-width="3" fill="none"/>
+          <circle cx="100" cy="100" r="14" fill="#b6ff5e"/>
+        </svg>
+      </div>
+      <div class="a4-splash-tag">Cricket • Draft • Auction</div>
+    `;
+    document.body.appendChild(splash);
+    setTimeout(() => {
+      splash.classList.add('a4-out');
+      setTimeout(() => splash.remove(), 650);
+    }, 1500);
+  };
+
+  /* ─── 5. CONFETTI / CELEBRATIONS ────────────────────────────────── */
+  function teamColorFromName(name){
+    const map = { CSK:'#FFC700', MI:'#005CA0', RCB:'#D40028', KKR:'#3A1A5B',
+                  SRH:'#FB5E1F', DC:'#1957B7', RR:'#FF1684', PBKS:'#D11F2F',
+                  GT:'#1B2351', LSG:'#0B6BB7' };
+    if (!name) return ['#b6ff5e','#7eb4ff'];
+    const upper = String(name).toUpperCase();
+    for (const k in map) if (upper.indexOf(k) >= 0) return [map[k], '#ffffff'];
+    return ['#b6ff5e','#7eb4ff'];
+  }
+
+  A4.fireSoldConfetti = function(teamName){
+    if (!window.confetti) return;
+    const colors = teamColorFromName(teamName);
+    const opts = { spread: 70, ticks: 200, gravity: 1, decay: .92, scalar: 1.05, colors };
+    window.confetti(Object.assign({}, opts, { particleCount: 90, origin: { x: .2, y: .65 }, angle: 60 }));
+    window.confetti(Object.assign({}, opts, { particleCount: 90, origin: { x: .8, y: .65 }, angle: 120 }));
+    setTimeout(() => window.confetti(Object.assign({}, opts, {
+      particleCount: 140, origin: { x: .5, y: .35 }, spread: 110, startVelocity: 38
+    })), 220);
+  };
+
+  A4.firePodiumConfetti = function(){
+    if (!window.confetti) return;
+    const end = Date.now() + 1200;
+    (function frame(){
+      window.confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0, y: .4 }, colors: ['#FFD700','#b6ff5e','#7eb4ff'] });
+      window.confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1, y: .4 }, colors: ['#FFD700','#b6ff5e','#7eb4ff'] });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  };
+
+  /* ─── 6. SOLD MOMENT (hook into existing showSoldFlash) ─────────── */
+  A4.bigSoldMoment = function(teamName, bid, playerName){
+    const [c1] = teamColorFromName(teamName);
+    // Team-color sweep
+    const sweep = document.createElement('div');
+    sweep.className = 'a4-team-sweep';
+    sweep.style.setProperty('--a4-team', c1);
+    document.body.appendChild(sweep);
+    setTimeout(() => sweep.remove(), 950);
+    // SOLD stamp
+    const stamp = document.createElement('div');
+    stamp.className = 'a4-stamp';
+    stamp.textContent = 'SOLD';
+    stamp.style.color = c1;
+    stamp.style.borderColor = c1;
+    stamp.style.textShadow = `0 0 30px ${c1}88`;
+    stamp.style.boxShadow  = `0 0 60px ${c1}66`;
+    document.body.appendChild(stamp);
+    setTimeout(() => stamp.remove(), 1150);
+    // Confetti
+    A4.fireSoldConfetti(teamName);
+    // Scale impact on auction block
+    const blk = document.getElementById('auctionBlockDisplay') || document.getElementById('liveBidText')?.closest('.cd-card,.cd-section,div');
+    if (blk) {
+      blk.classList.remove('a4-sold-impact'); void blk.offsetWidth;
+      blk.classList.add('a4-sold-impact');
+      setTimeout(() => blk.classList.remove('a4-sold-impact'), 600);
+    }
+  };
+
+  // Patch existing showSoldFlash so legacy overlay still runs and we layer the big moment on top
+  function hookSoldFlash(){
+    const orig = window.showSoldFlash;
+    if (!orig || orig.__a4_hooked) return;
+    window.showSoldFlash = function(teamName, bid, playerName){
+      try { A4.bigSoldMoment(teamName, bid, playerName); } catch(e){ console.warn('[a4] SOLD moment failed', e); }
+      return orig.apply(this, arguments);
+    };
+    window.showSoldFlash.__a4_hooked = true;
+  }
+  // showSoldFlash is defined in app.js which loads first; try immediately + re-check on idle
+  hookSoldFlash();
+  setTimeout(hookSoldFlash, 100);
+  setTimeout(hookSoldFlash, 600);
+  setTimeout(hookSoldFlash, 2000);
+
+  /* ─── 7. BID COUNT-UP + GLOW (throttled 250ms) ──────────────────── */
+  let lastBidAnim = 0;
+  let lastBidVal = null;
+  function tweenBid(el, from, to){
+    const dur = 380;
+    const start = performance.now();
+    function step(ts){
+      const t = Math.min(1, (ts - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const val = from + (to - from) * eased;
+      el.textContent = `₹${val.toFixed(2)}`;
+      if (t < 1) requestAnimationFrame(step);
+      else el.textContent = `₹${to.toFixed(2)}`;
+    }
+    requestAnimationFrame(step);
+  }
+  function onBidChanged(el){
+    const txt = (el.textContent || '').replace(/[^\d.]/g,'');
+    const v = parseFloat(txt);
+    if (!isFinite(v)) return;
+    const now = performance.now();
+    const prev = lastBidVal;
+    lastBidVal = v;
+    if (now - lastBidAnim < 250) return;
+    lastBidAnim = now;
+    el.classList.remove('a4-bid-glow'); void el.offsetWidth;
+    el.classList.add('a4-bid-glow');
+    if (prev != null && prev !== v && Math.abs(v - prev) < 50) {
+      tweenBid(el, prev, v);
+    }
+    setTimeout(() => el.classList.remove('a4-bid-glow'), 500);
+  }
+  function watchBid(){
+    const el = document.getElementById('liveBidText');
+    if (!el || el.__a4_watched) return;
+    el.__a4_watched = true;
+    const mo = new MutationObserver(() => onBidChanged(el));
+    mo.observe(el, { childList: true, characterData: true, subtree: true });
+  }
+  setInterval(watchBid, 1500);
+  document.addEventListener('DOMContentLoaded', watchBid);
+
+  /* ─── 8. TOAST SPRING-POP + ICON CUES + COALESCE ────────────────── */
+  let lastToastMsg = '';
+  let lastToastAt = 0;
+  function patchToast(){
+    const orig = window.showAlert;
+    if (!orig || orig.__a4_hooked) return;
+    window.showAlert = function(msg, type){
+      // Coalesce dupes within 700ms
+      const now = performance.now();
+      if (msg === lastToastMsg && (now - lastToastAt) < 700) return;
+      lastToastMsg = msg; lastToastAt = now;
+      const r = orig.apply(this, arguments);
+      const t = document.getElementById('toast');
+      if (t) {
+        t.classList.remove('a4-spring','a4-shake');
+        void t.offsetWidth;
+        t.classList.add('a4-spring');
+        if (type === 'err') t.classList.add('a4-shake');
+      }
+      return r;
+    };
+    window.showAlert.__a4_hooked = true;
+  }
+  patchToast();
+  setTimeout(patchToast, 200);
+  setTimeout(patchToast, 800);
+
+  /* ─── 9. LEADERBOARD RANK-CHANGE FLIP (throttled 500ms) ─────────── */
+  let lastFlipAt = 0;
+  A4.flipLeaderboard = function(container){
+    const now = performance.now();
+    if (now - lastFlipAt < 500) return;
+    lastFlipAt = now;
+    if (!container) return;
+    const rows = Array.from(container.querySelectorAll('[data-team-id], [data-rank]'));
+    const first = new Map();
+    rows.forEach(r => first.set(r, r.getBoundingClientRect()));
+    requestAnimationFrame(() => {
+      rows.forEach(r => {
+        const last = r.getBoundingClientRect();
+        const f = first.get(r);
+        if (!f) return;
+        const dy = f.top - last.top;
+        if (Math.abs(dy) < 4) return;
+        r.style.transform = `translateY(${dy}px)`;
+        r.classList.add('a4-flip');
+        requestAnimationFrame(() => { r.style.transform = ''; });
+        setTimeout(() => { r.classList.remove('a4-flip'); }, 520);
+      });
+    });
+  };
+
+  /* ─── 10. UNSOLD greyscale fade ─────────────────────────────────── */
+  A4.markUnsold = function(cardEl){
+    if (!cardEl) return;
+    cardEl.classList.add('a4-unsold-fade');
+  };
+
+  /* ─── 11. SKELETON HELPERS ──────────────────────────────────────── */
+  A4.skeletonCards = function(n){
+    n = n || 3;
+    return `<div class="a4-skel-wrap">${Array.from({length:n}).map(() => `<div class="a4-skeleton a4-skel-card"></div>`).join('')}</div>`;
+  };
+  A4.skeletonRows = function(n){
+    n = n || 5;
+    return `<div class="a4-skel-wrap">${Array.from({length:n}).map(() => `<div class="a4-skeleton a4-skel-row"></div>`).join('')}</div>`;
+  };
+  A4.swapSkeleton = function(container, htmlReady){
+    if (!container) return;
+    container.innerHTML = htmlReady;
+    container.classList.remove('a4-fade-in'); void container.offsetWidth;
+    container.classList.add('a4-fade-in');
+  };
+
+  /* ─── 12. EMPTY STATES (inline SVG, no Canva needed) ────────────── */
+  const EMPTY_SVGS = {
+    rooms: `<svg class="a4-empty-svg a4-svg" viewBox="0 0 200 160"><rect x="30" y="50" width="60" height="90" rx="8"/><rect x="110" y="50" width="60" height="90" rx="8" opacity=".5"/><line x1="50" y1="80" x2="70" y2="80" class="accent"/><line x1="50" y1="100" x2="70" y2="100"/></svg>`,
+    data: `<svg class="a4-empty-svg a4-svg" viewBox="0 0 200 160"><line x1="20" y1="140" x2="180" y2="140"/><rect x="40" y="100" width="20" height="40" class="fill" opacity=".3"/><rect x="80" y="80" width="20" height="60" class="fill" opacity=".5"/><rect x="120" y="60" width="20" height="80" class="fill accent"/></svg>`,
+    trades: `<svg class="a4-empty-svg a4-svg" viewBox="0 0 200 160"><path d="M 40 60 L 160 60 L 140 40 M 160 60 L 140 80" class="accent"/><path d="M 160 100 L 40 100 L 60 80 M 40 100 L 60 120"/></svg>`,
+    squad: `<svg class="a4-empty-svg a4-svg" viewBox="0 0 200 160"><circle cx="60" cy="70" r="18"/><path d="M 30 130 Q 60 100 90 130"/><circle cx="140" cy="70" r="18" class="accent"/><path d="M 110 130 Q 140 100 170 130" class="accent"/></svg>`
+  };
+  A4.empty = function(kind, title, sub){
+    const svg = EMPTY_SVGS[kind] || EMPTY_SVGS.data;
+    return `<div class="a4-empty">${svg}<div class="a4-empty-title">${title||'Nothing here yet'}</div><div class="a4-empty-sub">${sub||''}</div></div>`;
+  };
+
+  /* ─── 13. AUTO COUNT-FLASH (data-count-flash attr) ──────────────── */
+  // Anyone setting el.dataset.countFlash = '1' (or calling A4.flash) gets a one-shot flash
+  A4.flash = function(el){
+    if (!el) return;
+    el.classList.remove('a4-count-flash'); void el.offsetWidth;
+    el.classList.add('a4-count-flash');
+    setTimeout(() => el.classList.remove('a4-count-flash'), 500);
+  };
+
+  /* ─── 14. SPLASH BOOT ───────────────────────────────────────────── */
+  if (!reduceMotion) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => A4.runSplash());
+    } else {
+      A4.runSplash();
+    }
+  }
+
+  /* ─── 15. PODIUM #1 detection — fire confetti once when leaderboard
+            shows a podium with a winner ──────────────────────────── */
+  let podiumFired = false;
+  function watchPodium(){
+    // Look for any element that signals a podium #1 reveal
+    const podium = document.querySelector('[data-podium="1"], .cd-podium-1, .a4-podium-trigger');
+    if (podium && !podiumFired) {
+      podiumFired = true;
+      A4.firePodiumConfetti();
+    }
+    // Reset flag if podium element disappears (different room/view)
+    if (!podium && podiumFired) {
+      // small delay so quick re-renders don't double-fire
+      setTimeout(() => { if (!document.querySelector('[data-podium="1"]')) podiumFired = false; }, 1500);
+    }
+  }
+  setInterval(watchPodium, 1200);
+
+  console.log('[Agent4] Loaded — variants:', variantNames.length, '| confetti:', !!window.confetti);
+})();
