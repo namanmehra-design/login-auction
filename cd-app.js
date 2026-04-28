@@ -1142,9 +1142,12 @@
       if(v !== 'room' && v !== 'dashboard' && v !== 'admin') return;
       const wrap = document.createElement('div');
       wrap.innerHTML = CD.renderMobileBottomNav();
-      const node = wrap.firstChild;
+      // CRITICAL: firstElementChild skips leading whitespace text nodes that
+      // result from the template literal's leading newline. firstChild here
+      // would return a TextNode and the nav would never render.
+      const node = wrap.firstElementChild;
       if(node) document.body.appendChild(node);
-    } catch(e){ console.warn('mountBottomNav:', e); }
+    } catch(e){ console.error('mountBottomNav:', e); }
   };
 
   // ── TAB CONTENT DISPATCH ────────────────────────────────────────
