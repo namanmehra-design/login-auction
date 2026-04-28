@@ -9,8 +9,8 @@
 <title>IPL Fantasy Auction 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="cd-styles.css?v=20260424i">
-<link rel="stylesheet" href="styles.css?v=20260424i">
+<link rel="stylesheet" href="cd-styles.css?v=20260424j">
+<link rel="stylesheet" href="styles.css?v=20260424j">
 <style>
   /* New design wraps classic UI. Classic chrome (header/nav/aurora) hidden;
      classic tab content gets MOVED into CD shell so all features work. */
@@ -37,7 +37,8 @@
     visibility: hidden !important;
   }
   body { background: #07070C; min-height: 100vh; }
-  @media (max-width: 900px) { body { padding-bottom: 80px; } }
+  /* Floating-pill bottom nav clearance — pill sits ~14px from bottom, ~62px tall */
+  @media (max-width: 900px) { body { padding-bottom: 96px; } }
 </style>
 <script>
 (function(){
@@ -751,8 +752,8 @@
 
 <!-- Agent 4: canvas-confetti for SOLD bursts and leaderboard #1 celebration -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-<script type="module" src="app.js?v=20260424i"></script>
+<script type="module" src="app.js?v=20260424j"></script>
 <!-- New Cricket Design — single unified file loaded after app.js so window.* handlers exist -->
-<script src="cd-app.js?v=20260424i"></script>
+<script src="cd-app.js?v=20260424j"></script>
 </body>
 </html>

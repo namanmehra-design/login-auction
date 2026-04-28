@@ -1012,7 +1012,7 @@
           </div>
         </div>
         ${subTabBar}
-        <div style="padding:${CD.state.isMobile ? '14px 16px 80px' : '20px 32px'};flex:1;" id="cd-tab-content" data-cd-nav="${CD.state.activeNav || ''}" data-cd-sub="${activeSub || ''}">
+        <div style="padding:${CD.state.isMobile ? '14px 16px 110px' : '20px 32px'};flex:1;" id="cd-tab-content" data-cd-nav="${CD.state.activeNav || ''}" data-cd-sub="${activeSub || ''}">
           ${CD.renderTabContent()}
         </div>
       </main>`;
@@ -4883,6 +4883,52 @@
 
     /* Keep legacy helpers around for callers elsewhere. */
     .cd-sub-enter  { animation: cd-sub-in 140ms ease-out both; }
+
+    /* ── A8: Mobile floating-glass bottom-nav pill + sticky sub-tabs ─────────────
+       The bottom nav is rendered with inline `position:fixed; bottom:10px;
+       left:10px; right:10px;` which spans edge-to-edge. Override on mobile
+       to a centered Instagram-style floating liquid-glass pill that overlays
+       content. The FLIP active-pill (#cd-bn::before with --bn-x/--bn-w)
+       is measure-based via JS (CD.bnSyncPill) so it survives geometry change.
+       z-index sits below modal-bg (2000) so modals still beat the nav. */
+    @media (max-width: 900px) {
+      #cd-root .cd-bn {
+        bottom: 14px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 24px) !important;
+        max-width: 440px !important;
+        z-index: 1900 !important;
+        padding: 8px 10px !important;
+        border-radius: 28px !important;
+        background: rgba(18, 18, 28, 0.55) !important;
+        backdrop-filter: blur(28px) saturate(1.8) !important;
+        -webkit-backdrop-filter: blur(28px) saturate(1.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.10) !important;
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      }
+      #cd-root .cd-bn-item {
+        color: rgba(255, 255, 255, 0.65);
+      }
+      #cd-root .cd-bn-item.is-active { color: #fff; }
+      #cd-root .cd-bn-item:active {
+        transform: scale(0.92);
+        transition: transform 120ms cubic-bezier(.34,1.56,.64,1);
+      }
+      /* Sticky sub-tabs so users don't lose context when scrolling. */
+      #cd-root .cd-subtab-bar {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 50 !important;
+        background: rgba(8, 10, 18, 0.78) !important;
+        backdrop-filter: blur(20px) saturate(1.6);
+        -webkit-backdrop-filter: blur(20px) saturate(1.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+      }
+    }
 
     /* ── Reduced-motion: collapse every motion to a single-frame fade ── */
     @media (prefers-reduced-motion: never-match-naman) {
