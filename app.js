@@ -5907,10 +5907,18 @@ window.renderTrades=function(data){
 };
 
 window.toggleSquadLock_A=function(){
- if(!isAdmin||!roomId) return;
- var currentLock=roomState&&roomState.squadLocked;
- var upd={}; upd['auctions/'+roomId+'/squadLocked']=!currentLock;
- update(ref(db),upd).then(function(){ window.showAlert(!currentLock?'My Team changes LOCKED.':'My Team changes UNLOCKED.','ok'); }).catch(function(e){ window.showAlert('Failed: '+e.message); });
+ if(!roomId) return window.showAlert('No room loaded.','err');
+ if(!isAdmin) return window.showAlert('Only the room admin can toggle squad lock.','err');
+ // Atomic toggle so concurrent clicks resolve to one final state.
+ runTransaction(ref(db,'auctions/'+roomId+'/squadLocked'),function(cur){
+  return !cur;
+ }).then(function(res){
+  if(res && res.committed){
+   var nowLocked = !!res.snapshot.val();
+   window.showAlert(nowLocked?'Squad changes LOCKED.':'Squad changes UNLOCKED.','ok');
+   try{ window.CD && window.CD.scheduleRender && window.CD.scheduleRender(); }catch(_){}
+  }
+ }).catch(function(e){ window.showAlert('Lock toggle failed: '+e.message,'err'); });
 };
 
 // Super Admin: Toggle release/replace lock
