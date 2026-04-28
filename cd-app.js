@@ -987,6 +987,11 @@
         `).join('')}
       </div>
     ` : '';
+    // Floating sticky pill — rendered inline so it owns its own layout space.
+    // Position is sticky (top:12px), so it sits in flow when at top of page
+    // and sticks to top + collapses to icons-only when user scrolls down.
+    // No more overlay hack; no more pushing content with padding.
+    const subTabPill = subs.length > 1 ? CD.renderSubtabPillHTML(subs, activeSub) : '';
 
     // On mobile the sidebar is hidden, so promote a compact "← Dashboard"
     // control into the room header. Shown on desktop too for consistency.
@@ -1012,6 +1017,7 @@
           </div>
         </div>
         ${subTabBar}
+        ${subTabPill}
         <div style="padding:${CD.state.isMobile ? '14px 16px 110px' : '20px 32px'};flex:1;" id="cd-tab-content" data-cd-nav="${CD.state.activeNav || ''}" data-cd-sub="${activeSub || ''}">
           ${CD.renderTabContent()}
         </div>
@@ -1051,22 +1057,15 @@
     return '<nav id="cd-subtab-pill" class="cd-subtab-pill" data-state="expanded" role="tablist" aria-label="Section tabs">' + items + '</nav>';
   };
 
-  // Mount/refresh the pill at body level. Removes prior instance to avoid
-  // stale onclick references after CD.render rewrites #cd-root.innerHTML.
+  // The pill is now rendered INLINE inside the room view (see subTabPill above),
+  // so this mount function only cleans up any orphan body-level pill from prior
+  // versions. The inline pill uses position:sticky so it owns its own layout
+  // space and never overlaps content.
   CD._mountSubtabPill = () => {
     try {
-      const existing = document.getElementById('cd-subtab-pill');
-      if(existing) existing.remove();
-      // Only mount when in room view AND there are multiple sub-tabs.
-      if(CD.state.view !== 'room') return;
-      const subs = SUBTABS[CD.state.activeNav] || [];
-      if(subs.length <= 1) return;
-      const activeSub = CD.state.activeSub;
-      const wrap = document.createElement('div');
-      wrap.innerHTML = CD.renderSubtabPillHTML(subs, activeSub);
-      const node = wrap.firstChild;
-      if(node) document.body.appendChild(node);
-    } catch(e){ console.warn('mountSubtabPill:', e); }
+      // Remove any stale body-level pill from the previous render strategy.
+      document.querySelectorAll('body > #cd-subtab-pill, body > .cd-subtab-pill').forEach(el => el.remove());
+    } catch(e){ console.warn('mountSubtabPill cleanup:', e); }
   };
 
   CD.renderMobileBottomNav = () => `
@@ -5045,16 +5044,13 @@
        via the data-state attribute, animated by CSS. JS in CD._initSubtabPill
        drives the state machine (scroll, idle, outside-click). */
     body.cd-pill-active #cd-root .cd-subtab-bar { display: none !important; }
-    /* Push room content below the floating top pill so they never overlap. */
-    body.cd-pill-active main { padding-top: 60px; }
-    @media (max-width: 900px) { body.cd-pill-active main { padding-top: 56px; } }
 
     .cd-subtab-pill {
-      position: fixed;
+      position: sticky;
       top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
       z-index: 1850;
+      align-self: center;
+      margin: 12px auto;
       display: inline-flex;
       align-items: center;
       gap: 4px;
