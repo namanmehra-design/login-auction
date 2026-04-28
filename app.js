@@ -2024,7 +2024,10 @@ function buildSquadSnapshots(teamsData,maxPlayers){
  var mp=maxPlayers||roomState?.maxPlayers||roomState?.setup?.maxPlayers||20;
  Object.values(teamsData).forEach(function(team){
   var roster=Array.isArray(team.roster)?team.roster:(team.roster?Object.values(team.roster):[]);
-  if(!roster.length) return;
+  if(!roster.length){
+   snapshots[team.name]={xi:[],bench:[],reserves:[]};
+   return;
+  }
   var allNames=roster.map(function(p){return p.name||p.n||'';});
   var xi,bench,reserves;
   if(team.activeSquad&&Array.isArray(team.activeSquad)&&team.activeSquad.length>0){
@@ -2116,6 +2119,43 @@ async function _incrementLeaderboardTotalsA(contrib){
  }catch(e){console.error('_incrementLeaderboardTotalsA:',e);}
 }
 
+// -- Reconstruct a snapshot for a match using its frozen ownedBy/inActiveSquad data --
+// Used as a fallback when m.squadSnapshots is absent/empty so we don't have to
+// silently lean on the CURRENT roster (which would drop replaced players' points).
+function _reconstructSnapshotFromMatch(m, teams, mp){
+ if(!m||!m.players) return null;
+ var xiCount=11;
+ try{ if(roomState&&parseInt(roomState.activeSquadXI,10)) xiCount=parseInt(roomState.activeSquadXI,10); }catch(_e){}
+ var maxPlayers=mp||16;
+ // Group owned players by team
+ var byTeam={};
+ var any=false;
+ Object.values(m.players).forEach(function(p){
+  var ow=p&&p.ownedBy;
+  if(!ow) return;
+  any=true;
+  if(!byTeam[ow]) byTeam[ow]=[];
+  byTeam[ow].push({name:p.name||'', inActiveSquad: !!p.inActiveSquad});
+ });
+ if(!any) return null;
+ var snaps={};
+ Object.keys(byTeam).forEach(function(tn){
+  var arr=byTeam[tn];
+  // Stable: inActiveSquad first, then by name
+  arr.sort(function(a,b){
+   if(a.inActiveSquad!==b.inActiveSquad) return a.inActiveSquad?-1:1;
+   var an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
+   if(an<bn) return -1; if(an>bn) return 1; return 0;
+  });
+  var names=arr.map(function(x){return x.name;});
+  var capped=names.slice(0,maxPlayers);
+  var xi=capped.slice(0,xiCount);
+  var bench=capped.slice(xiCount, xiCount+5);
+  snaps[tn]={xi:xi, bench:bench, roster:capped};
+ });
+ return snaps;
+}
+
 // -- Recalculate leaderboard totals from all matches (admin tool, auction) --
 // -- Core: recompute stored leaderboardTotals from match records + snapshots + current xiMultiplier --
 async function _recalcLeaderboardCore(){
@@ -2130,7 +2170,15 @@ async function _recalcLeaderboardCore(){
  });
  Object.entries(matches).forEach(function(me){
   var m=me[1];
-  var matchSnaps=m.squadSnapshots||currentSnaps;
+  var matchSnaps = m.squadSnapshots;
+  if(!matchSnaps || !Object.keys(matchSnaps).length){
+   matchSnaps = _reconstructSnapshotFromMatch(m, teams, roomState.maxPlayers||16);
+  }
+  if(!matchSnaps){
+   // No way to know who owned what for this match. Skip — don't credit anyone.
+   console.warn('Skipping match', me[0], '— no snapshot and no ownedBy data');
+   return;
+  }
   var contrib=computeMatchContribution(m, matchSnaps, teams, xiMult);
   Object.entries(contrib).forEach(function(ce){
    var tn=ce[0], c=ce[1];
