@@ -246,18 +246,18 @@
   // ── NAV CONFIG ─────────────────────────────────────────────────
   const NAV = [
     { id:'setup',    icon:'cog',    label:'Setup',   sub:'Room config' },
-    { id:'auction',  icon:'gavel',  label:'Auction', sub:'Live · Ledger · Purses', live:true },
+    { id:'auction',  icon:'gavel',  label:'Auction', sub:'Live · Sales · Purses', live:true },
     { id:'squad',    icon:'user',   label:'Squad',   sub:'My Team · Trades' },
     { id:'league',   icon:'trophy', label:'League',  sub:'Ranks · Points' },
-    { id:'players',  icon:'users',  label:'Players', sub:'Pool · Analytics' },
-    { id:'matches',  icon:'cal',    label:'Matches', sub:'Data · Schedule' }
+    { id:'players',  icon:'users',  label:'Players', sub:'All players · Analytics' },
+    { id:'matches',  icon:'cal',    label:'Matches', sub:'Scorecards · Schedule' }
   ];
   const SUBTABS = {
-    auction: [{id:'live', label:'Live block'}, {id:'purses', label:'Team purses'}, {id:'ledger', label:'Bid ledger'}],
+    auction: [{id:'live', label:'Live block'}, {id:'purses', label:'Team purses'}, {id:'ledger', label:'Sales'}],
     squad:   [{id:'myteam', label:'My team'}, {id:'ptsbymatch', label:'Points by match'}, {id:'trades', label:'Trades'}],
-    league:  [{id:'leaderboard', label:'Leaderboard'}, {id:'points', label:'Points'}, {id:'weeks', label:'Teams of Week'}],
-    players: [{id:'pool', label:'Pool'}, {id:'analytics', label:'Analytics'}],
-    matches: [{id:'data', label:'Match data'}, {id:'schedule', label:'Schedule'}]
+    league:  [{id:'leaderboard', label:'Leaderboard'}, {id:'points', label:'Points'}, {id:'weeks', label:'Match XI history'}],
+    players: [{id:'pool', label:'All players'}, {id:'analytics', label:'Analytics'}],
+    matches: [{id:'data', label:'Scorecards'}, {id:'schedule', label:'Schedule'}]
   };
 
   // ── STATE ───────────────────────────────────────────────────────
@@ -269,6 +269,7 @@
     isMobile: window.innerWidth < 900,
     showCreate: false,
     cbzMatches: [],         // live ticker data
+    cbzError: false,        // U5: ticker fetch failed → render retry chip + back off
     editingSquad: false,    // My Team — edit mode on/off
     squadDraft: null,       // { xi: [names], bench: [names], reserves: [names] }
     squadSaving: false,     // Save-in-flight flag
@@ -332,7 +333,27 @@
   });
 
   // ── PAGE-LEVEL: TICKER ─────────────────────────────────────────
+  // U6 shared offline banner — sits above the ticker on every view that
+  // renders it (dashboard, room, admin). Display toggled by online/offline
+  // listeners wired in init(); the renderer just emits a hidden shell so
+  // the rest of the layout doesn't shift when the banner appears.
+  CD.renderOfflineBanner = () => {
+    const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+    return `<div id="cd-offline-banner" role="status" aria-live="polite" style="display:${offline ? 'block' : 'none'};background:linear-gradient(90deg,#FF3B3B,#FF5050);color:#fff;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.04em;text-align:center;padding:6px 12px;border-bottom:1px solid rgba(0,0,0,0.25);box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;">You're offline — changes will sync when you're back.</div>`;
+  };
+
   CD.renderTicker = () => {
+    // U5 — error chip path: replace the whole marquee with a tappable retry chip.
+    if(CD.state.cbzError){
+      return `${CD.renderOfflineBanner()}
+      <div style="display:flex;align-items:center;height:36px;background:#07070C;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;position:relative;">
+        <div style="flex-shrink:0;padding:0 22px 0 14px;height:100%;display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,var(--pink),var(--pink-2));color:#fff;font-family:var(--display);font-size:13px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%);z-index:2;">${CD.LiveDot()} LIVE</div>
+        <button type="button" onclick="CD.retryTicker()" aria-label="Retry score fetch" style="margin:0 14px;padding:5px 14px;border-radius:9999px;background:rgba(255,59,59,0.15);border:1px solid rgba(255,59,59,0.45);color:#FF8B8B;font-family:var(--sans);font-size:11.5px;font-weight:700;letter-spacing:0.04em;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#FF8B8B;"></span>
+          Scores unavailable — tap to retry
+        </button>
+      </div>`;
+    }
     const items = CD.state.cbzMatches.length ? CD.state.cbzMatches : [
       { teamA: 'IPL', teamB: '2026', score: 'Loading scores…', sep: false }
     ];
@@ -345,7 +366,7 @@
         ${m.status ? `<span style="color:var(--mute);font-size:10px;">· ${esc(m.status)}</span>` : ''}
       </span>
     `).join('<span style="width:6px;height:6px;border-radius:50%;background:var(--mute-2);margin:0 24px;"></span>');
-    return `
+    return `${CD.renderOfflineBanner()}
       <div style="display:flex;align-items:center;height:36px;background:#07070C;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;position:relative;">
         <div style="flex-shrink:0;padding:0 22px 0 14px;height:100%;display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,var(--pink),var(--pink-2));color:#fff;font-family:var(--display);font-size:13px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%);z-index:2;">${CD.LiveDot()} LIVE</div>
         <div class="cd-ticker-viewport" style="flex:1;overflow:hidden;position:relative;height:100%;">
@@ -356,14 +377,37 @@
       </div>`;
   };
 
+  // U5 — exponential backoff scheduler. Doubles the wait between retries
+  // on consecutive failures, capping at 8 minutes so we don't punish a
+  // long outage with hour-long waits. Cleared on first success.
+  CD._tickerBackoffMs = 30000;
+  CD._tickerBackoffMax = 8 * 60 * 1000;
+  CD._tickerBackoffTimer = null;
+  CD._scheduleTickerBackoff = () => {
+    if(CD._tickerBackoffTimer) clearTimeout(CD._tickerBackoffTimer);
+    const wait = Math.min(CD._tickerBackoffMs, CD._tickerBackoffMax);
+    CD._tickerBackoffTimer = setTimeout(() => { CD.fetchTicker(); }, wait);
+    CD._tickerBackoffMs = Math.min(CD._tickerBackoffMs * 2, CD._tickerBackoffMax);
+  };
+  CD.retryTicker = () => {
+    CD._tickerBackoffMs = 30000; // user-initiated → reset backoff window
+    if(CD._tickerBackoffTimer){ clearTimeout(CD._tickerBackoffTimer); CD._tickerBackoffTimer = null; }
+    CD.fetchTicker();
+  };
+
   // Fetch live IPL scores for the ticker. Uses the flat-array helper which
   // returns only IPL-series matches; falls back to empty (keeps the
-  // Loading… placeholder) if the API errors or no IPL match is live.
+  // Loading… placeholder) if the API returns nothing. Errors surface as a
+  // tappable retry chip via CD.state.cbzError.
   CD.fetchTicker = async () => {
     try {
       const fetcher = window.cbzFetchIPLLive || window.cbzDFetchIPLLive;
-      if(typeof fetcher !== 'function') { CD.state.cbzMatches = []; return; }
+      if(typeof fetcher !== 'function') { CD.state.cbzMatches = []; CD.state.cbzError = false; return; }
       const matches = await fetcher();
+      // Reset on any successful response (even an empty one — that's "no live IPL match", not a failure).
+      CD.state.cbzError = false;
+      CD._tickerBackoffMs = 30000;
+      if(CD._tickerBackoffTimer){ clearTimeout(CD._tickerBackoffTimer); CD._tickerBackoffTimer = null; }
       if(!Array.isArray(matches) || !matches.length){
         CD.state.cbzMatches = [];
         CD.scheduleRender();
@@ -384,6 +428,9 @@
     } catch(e){
       console.error('CD ticker:', e);
       CD.state.cbzMatches = [];
+      CD.state.cbzError = true;
+      CD.scheduleRender();
+      CD._scheduleTickerBackoff();
     }
   };
 
@@ -465,7 +512,7 @@
               <div style="font-size:12px;font-weight:600;">${esc(u.email.split('@')[0])}</div>
             </div>` : ''}
             ${isSuperAdmin ? `<button onclick="CD.openAdmin()" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,rgba(255,200,61,0.2),rgba(255,200,61,0.1));color:#FFD97D;border:1px solid rgba(255,200,61,0.5);font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;letter-spacing:0.04em;text-transform:uppercase;">★ Admin Console</button>` : ''}
-            <button onclick="if(confirm('Log out?'))window.logoutUser()" style="padding:8px 14px;border-radius:9999px;background:rgba(255,59,59,0.15);color:#FF8080;border:1px solid rgba(255,59,59,0.35);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">${I('logout',14)} Log out</button>
+            <!-- U13: dashboard logout removed; sidebar logout (room view) is the single source. -->
           </div>
         </header>
         <main style="padding:32px;max-width:1400px;margin:0 auto;width:100%;">
@@ -1073,7 +1120,7 @@
       ${NAV.map(n => `
         <div class="cd-bn-item${CD.state.activeNav === n.id ? ' is-active' : ''}" data-bn-id="${n.id}" onclick="CD.go('${n.id}')">
           <span class="cd-bn-icon">${I(n.icon, 14)}</span>
-          <div style="font-size:8.5px;font-weight:600;letter-spacing:0.04em;">${n.label}</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.04em;">${n.label}</div>
           ${n.live ? `<div class="cd-bn-live"></div>` : ''}
         </div>
       `).join('')}
@@ -1082,12 +1129,17 @@
 
   // Append the mobile bottom nav to document.body. Removes prior instance so
   // CD.render rewriting #cd-root.innerHTML never traps a stale onclick.
+  // Allowed views: room, dashboard, admin (mobile is the only nav surface,
+  // so admin needs the pill too — without it, an admin user has no way to
+  // reach setup/auction/squad/league/players/matches once they pop into
+  // the platform-wide admin console).
   CD._mountBottomNav = () => {
     try {
       const existing = document.getElementById('cd-bn');
       if(existing) existing.remove();
       if(!CD.state.isMobile) return;
-      if(CD.state.view !== 'room' && CD.state.view !== 'dashboard') return;
+      const v = CD.state.view;
+      if(v !== 'room' && v !== 'dashboard' && v !== 'admin') return;
       const wrap = document.createElement('div');
       wrap.innerHTML = CD.renderMobileBottomNav();
       const node = wrap.firstChild;
@@ -1176,16 +1228,16 @@
       </div>
 
       <!-- Invite link + team registration -->
-      <div style="display:grid;grid-template-columns:${CD.state.isMobile ? '1fr' : '1fr 1fr'};gap:14px;margin-bottom:18px;">
-        <div style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);">
+      ${(() => {
+        const inviteCard = `<div style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);">
           <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Invite teams</div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
             <input value="${esc(inviteUrl)}" readonly onclick="this.select()" style="flex:1;padding:9px 12px;font-size:11px;color:var(--ink-2);background:var(--glass);border:1px solid var(--line-2);border-radius:9999px;outline:none;font-family:var(--mono);"/>
             <button onclick="window.copyInviteLink && window.copyInviteLink()" style="padding:9px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;">${I('copy',12)} Copy</button>
           </div>
           <div style="font-size:11px;color:var(--mute);">Share this link with anyone you want to invite. They'll land on the room and can register a team.</div>
-        </div>
-        <div style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);">
+        </div>`;
+        const registerCard = `<div style="padding:18px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);">
           <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Your registration</div>
           ${myRegistered ? `
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -1199,8 +1251,12 @@
             <div style="font-size:13px;color:var(--ink-2);margin-bottom:10px;">You haven't registered a team yet. Pick a name to start bidding.</div>
             <button onclick="document.getElementById('teamNameModal')?.classList.add('open')" style="padding:10px 18px;border-radius:9999px;background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">Register my team</button>
           `}
-        </div>
-      </div>
+        </div>`;
+        // U16: when the user hasn't registered yet, surface the Register card first
+        // so invitees don't bounce off the more visually heavy Invite card.
+        const order = myRegistered ? (inviteCard + registerCard) : (registerCard + inviteCard);
+        return `<div style="display:grid;grid-template-columns:${CD.state.isMobile ? '1fr' : '1fr 1fr'};gap:14px;margin-bottom:18px;">${order}</div>`;
+      })()}
 
       ${(isSuper || isAdmin) ? `
       <!-- Admin controls (always visible to admin/super, regardless of registration) -->
@@ -1309,7 +1365,7 @@
     const lastName = pName.split(' ').slice(1).join(' ');
 
     return `
-      <div style="position:relative;border-radius:28px;overflow:hidden;background:radial-gradient(ellipse 80% 60% at 70% 20%,rgba(255,45,135,0.25),transparent 60%),radial-gradient(ellipse 90% 70% at 20% 80%,rgba(46,91,255,0.35),transparent 60%),linear-gradient(135deg,${c1}30,${c2}50);border:1px solid var(--line-2);box-shadow:var(--sh-2);padding:36px;min-height:380px;">
+      <div style="position:relative;border-radius:28px;overflow:hidden;background:radial-gradient(ellipse 80% 60% at 70% 20%,rgba(255,45,135,0.25),transparent 60%),radial-gradient(ellipse 90% 70% at 20% 80%,rgba(46,91,255,0.35),transparent 60%),linear-gradient(135deg,${c1}30,${c2}50);border:1px solid var(--line-2);box-shadow:var(--sh-2);padding:${CD.state.isMobile ? 16 : 36}px;min-height:380px;">
         <div style="position:absolute;top:-100px;left:30%;width:300px;height:600px;background:radial-gradient(ellipse at top,rgba(255,255,255,0.12),transparent 60%);transform:rotate(15deg);pointer-events:none;"></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;position:relative;flex-wrap:wrap;gap:12px;">
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -1530,7 +1586,7 @@
       <!-- Ledger table -->
       <div style="border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);overflow:hidden;">
         <div style="padding:16px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);">
-          <div class="ed" style="font-size:22px;">Bid <span class="ed-i" style="color:var(--mute);">ledger</span></div>
+          <div class="ed" style="font-size:22px;">Sales</div>
           <div style="font-size:11px;color:var(--mute);">${filtered.length}${filtered.length !== sold.length ? ' of ' + sold.length : ''} sold</div>
         </div>
         <div style="overflow-x:auto;">
@@ -3723,7 +3779,7 @@
     if(!rid) return;
     const goNow = () => { window.location.search = '?room=' + encodeURIComponent(rid); };
     // Reduced motion or unsupported → skip the flourish.
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: never-match-naman)').matches;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(reduce) return goNow();
     try { CD._heroZoomFromCard(el, goNow); }
     catch(_) { goNow(); }
@@ -3822,7 +3878,7 @@
     }
     document.body.classList.add('cd-pill-active');
 
-    const SCROLL_COLLAPSE = 80;   // pixels scrolled before we collapse
+    const SCROLL_COLLAPSE = 40;   // pixels scrolled before we collapse (was 80 — too sticky)
     const IDLE_MS = 3000;         // 3s idle re-collapse
 
     const setState = (s) => {
@@ -3830,20 +3886,27 @@
       if(pill.getAttribute('data-state') !== s) pill.setAttribute('data-state', s);
     };
 
+    // Snap state to the current scroll position. Single source of truth so the
+    // 'sometimes stays expanded' bug (mid-range scroll, no-op branch) cant happen.
+    const syncToScroll = () => {
+      const y = window.scrollY || 0;
+      if(y <= 0) setState('expanded');
+      else if(y > SCROLL_COLLAPSE) setState('collapsed');
+      // Between 0 and threshold: leave as-is (avoids flicker on bounce).
+    };
+
     const armIdle = () => {
       if(CD._subtabPill.idleTimer){ clearTimeout(CD._subtabPill.idleTimer); }
       CD._subtabPill.idleTimer = setTimeout(() => {
         // Don't collapse if we're at the very top — top forces expanded.
-        if(window.scrollY <= 0) { setState('expanded'); return; }
+        if((window.scrollY || 0) <= 0) { setState('expanded'); return; }
         setState('collapsed');
       }, IDLE_MS);
     };
 
     const onScroll = () => {
-      const y = window.scrollY || 0;
-      if(y <= 0){ setState('expanded'); armIdle(); CD._subtabPill.lastY = y; return; }
-      if(y > SCROLL_COLLAPSE){ setState('collapsed'); }
-      CD._subtabPill.lastY = y;
+      syncToScroll();
+      CD._subtabPill.lastY = window.scrollY || 0;
       armIdle();
     };
 
@@ -3863,10 +3926,10 @@
 
     const onActivity = () => { armIdle(); };
 
-    // Initial state — expanded if at top, otherwise mirror current scroll.
-    if((window.scrollY || 0) <= 0) setState('expanded');
-    else if((window.scrollY || 0) > SCROLL_COLLAPSE) setState('collapsed');
-    else setState('expanded');
+    // Initial state — defer one rAF so we see the post-paint scrollY (some
+    // sub-tab switches animate-scroll, which would race the synchronous read).
+    syncToScroll();
+    try { requestAnimationFrame(syncToScroll); } catch(_){}
     armIdle();
 
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -4175,11 +4238,36 @@
     const _formSnap = CD._captureFormState();
     let html = '';
     let viewKey = CD.state.view;
-    if(CD.state.authPending){ html = CD.renderSplash(); viewKey = 'splash'; }
-    else if(CD.state.view === 'auth') html = CD.renderAuth();
-    else if(CD.state.view === 'dashboard') html = CD.renderDashboard();
-    else if(CD.state.view === 'room') html = CD.renderRoom();
-    else if(CD.state.view === 'admin') html = CD.renderAdmin();
+    // B7: render error boundary. Wrap the dispatch so a single broken
+    // render path can't take down the whole app — instead, paint a
+    // graceful "something went wrong" panel and auto-reload after 2s.
+    // Avoids the alternative (white screen of death) that loses a user's
+    // place mid-auction. Note: any code AFTER this dispatch (mounts,
+    // form-restore, etc.) is allowed to run on the recovery DOM since
+    // it's no-op against the simple error markup.
+    try {
+      if(CD.state.authPending){ html = CD.renderSplash(); viewKey = 'splash'; }
+      else if(CD.state.view === 'auth') html = CD.renderAuth();
+      else if(CD.state.view === 'dashboard') html = CD.renderDashboard();
+      else if(CD.state.view === 'room') html = CD.renderRoom();
+      else if(CD.state.view === 'admin') html = CD.renderAdmin();
+    } catch(renderErr) {
+      console.error('CD.render dispatch failed:', renderErr);
+      try {
+        r.innerHTML = '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#07070C;color:#fff;font-family:system-ui,-apple-system,sans-serif;padding:24px;text-align:center;z-index:9999;">' +
+          '<div style="font-size:24px;font-weight:700;margin-bottom:8px;letter-spacing:-0.02em;">Something went wrong</div>' +
+          '<div style="font-size:14px;color:rgba(255,255,255,0.65);margin-bottom:18px;max-width:420px;line-height:1.5;">The app hit an unexpected error and is refreshing in 2 seconds.</div>' +
+          '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:rgba(255,255,255,0.4);max-width:420px;word-break:break-word;">' +
+            String((renderErr && renderErr.message) || renderErr || 'unknown error').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]) +
+          '</div>' +
+          '</div>';
+        setTimeout(() => { try { window.location.reload(); } catch(_){} }, 2000);
+      } catch(_) {
+        // Last-ditch: even painting the recovery markup failed. Hard reload.
+        try { setTimeout(() => window.location.reload(), 2000); } catch(_){}
+      }
+      return;
+    }
     // Page-level fade when the top-level view changes
     const viewChangedFromRender = _lastRenderedView !== viewKey;
     const _prevView = _lastRenderedView;
@@ -4491,6 +4579,23 @@
     CD.render();
     // Re-fetch ticker every 2 minutes
     setInterval(CD.fetchTicker, 120000);
+
+    // U6 — online/offline listeners. The slim banner above the ticker is
+    // emitted by CD.renderOfflineBanner; toggling its display avoids a
+    // full re-render storm when connectivity flickers (mobile networks).
+    // On reconnect we also trigger a fresh ticker fetch — likely the
+    // backoff is mid-wait and the user is now back, so don't make them
+    // wait the full window.
+    if(!window._cdOfflineWired){
+      window._cdOfflineWired = true;
+      const updateBanner = (online) => {
+        document.querySelectorAll('#cd-offline-banner').forEach(el => {
+          el.style.display = online ? 'none' : 'block';
+        });
+      };
+      window.addEventListener('online',  () => { updateBanner(true);  CD.retryTicker(); });
+      window.addEventListener('offline', () => { updateBanner(false); });
+    }
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
@@ -4523,7 +4628,8 @@
       50%     { transform: scale(1.12);  filter: drop-shadow(0 0 18px rgba(255,45,135,0.75)); }
     }
     .cd-splash-logo {
-      animation: cd-splash-pulse 0.9s ease-in-out infinite;
+      /* D11: was infinite — focal content shouldn't loop. One-shot only. */
+      animation: cd-splash-pulse 0.9s ease-in-out 1 both;
       will-change: transform, filter;
       transform-origin: center center;
     }
@@ -4960,17 +5066,50 @@
       background: none;
     }
 
+    /* Desktop glass polish for .cd-subtab-bar — matches the floating .cd-subtab-pill
+       so desktop doesn't feel utilitarian compared to mobile. Scoped to >900px;
+       the mobile sticky-bar override at the bottom of this stylesheet still wins. */
+    @media (min-width: 901px) {
+      #cd-root .cd-subtab-bar {
+        background: linear-gradient(180deg, rgba(18,18,28,0.42), rgba(18,18,28,0.18));
+        backdrop-filter: blur(22px) saturate(1.4);
+        -webkit-backdrop-filter: blur(22px) saturate(1.4);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        padding-top: 12px;
+        padding-bottom: 4px;
+      }
+      #cd-root .cd-subtab-bar button {
+        border-radius: 9999px;
+        margin-bottom: 4px;
+        transition: color 200ms var(--cd-ease-hover),
+                    background 220ms var(--cd-ease-hover);
+      }
+      #cd-root .cd-subtab-bar button:hover {
+        background: rgba(255,255,255,0.04);
+      }
+      #cd-root .cd-subtab-bar button[data-sub-active="1"] {
+        background: rgba(255,255,255,0.06);
+      }
+    }
+
     /* ── A5: Mobile bottom-nav — animated active pill (iOS tab bar feel) ────────── */
+    /* IMPORTANT: the bottom nav is mounted on document.body (not #cd-root),
+       so these selectors must NOT be scoped to #cd-root — otherwise the
+       child .cd-bn-item flex/padding rules silently fail to apply and the
+       pill collapses into an unstyled stack of plain divs. */
     @keyframes cd-bn-icon-pop {
       0%   { transform: scale(1); }
       45%  { transform: scale(1.18); }
       100% { transform: scale(1); }
     }
-    #cd-root .cd-bn { position: relative; }
-    #cd-root .cd-bn-item {
+    .cd-bn { position: relative; }
+    .cd-bn-item {
       flex: 1; min-width: 54px;
-      padding: 7px 3px;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      /* U2: bump to iOS HIG 44x44 minimum tap target. */
+      padding: 10px 4px;
+      min-height: 44px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       color: var(--mute);
       border-radius: 9999px;
       cursor: pointer;
@@ -4980,7 +5119,7 @@
       -webkit-tap-highlight-color: transparent;
     }
     /* Single shared sliding pill. Position/width set via CSS vars by JS. */
-    #cd-root .cd-bn::before {
+    .cd-bn::before {
       content: '';
       position: absolute;
       top: 5px; bottom: 5px; left: 0;
@@ -4996,12 +5135,12 @@
       pointer-events: none;
       z-index: 0;
     }
-    #cd-root .cd-bn:not([data-bn-ready="1"])::before { opacity: 0; }
-    #cd-root .cd-bn-item > * { position: relative; z-index: 1; }
-    #cd-root .cd-bn-item.is-active { color: #fff; }
-    #cd-root .cd-bn-item.is-active .cd-bn-icon { animation: cd-bn-icon-pop 480ms var(--cd-ease-spring) both; }
-    #cd-root .cd-bn-item:active { transform: scale(0.94); transition: transform 100ms ease-out; }
-    #cd-root .cd-bn-live {
+    .cd-bn:not([data-bn-ready="1"])::before { opacity: 0; }
+    .cd-bn-item > * { position: relative; z-index: 1; }
+    .cd-bn-item.is-active { color: #fff; }
+    .cd-bn-item.is-active .cd-bn-icon { animation: cd-bn-icon-pop 480ms var(--cd-ease-spring) both; }
+    .cd-bn-item:active { transform: scale(0.94); transition: transform 100ms ease-out; }
+    .cd-bn-live {
       position: absolute; top: 5px; right: 30%;
       width: 5px; height: 5px; border-radius: 50%;
       background: var(--pink);
@@ -5095,6 +5234,18 @@
                   padding    280ms cubic-bezier(0.34, 1.56, 0.64, 1);
       -webkit-tap-highlight-color: transparent;
     }
+    /* Mobile: bump tap target to 40px min-height (Apple HIG / Material). */
+    @media (max-width: 900px) {
+      .cd-subtab-pill-item {
+        min-height: 40px;
+        padding: 8px 12px;
+        font-size: 12.5px;
+      }
+      /* Keep collapsed state compact, but still tap-friendly. */
+      .cd-subtab-pill[data-state="collapsed"] .cd-subtab-pill-item {
+        padding: 8px 10px;
+      }
+    }
     .cd-subtab-pill-item:hover { color: rgba(255, 255, 255, 0.92); }
     .cd-subtab-pill-item .cd-subtab-pill-icon {
       display: inline-flex;
@@ -5167,7 +5318,8 @@
       /* iOS safe-area: keep nav clear of the home indicator. */
       body { padding-bottom: env(safe-area-inset-bottom); }
 
-      #cd-root .cd-bn {
+      /* Bottom nav lives on document.body — selectors must NOT be #cd-root-scoped. */
+      .cd-bn {
         bottom: max(14px, env(safe-area-inset-bottom)) !important;
         left: 50% !important;
         right: auto !important;
@@ -5185,11 +5337,11 @@
           0 8px 32px rgba(0, 0, 0, 0.45),
           inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
       }
-      #cd-root .cd-bn-item {
+      .cd-bn-item {
         color: rgba(255, 255, 255, 0.65);
       }
-      #cd-root .cd-bn-item.is-active { color: #fff; }
-      #cd-root .cd-bn-item:active {
+      .cd-bn-item.is-active { color: #fff; }
+      .cd-bn-item:active {
         transform: scale(0.92);
         transition: transform 120ms cubic-bezier(.34,1.56,.64,1);
       }
@@ -5215,7 +5367,7 @@
     }
 
     /* ── Reduced-motion: collapse every motion to a single-frame fade ── */
-    @media (prefers-reduced-motion: never-match-naman) {
+    @media (prefers-reduced-motion: reduce) {
       .cd-splash-logo,
       .cd-view-enter, .cd-sub-enter, .cd-modal-enter,
       .cd-enter-room, .cd-enter-dashboard, .cd-enter-dashboard-back,
@@ -5237,12 +5389,12 @@
       .cd-pts-pop,
       .cd-hero-zoom-clone, .cd-hero-drift,
       .cd-target-pulse,
-      #cd-root .cd-bn-item.is-active .cd-bn-icon,
+      .cd-bn-item.is-active .cd-bn-icon,
       #cd-root .cd-ticker-track::after {
         animation: cd-view-in 1ms linear both !important;
       }
       #cd-root .cd-side-item, #cd-root .cd-side-item::before,
-      #cd-root .cd-subtab-bar::after, #cd-root .cd-bn::before,
+      #cd-root .cd-subtab-bar::after, .cd-bn::before,
       #cd-root .nav-btn, #cd-root .tbl tbody tr {
         transition: none !important;
       }
@@ -5420,7 +5572,7 @@
   window.__AGENT4_LOADED__ = true;
 
   const A4 = (window.A4 = {});
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: never-match-naman)').matches;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ─── 1. STYLE INJECTION ────────────────────────────────────────── */
   const css = `
@@ -5699,7 +5851,7 @@
     /* Snake-draft active highlight slide */
     .a4-active-slide { transition: transform 420ms cubic-bezier(.34,1.36,.64,1), box-shadow 420ms ease; }
 
-    @media (prefers-reduced-motion: never-match-naman) {
+    @media (prefers-reduced-motion: reduce) {
       .a4-splash, .a4-loader, .a4-stamp, .a4-team-sweep,
       .a4-bid-glow, .a4-count-flash, .a4-sold-impact, .a4-unsold-fade,
       .a4-fade-in, .a4-empty, .a4-skeleton::after {

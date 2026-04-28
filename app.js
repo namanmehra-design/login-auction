@@ -1,5 +1,5 @@
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import{getDatabase,ref,set,onValue,update,push,get,remove}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import{getDatabase,ref,set,onValue,update,push,get,remove,runTransaction}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 import{getAI,getGenerativeModel,GoogleAIBackend}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-ai.js";
 import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,onAuthStateChanged,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
@@ -17,6 +17,26 @@ function getGeminiModel(){
  throw new Error("Firebase AI Logic not set up yet. Enable it in your Firebase Console -> Build -> AI Logic, then reload.");
  }
 }
+
+// B5: Interval registry + visibilitychange suspend.
+// Backgrounded tabs still tick setInterval -- pause everything when the
+// page hides and resume when it returns. Even though this app currently
+// has no setInterval calls, the registry is here so any future timer can
+// route through window._registerInterval(fn, ms) and inherit the pause
+// behaviour for free, and so cd-app.js (sister module) can use it too.
+const _intervals = [];
+window._registerInterval = function(fn, ms){
+  const id = setInterval(fn, ms);
+  _intervals.push({fn, ms, id});
+  return id;
+};
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    _intervals.forEach(i => { if(i.id !== null){ clearInterval(i.id); i.id = null; } });
+  } else {
+    _intervals.forEach(i => { if(i.id === null){ i.id = setInterval(i.fn, i.ms); } });
+  }
+});
 
 const SUPER_ADMIN='namanmehra@gmail.com';
 function isSuperAdminEmail(email){ return (email||'').toLowerCase().trim()==='namanmehra@gmail.com'; }
@@ -136,7 +156,7 @@ function migrateOverseasFlags(rid,data){
    }
   });
  }
- if(needsWrite) update(ref(db),upd).catch(e=>console.warn('Overseas migration:',e));
+ if(needsWrite) update(ref(db),upd).catch(e=>console.error('Overseas migration:',e));
 }
 
 // -- One-time migration: backfill missing squad snapshots for historical matches --
@@ -156,7 +176,7 @@ function migrateSquadSnapshots(rid,data){
    needsWrite=true;
   }
  });
- if(needsWrite) update(ref(db),upd).then(()=>console.log('Backfilled squad snapshots for',rid)).catch(e=>console.warn('Snapshot migration:',e));
+ if(needsWrite) update(ref(db),upd).catch(e=>console.error('Snapshot migration:',e));
 }
 
 // -- One-time migration: fix duck points retroactively --
@@ -207,7 +227,7 @@ function migrateDuckPoints(rid,data){
    }
   });
  });
- if(needsWrite) update(ref(db),upd).then(()=>{console.log('Duck points corrected for',rid);window.showAlert('Duck penalties corrected.','ok');}).catch(e=>console.warn('Duck migration:',e));
+ if(needsWrite) update(ref(db),upd).then(()=>{window.showAlert('Duck penalties corrected.','ok');}).catch(e=>console.error('Duck migration:',e));
 }
 
 window.showAlert=function(msg,type='err'){
@@ -294,9 +314,9 @@ onAuthStateChanged(auth,u=>{
   // the auth screen. Guarded with a dedupe flag so this doesn't double-call.
   if(!window._cdSignOutCleanupInFlight){
    window._cdSignOutCleanupInFlight=true;
-   try{ if(roomListener){roomListener();roomListener=null;} }catch(e){ console.warn('detach roomListener:', e); }
-   try{ if(window._dashListenerA1){window._dashListenerA1();window._dashListenerA1=null;} }catch(e){ console.warn('detach _dashListenerA1:', e); }
-   try{ if(window._dashListenerA2){window._dashListenerA2();window._dashListenerA2=null;} }catch(e){ console.warn('detach _dashListenerA2:', e); }
+   try{ if(roomListener){roomListener();roomListener=null;} }catch(e){ console.error('detach roomListener:', e); }
+   try{ if(window._dashListenerA1){window._dashListenerA1();window._dashListenerA1=null;} }catch(e){ console.error('detach _dashListenerA1:', e); }
+   try{ if(window._dashListenerA2){window._dashListenerA2();window._dashListenerA2=null;} }catch(e){ console.error('detach _dashListenerA2:', e); }
    roomState=null; myTeamName=''; isAdmin=false;
    window.roomId=null; window.roomState=null; window.myTeamName=''; window.isAdmin=false;
    // Clear CD-side super admin / edit state so it can't leak into the next session.
@@ -310,7 +330,7 @@ onAuthStateChanged(auth,u=>{
      window.CD.state.rosterStaleTeams=[];
     }
     if(window.CD){ window.CD._replaceA=null; }
-   }catch(e){ console.warn('clear CD.state on signout:', e); }
+   }catch(e){ console.error('clear CD.state on signout:', e); }
    setTimeout(()=>{ window._cdSignOutCleanupInFlight=false; }, 300);
   }
   showAuth();
@@ -406,8 +426,7 @@ function loadDash(){
      window.userJoinedRooms = jNew;
    }
    window.dispatchEvent(new CustomEvent('cd-rooms-update'));
-   console.log('[CD] forceLoadRooms — auction:', (window.userAuctionRooms||[]).length, 'joined:', (window.userJoinedRooms||[]).length);
-  }catch(e){ console.warn('cdForceLoadRooms:', e); }
+  }catch(e){ console.error('cdForceLoadRooms:', e); }
  };
  // Unsubscribe previous dashboard listeners to prevent memory leak / lag
  if(window._dashListenerA1){window._dashListenerA1();window._dashListenerA1=null;}
@@ -417,7 +436,7 @@ function loadDash(){
  // races, token refresh, or Safari's aggressive caching.
  (async()=>{
   try{ if(typeof window.cdForceLoadRooms==='function') await window.cdForceLoadRooms(); }
-  catch(e){ console.warn('eager rooms fetch:',e); }
+  catch(e){ console.error('eager rooms fetch:',e); }
  })();
  // Wrap every onValue callback in try/catch — a single thrown error
  // inside the handler silently detaches the listener in Firebase SDK,
@@ -442,7 +461,7 @@ function loadDash(){
  if(!rooms){c.innerHTML='<div class="empty">No rooms yet -- create one above.</div>';return;}
  const _entries=Object.entries(rooms).sort((a,b)=>(b[1]?.createdAt||0)-(a[1]?.createdAt||0));
  c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r||{},true)).join('');
- }catch(e){ console.warn('dashListenerA1:', e); }
+ }catch(e){ console.error('dashListenerA1:', e); }
  });
  window._dashListenerA2=onValue(ref(db,`users/${user.uid}/joined`),snap=>{
  try{
@@ -458,7 +477,7 @@ function loadDash(){
  if(!rooms){c.innerHTML='<div class="empty">No joined rooms yet.</div>';return;}
  const _entries=Object.entries(rooms).sort((a,b)=>(b[1]?.joinedAt||0)-(a[1]?.joinedAt||0));
  c.innerHTML=_entries.map(([k,r])=>rcHTML(k,r||{},false)).join('');
- }catch(e){ console.warn('dashListenerA2:', e); }
+ }catch(e){ console.error('dashListenerA2:', e); }
  });
 
  // DEEP SCAN: Find rooms where the user is a member but NOT in their /users path (data sync issue)
@@ -475,7 +494,7 @@ function loadDash(){
        Object.keys(ownedSnap.val() || {}).forEach(k => myKnownRooms.add(k));
        const joinedSnap = await get(ref(db, `users/${uid}/joined`));
        Object.keys(joinedSnap.val() || {}).forEach(k => myKnownRooms.add(k));
-     } catch(e){ console.warn('room-scan owned/joined fetch:', e); }
+     } catch(e){ console.error('room-scan owned/joined fetch:', e); }
      // Scan all rooms for membership
      const recoveredRooms = [];
      const heal = {};
@@ -499,7 +518,6 @@ function loadDash(){
      });
      if(Object.keys(heal).length > 0) {
        await update(ref(db), heal);
-       console.log('[CD recovery] Healed', recoveredRooms.length, 'rooms:', recoveredRooms.map(r=>r.name).join(', '));
      }
    } catch(e){ console.error('Deep scan failed:', e); }
  }, 1500);
@@ -757,9 +775,9 @@ window.confirmRelease=function(){
  window.closeReleaseModal();
  window.showAlert(`${releasePlayerName} released. \u20b9${actualPrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
  // Auto-heal stored leaderboardTotals so future reads can't drift.
- try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); }
+ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.error('recalc leaderboard (auction):', e); }
  // Notify CD: any open match-entry form should surface a soft Resync banner.
- try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:releaseTeam}})); }catch(e){ console.warn('dispatch _cdRosterChanged:', e); }
+ try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:releaseTeam}})); }catch(e){ console.error('dispatch _cdRosterChanged:', e); }
  }).catch(e=>window.showAlert('Release failed: '+e.message));
  }).catch(e=>window.showAlert('Could not read room data: '+e.message));
 };
@@ -843,7 +861,7 @@ function loadRoom(rid){
  }
 
  if(!isAdmin){
- document.getElementById('btn-setup').style.display='none';
+ // btn-setup removed with legacy anav strip; setup-tab still exists in DOM.
  document.getElementById('setup-tab').style.display='none';
  window.switchTab('auction');
  }
@@ -869,16 +887,15 @@ function loadRoom(rid){
  // now with the current xiMultiplier + snapshots.
  if(!window._recalcLBDone||window._recalcLBDone!==rid){
   window._recalcLBDone=rid;
-  setTimeout(()=>{ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); } }, 400);
+  setTimeout(()=>{ try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.error('recalc leaderboard (auction):', e); } }, 400);
  }
  document.getElementById('roomTitleDisplay').textContent=data.roomName||`Room ${rid.substring(0,5).toUpperCase()}`;
 
  // Auto-switch from setup tab once initialized
  if(data.setup?.isStarted){
- document.getElementById('btn-setup').style.display='none';
- document.getElementById('setup-tab').style.display='none';
- document.getElementById('statsRow').style.display='flex';
- if(document.getElementById('btn-setup').classList.contains('active'))window.switchTab('auction');
+ // btn-setup removed with legacy anav strip; CD nav owns tab state now.
+ document.getElementById('setup-tab')?.style.setProperty('display','none');
+ document.getElementById('statsRow')?.style.setProperty('display','flex');
  }
 
  // Stats
@@ -1036,7 +1053,9 @@ function loadRoom(rid){
   if(!_ap.some(function(p){return(p.name||p.n||'').indexOf('Dasun Shanaka')>=0;})){
    _ap.push({name:"Dasun Shanaka* (SL)",n:"Dasun Shanaka* (SL)",iplTeam:"RR",t:"RR",role:"All-rounder",r:"All-rounder",isOverseas:true,o:true,status:"unsold",basePrice:2});
    data.players=_ap;
-   set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(){});
+   // Best-effort migration; users don't need a toast if the write loses to
+   // a concurrent update or permissions hiccup. Surface to console only.
+   set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(e){console.error('Dasun migration write failed:',e);});
   }
   window._dasunFixDoneA=true;
  }
@@ -1098,7 +1117,7 @@ function loadRoom(rid){
   _rlBtn.style.color=data.releaseLocked?'#fff':'var(--txt2)';
  }
  if(document.getElementById('trades-tab')?.style.display==='block') window.loadTradeDropdowns();
- } catch(e){ console.warn('roomListener onValue:', e); }
+ } catch(e){ console.error('roomListener onValue:', e); }
  });
  }); // end Promise.all .then()
 }
@@ -1150,11 +1169,13 @@ function renderBlock(data){
   const myOsCount=myRosterLen>0?(Array.isArray(myTeamData?.roster)?myTeamData.roster:Object.values(myTeamData?.roster||{})).filter(p=>p.isOverseas||p.o).length:0;
   const osLimitBid=roomState?.maxOverseas||roomState?.setup?.maxOverseas||8;
   const osLimitHit=blockIsOverseas&&myOsCount>=osLimitBid;
-  // Auto-NI: current bid exceeds purse OR squad full OR overseas limit hit
+  // Auto-NI: current bid exceeds purse OR squad full OR overseas limit hit.
+  // Fires on every render; a toast here would spam, so we log to console
+  // instead. Real user-facing feedback is the disabled bid buttons below.
   if(!alreadyNI&&!amLastBidder&&myTeamName){
     const shouldAutoNI=(curBid>myTeamBudget)||rosterFull||osLimitHit;
     if(shouldAutoNI){
-      update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(()=>{});
+      update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(e=>console.error('Auto-NI (renderBlock) write failed:',e));
     }
   }
   return [0.1,0.5,1,2,5,10].map(i=>{
@@ -1444,12 +1465,22 @@ window.pressNotInterested=function(){
  if(!myTeamName)return window.showAlert('Register your team first.','err');
  const lastBidder=roomState.currentBlock?.lastBidderTeam;
  if(lastBidder===myTeamName)return window.showAlert("You are the highest bidder -- you can't opt out!","err");
- // Write notInterested flag for this team
+ // Write notInterested flag for this team. U1 (Wave 1): replaced the
+ // original silent .catch(()=>{}) with a real error toast so network
+ // failures don't leave the user thinking they opted out when the write
+ // never landed. U7 (Wave 2) now names the operation in the toast.
  update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true})
- .catch(e=>window.showAlert(e.message));
+ .catch(e=>window.showAlert('Mark Not Interested failed: '+e.message,'err'));
 };
 
 // -- Bid (everyone can bid -- writes team name to Firebase for live display + auto-sell) --
+// B1: Wrapped in runTransaction() so two simultaneous bids cant both land at the
+// same currentBid value. The transaction handler re-reads currentBlock atomically;
+// if another bidder beat us to a value >= our intended newBid (or the player
+// changed / block deactivated mid-flight), we abort with `undefined` and
+// Firebase retries or rejects. Local UI guards (purse / quota / overseas /
+// minimum-increment) still run BEFORE the transaction for instant feedback —
+// the transaction is the last-line atomicity guarantee, not the validator.
 window.addBid=function(inc){
  if(!roomState?.currentBlock?.active)return window.showAlert('No player on the block yet.','err');
  if(!myTeamName)return window.showAlert('Register your team first before bidding. Use the Setup tab.','err');
@@ -1475,7 +1506,8 @@ window.addBid=function(inc){
   const myOsCount=myRoster.filter(p=>p.isOverseas||p.o).length;
   const osLimitBid=roomState.maxOverseas||roomState.setup?.maxOverseas||8;
   if(myOsCount>=osLimitBid){
-   if(roomState.currentBlock?.lastBidderTeam!==myTeamName) update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(()=>{});
+   // Auto-NI alongside primary toast -- non-critical; just log on failure
+   if(roomState.currentBlock?.lastBidderTeam!==myTeamName) update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(e=>console.error('Auto-NI (overseas limit) write failed:',e));
    return window.showAlert(`Overseas limit reached (${myOsCount}/${osLimitBid}) -- you cannot bid on overseas players.`,'err');
   }
  }
@@ -1483,22 +1515,48 @@ window.addBid=function(inc){
  const myBudget=myTeam?.budget??Infinity;
  if(newBid>parseFloat(myBudget.toFixed(2))){
   window.showAlert(`You only have \u20b9${myBudget.toFixed(2)} Cr left -- cannot bid \u20b9${newBid.toFixed(2)} Cr. Marking you as Not Interested.`,'err');
-  // Auto-mark as not interested
+  // Auto-mark as not interested. Non-critical alongside primary toast --
+  // log on failure rather than double-toasting the user.
   if(roomState.currentBlock?.lastBidderTeam!==myTeamName){
-   update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(()=>{});
+   update(ref(db,`auctions/${roomId}/currentBlock/notInterested`),{[myTeamName]:true}).catch(e=>console.error('Auto-NI (purse exceeded) write failed:',e));
   }
   return;
  }
  const bidder=myTeamName||'Unknown';
- update(ref(db,`auctions/${roomId}/currentBlock`),{
-  currentBid:newBid,
-  lastBidderName:bidder,
-  lastBidderTeam:myTeamName||null,
-  lastBidderUid:user.uid
- });
+ const bidderUid=user&&user.uid;
+ const expectedPid=String(roomState.currentBlock?.playerId);
+ // Atomic compare-and-set on currentBlock. If two bidders click at the same
+ // time, only the higher (or first equal-but-earlier) write commits; the
+ // other transaction sees a fresher currentBid and aborts.
+ runTransaction(ref(db,`auctions/${roomId}/currentBlock`),(block)=>{
+  // Abort: the block was closed, or the player swapped out from under us.
+  if(!block||!block.active)return;
+  if(String(block.playerId)!==expectedPid)return;
+  const liveBid=Number(block.currentBid)||0;
+  // Race winner check: if someone else has already pushed the price to >=
+  // our intended newBid, we must NOT overwrite -- abort and let the user
+  // see the higher value, then re-bid manually.
+  if(liveBid>=newBid)return;
+  block.currentBid=newBid;
+  block.lastBidderName=bidder;
+  block.lastBidderTeam=myTeamName||null;
+  if(bidderUid)block.lastBidderUid=bidderUid;
+  return block;
+ }).catch(e=>window.showAlert('Bid failed: '+e.message+' -- try again','err'));
 };
 
 // -- Sell (admin only -- winner = last bidder team) --
+// B2: Two simultaneous Sell presses (e.g. admin double-clicks, or admin
+// + auto-sell timer fire at the same instant) used to both pass the
+// freshData get() check and both write -- the second write would charge the
+// team twice / overwrite the closeBlock. Wrapped the close-block write in
+// runTransaction so only the first commit wins; the second sees
+// active===false and aborts with `undefined`. The post-sell side-effects
+// (player status, roster push, budget deduction, leaderboard) are NOT in
+// the transaction because they target sibling paths -- runTransaction
+// only operates on a single ref. Instead, we do the atomic block-close
+// first; if it commits, we then fire the side-effect update against the
+// rest of the room.
 window.sellPlayer=function(autoSell=false){
  if(!autoSell&&!isAdmin)return window.showAlert('Only the admin can finalize a sale.');
  if(!roomState?.currentBlock?.active)return window.showAlert('No active player on the block.');
@@ -1525,18 +1583,37 @@ window.sellPlayer=function(autoSell=false){
   const maxP=freshData.setup?.maxPlayers||freshData.maxPlayers||20;
   if(roster.length>=maxP)return window.showAlert(`${freshTn}'s roster is full!`);
   roster.push({name:p.name||p.n,role:p.role||p.r,iplTeam:p.iplTeam||p.t,isOverseas:!!(p.isOverseas||p.o),soldPrice:freshBid});
-  const upd={};
-  upd[`/teams/${freshTn}/roster`]=roster;
-  upd[`/teams/${freshTn}/budget`]=parseFloat((team.budget-freshBid).toFixed(2));
-  upd[`/players/${pid}/status`]='sold';
-  upd[`/players/${pid}/soldTo`]=freshTn;
-  upd[`/players/${pid}/soldPrice`]=freshBid;
-  upd['/currentBlock']={active:false,lastAction:`sold_${pid}_${freshTn}_${freshBid}`,lastBidderName:null,lastBidderTeam:null,notInterested:null};
-  return update(ref(db,`auctions/${roomId}`),upd).then(()=>{
-   window.showSoldFlash(freshTn, freshBid, p.name||p.n);
-   checkAuctionComplete();
+  // Atomic block-close. Pattern mirrors the addBid runTransaction (Wave 1).
+  // Returning `undefined` aborts; if active===false or playerId moved on,
+  // we know another Sell already committed -- silently no-op without an
+  // error toast (the outcome the user wanted has already happened).
+  return runTransaction(ref(db,`auctions/${roomId}/currentBlock`),(block)=>{
+   if(!block||!block.active)return; // already closed by another presser
+   if(String(block.playerId)!==pid)return; // player moved on
+   block.active=false;
+   block.lastAction=`sold_${pid}_${freshTn}_${freshBid}`;
+   block.lastBidderName=null;
+   block.lastBidderTeam=null;
+   block.notInterested=null;
+   block.soldTo=freshTn;
+   block.soldPrice=freshBid;
+   return block;
+  }).then(txnResult=>{
+   // committed===false means our handler returned undefined -- another
+   // Sell beat us to the close, so skip the side-effect write entirely.
+   if(!txnResult||!txnResult.committed)return;
+   const sideUpd={};
+   sideUpd[`/teams/${freshTn}/roster`]=roster;
+   sideUpd[`/teams/${freshTn}/budget`]=parseFloat((team.budget-freshBid).toFixed(2));
+   sideUpd[`/players/${pid}/status`]='sold';
+   sideUpd[`/players/${pid}/soldTo`]=freshTn;
+   sideUpd[`/players/${pid}/soldPrice`]=freshBid;
+   return update(ref(db,`auctions/${roomId}`),sideUpd).then(()=>{
+    window.showSoldFlash(freshTn, freshBid, p.name||p.n);
+    checkAuctionComplete();
+   });
   });
- }).catch(e=>window.showAlert(e.message));
+ }).catch(e=>window.showAlert('Sell failed: '+e.message,'err'));
 };
 
 // -- Check if all teams have reached their player quota --
@@ -2176,7 +2253,6 @@ async function _recalcLeaderboardCore(){
   }
   if(!matchSnaps){
    // No way to know who owned what for this match. Skip — don't credit anyone.
-   console.warn('Skipping match', me[0], '— no snapshot and no ownedBy data');
    return;
   }
   var contrib=computeMatchContribution(m, matchSnaps, teams, xiMult);
@@ -2249,7 +2325,7 @@ window._cdForceRoomRefresh = async function(){
       window.roomState = data;
       try{ window.CD && typeof window.CD.scheduleRender === 'function' && window.CD.scheduleRender(); }catch(_){}
     }
-  }catch(e){ console.warn('_cdForceRoomRefresh:', e); }
+  }catch(e){ console.error('_cdForceRoomRefresh:', e); }
 };
 
 // -- Render Leaderboard --
@@ -3654,6 +3730,9 @@ window.saveGlobalScorecard=async function(){
  const matchLabel=data.label.toLowerCase().trim();
  var _gscOverwriteCount=0; var _gscRoomsTouched=0;
  allAuctionRids.forEach(rid=>{
+  // Per-room fan-out cleanup: per-room failures get logged but don't
+  // abort the Promise.all -- a single bad room shouldn't block other
+  // rooms from getting the new scorecard.
   dupCleanPromises.push(get(ref(db,`auctions/${rid}/matches`)).then(mSnap=>{
    var matches=mSnap.val()||{};
    var delWrites={}; var n=0;
@@ -3663,7 +3742,7 @@ window.saveGlobalScorecard=async function(){
     }
    });
    if(n>0){ _gscOverwriteCount+=n; _gscRoomsTouched++; return update(ref(db),delWrites); }
-  }).catch(()=>{}));
+  }).catch(e=>console.error('GSC duplicate cleanup (auction '+rid+') failed:',e)));
  });
  allDraftRids.forEach(rid=>{
   dupCleanPromises.push(get(ref(db,`drafts/${rid}/matches`)).then(mSnap=>{
@@ -3675,7 +3754,7 @@ window.saveGlobalScorecard=async function(){
     }
    });
    if(n>0){ _gscOverwriteCount+=n; _gscRoomsTouched++; return update(ref(db),delWrites); }
-  }).catch(()=>{}));
+  }).catch(e=>console.error('GSC duplicate cleanup (draft '+rid+') failed:',e)));
  });
  await Promise.all(dupCleanPromises);
 
@@ -3758,7 +3837,7 @@ window.saveGlobalScorecard=async function(){
    });
    upd[`auctions/${rid}/leaderboardTotals`]=storedNew;
    if(Object.keys(upd).length) return update(ref(db),upd);
-  }).catch(()=>{}));
+  }).catch(e=>console.error('GSC fan-out enrich (auction '+rid+') failed:',e)));
  });
  allDraftRids.forEach(rid=>{
   enrichPromises.push(get(ref(db,`drafts/${rid}`)).then(roomSnap=>{
@@ -3824,7 +3903,7 @@ window.saveGlobalScorecard=async function(){
    });
    upd[`drafts/${rid}/leaderboardTotals`]=storedNew;
    if(Object.keys(upd).length) return update(ref(db),upd);
-  }).catch(()=>{}));
+  }).catch(e=>console.error('GSC fan-out enrich (draft '+rid+') failed:',e)));
  });
  await Promise.all(enrichPromises);
  }
@@ -3864,13 +3943,11 @@ window.saveGlobalScorecard=async function(){
 
 // -- Render global scorecard history --
 function renderGlobalScorecardHistory(){
- if(!user){ console.warn('[scorecards] renderGlobalScorecardHistory: user is null'); return; }
+ if(!user){ return; }
  const list=document.getElementById('gscHistoryList');
- if(!list){ console.warn('[scorecards] renderGlobalScorecardHistory: #gscHistoryList not in DOM — wrong sub-tab?'); return; }
- console.log('[scorecards] reading users/' + user.uid + '/scorecards as ' + (user.email||'?'));
+ if(!list){ return; }
  get(ref(db,`users/${user.uid}/scorecards`)).then(snap=>{
  const data=snap.val();
- console.log('[scorecards] read result: ' + (data ? Object.keys(data).length + ' matches' : 'null/empty') + ' at users/' + user.uid + '/scorecards');
  if(!data){list.innerHTML='<div class="empty">No matches saved yet.<div style="font-size:10px;color:var(--mute);margin-top:6px;">(logged in as '+escapeHtml(user.email||'?')+' — path: users/'+user.uid.substring(0,6)+'…/scorecards)</div></div>';return;}
  const entries=Object.entries(data).sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0));
  list.innerHTML=entries.map(([mid,m])=>{
@@ -3930,7 +4007,7 @@ window.repushScorecard=async function(mid){
    Object.entries(snaps).forEach(function(se){writes['auctions/'+rid+'/matches/'+mid+'/squadSnapshots/'+se[0]]=se[1];});
    writes['auctions/'+rid+'/leaderboardTotals']=storedNew;
    return update(ref(db),writes);
-  }).catch(function(){}));
+  }).catch(function(e){console.error('Re-push (auction '+rid+') failed:',e);}));
  });
  dRoomKeys.forEach(function(rid){
   _rpPromises.push(get(ref(db,'drafts/'+rid)).then(function(roomSnap){
@@ -3953,7 +4030,7 @@ window.repushScorecard=async function(mid){
    Object.entries(snaps).forEach(function(se){writes['drafts/'+rid+'/matches/'+mid+'/squadSnapshots/'+se[0]]=se[1];});
    writes['drafts/'+rid+'/leaderboardTotals']=storedNew;
    return update(ref(db),writes);
-  }).catch(function(){}));
+  }).catch(function(e){console.error('Re-push (draft '+rid+') failed:',e);}));
  });
  await Promise.all(_rpPromises);
  const total=aRoomKeys.length+dRoomKeys.length;
@@ -4227,7 +4304,7 @@ window.saPushToAll=async function(){
    var storedNew={}; Object.entries(totals).forEach(function(te){var tn4=te[0],tt=te[1],topP='--',topPts=0,pCount=0;Object.entries(tt._players).forEach(function(pe2){if(pe2[1]!==0)pCount++;if(pe2[1]>topPts){topPts=pe2[1];topP=pe2[0];}});storedNew[tn4]={pts:Math.round(tt.pts*100)/100,topPlayer:topP,topPts:Math.round(topPts*100)/100,playerCount:pCount};});
    upd['auctions/'+rid+'/leaderboardTotals']=storedNew;
    return update(ref(db),upd);
-  }).catch(function(){}));
+  }).catch(function(e){console.error('GSC post fan-out (auction '+rid+') failed:',e);}));
  });
  draftRids.forEach(function(rid){
   postPromises.push(get(ref(db,'drafts/'+rid)).then(function(roomSnap){
@@ -4266,7 +4343,7 @@ window.saPushToAll=async function(){
    var storedNew={}; Object.entries(totals).forEach(function(te){var tn4=te[0],tt=te[1],topP='--',topPts=0,pCount=0;Object.entries(tt._players).forEach(function(pe2){if(pe2[1]!==0)pCount++;if(pe2[1]>topPts){topPts=pe2[1];topP=pe2[0];}});storedNew[tn4]={pts:Math.round(tt.pts*100)/100,topPlayer:topP,topPts:Math.round(topPts*100)/100,playerCount:pCount};});
    upd['drafts/'+rid+'/leaderboardTotals']=storedNew;
    return update(ref(db),upd);
-  }).catch(function(){}));
+  }).catch(function(e){console.error('GSC post fan-out (draft '+rid+') failed:',e);}));
  });
  await Promise.all(postPromises);
 
@@ -5424,11 +5501,11 @@ window.mt_save_A = async function(){
   if(p16Os>6) msgs.push('Playing 16 has '+p16Os+' overseas (max 6)');
   if(sq.xi.length===_xiTarget&&_xiTarget>=5&&xiBowl<5) msgs.push('XI needs 5+ bowlers/all-rounders (has '+xiBowl+')');
   if(sq.xi.length===_xiTarget&&xiWk<1) msgs.push('XI needs at least 1 wicketkeeper (has '+xiWk+')');
-  if(msgs.length){if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:false,activeSquad:null}).catch(function(){});window.showAlert(msgs.join(' \u00b7 '));return;}
+  if(msgs.length){if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:false,activeSquad:null}).catch(function(e){console.error('squadValid:false mirror write failed:',e);});window.showAlert(msgs.join(' \u00b7 '));return;}
   try{
     await set(ref(db,'users/'+user.uid+'/squads/auctions/'+roomId),{xi:sq.xi,bench:sq.bench,savedAt:Date.now()});
     window.showAlert('Squad saved!','ok');
-    if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:true,activeSquad:sq.xi.concat(sq.bench)}).catch(function(){});
+    if(myTeamName)update(ref(db,'auctions/'+roomId+'/teams/'+myTeamName),{squadValid:true,activeSquad:sq.xi.concat(sq.bench)}).catch(function(e){console.error('squadValid:true mirror write failed:',e);});
     _sqHistA=[];
     var ub=document.getElementById('mt_undo_A');if(ub)ub.style.display='none';
   }catch(e){window.showAlert('Save failed: '+e.message);}
@@ -6245,7 +6322,7 @@ window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
   upd[`auctions/${roomId}/players/${newPlayer.id}/soldPrice`]=oldSoldPrice;
   await update(ref(db),upd);
   // Auto-heal stored leaderboardTotals so future reads can't drift.
-  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.warn('recalc leaderboard (auction):', e); }
-  try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:teamName}})); }catch(e){ console.warn('dispatch _cdRosterChanged:', e); }
+  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.error('recalc leaderboard (auction):', e); }
+  try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:teamName}})); }catch(e){ console.error('dispatch _cdRosterChanged:', e); }
   window.showAlert(`${oldName} replaced with ${newPlayer.name}. Points history preserved.`,'ok');
 };

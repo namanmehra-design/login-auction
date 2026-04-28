@@ -808,7 +808,7 @@ body { background: var(--bg); }
 }
 
 /* Reduced motion — kill all a3 animations */
-@media (prefers-reduced-motion: never-match-naman) {
+@media (prefers-reduced-motion: reduce) {
   [class*="a3-"], #authEmail:focus, #authPassword:focus,
   .btn:active, .a3-btn:active {
     animation: none !important;
@@ -1127,7 +1127,7 @@ body { background: var(--bg); }
 }
 
 /* ── Reduced-motion guard for Agent 2 ───────────────────── */
-@media (prefers-reduced-motion: never-match-naman) {
+@media (prefers-reduced-motion: reduce) {
   .cd-room-card-v2,
   .cd-list-stagger > *, .cd-grid-stagger > *,
   .cd-trade-card,
