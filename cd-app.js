@@ -4885,8 +4885,8 @@
     .cd-sub-enter  { animation: cd-sub-in 140ms ease-out both; }
 
     /* ── A8: Mobile floating-glass bottom-nav pill + sticky sub-tabs ─────────────
-       The bottom nav is rendered with inline `position:fixed; bottom:10px;
-       left:10px; right:10px;` which spans edge-to-edge. Override on mobile
+       The bottom nav is rendered with inline 'position:fixed; bottom:10px;
+       left:10px; right:10px;' which spans edge-to-edge. Override on mobile
        to a centered Instagram-style floating liquid-glass pill that overlays
        content. The FLIP active-pill (#cd-bn::before with --bn-x/--bn-w)
        is measure-based via JS (CD.bnSyncPill) so it survives geometry change.
