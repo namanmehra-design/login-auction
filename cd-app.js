@@ -1023,6 +1023,51 @@
     `;
   };
 
+  // Map sub-tab id -> icon name (falls back to a sensible default per nav).
+  CD.SUBTAB_ICONS = {
+    live: 'gavel', purses: 'coins', ledger: 'chart',
+    myteam: 'user', ptsbymatch: 'chart', trades: 'swap',
+    leaderboard: 'trophy', points: 'star', weeks: 'cal',
+    pool: 'users', analytics: 'chart',
+    data: 'chart', schedule: 'cal'
+  };
+
+  // Floating glass pill that morphs from icons-only -> icons+labels.
+  // Renders into document.body (NOT #cd-root) so .cd-view's will-change:transform
+  // can't make a containing block that breaks position:fixed.
+  // State held on data-state; CSS does the morph; CD._initSubtabPill drives the
+  // state machine (scroll, idle, outside-click). Mount/teardown wired by CD.render.
+  CD.renderSubtabPillHTML = (subs, activeSub) => {
+    const items = subs.map(s => {
+      const ico = CD.SUBTAB_ICONS[s.id] || 'cog';
+      const isActive = activeSub === s.id;
+      return '<button type="button" class="cd-subtab-pill-item' + (isActive ? ' is-active' : '') +
+             '" data-pill-sub="' + s.id + '" onclick="CD.goSub(\'' + s.id + '\')" aria-label="' + s.label + '">' +
+             '<span class="cd-subtab-pill-icon">' + I(ico, 16) + '</span>' +
+             '<span class="cd-subtab-pill-label">' + s.label + '</span>' +
+             '</button>';
+    }).join('');
+    return '<nav id="cd-subtab-pill" class="cd-subtab-pill" data-state="expanded" role="tablist" aria-label="Section tabs">' + items + '</nav>';
+  };
+
+  // Mount/refresh the pill at body level. Removes prior instance to avoid
+  // stale onclick references after CD.render rewrites #cd-root.innerHTML.
+  CD._mountSubtabPill = () => {
+    try {
+      const existing = document.getElementById('cd-subtab-pill');
+      if(existing) existing.remove();
+      // Only mount when in room view AND there are multiple sub-tabs.
+      if(CD.state.view !== 'room') return;
+      const subs = SUBTABS[CD.state.activeNav] || [];
+      if(subs.length <= 1) return;
+      const activeSub = CD.state.activeSub;
+      const wrap = document.createElement('div');
+      wrap.innerHTML = CD.renderSubtabPillHTML(subs, activeSub);
+      const node = wrap.firstChild;
+      if(node) document.body.appendChild(node);
+    } catch(e){ console.warn('mountSubtabPill:', e); }
+  };
+
   CD.renderMobileBottomNav = () => `
     <div class="cd-bn" id="cd-bn" style="position:fixed;bottom:10px;left:10px;right:10px;z-index:100;padding:5px;border-radius:9999px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);-webkit-backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);box-shadow:var(--sh-2);display:flex;gap:2px;overflow-x:auto;">
       ${NAV.map(n => `
@@ -3742,6 +3787,87 @@
     requestAnimationFrame(() => bn.setAttribute('data-bn-ready', '1'));
   };
 
+  // ── A9 driver: Floating sub-tab pill state machine ─────────────────
+  // Listeners are owned by CD._subtabPill. Each call to _initSubtabPill is
+  // idempotent: it tears down prior listeners then re-attaches if a pill is
+  // currently in the DOM. Called from CD.render after every paint.
+  CD._subtabPill = CD._subtabPill || { teardown: null, idleTimer: null, lastY: 0 };
+
+  CD._initSubtabPill = () => {
+    // Tear down any previous wiring first so we never leak listeners.
+    try { if(CD._subtabPill.teardown) CD._subtabPill.teardown(); } catch(_) {}
+    CD._subtabPill.teardown = null;
+    if(CD._subtabPill.idleTimer){ clearTimeout(CD._subtabPill.idleTimer); CD._subtabPill.idleTimer = null; }
+
+    const pill = document.getElementById('cd-subtab-pill');
+    if(!pill){
+      // Pill not present (not in room view, or only one sub-tab). Drop body class.
+      try { document.body.classList.remove('cd-pill-active'); } catch(_) {}
+      return;
+    }
+    document.body.classList.add('cd-pill-active');
+
+    const SCROLL_COLLAPSE = 80;   // pixels scrolled before we collapse
+    const IDLE_MS = 3000;         // 3s idle re-collapse
+
+    const setState = (s) => {
+      if(!pill || !pill.isConnected) return;
+      if(pill.getAttribute('data-state') !== s) pill.setAttribute('data-state', s);
+    };
+
+    const armIdle = () => {
+      if(CD._subtabPill.idleTimer){ clearTimeout(CD._subtabPill.idleTimer); }
+      CD._subtabPill.idleTimer = setTimeout(() => {
+        // Don't collapse if we're at the very top — top forces expanded.
+        if(window.scrollY <= 0) { setState('expanded'); return; }
+        setState('collapsed');
+      }, IDLE_MS);
+    };
+
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      if(y <= 0){ setState('expanded'); armIdle(); CD._subtabPill.lastY = y; return; }
+      if(y > SCROLL_COLLAPSE){ setState('collapsed'); }
+      CD._subtabPill.lastY = y;
+      armIdle();
+    };
+
+    const onPointerDownAnywhere = (e) => {
+      if(!pill || !pill.isConnected) return;
+      const inside = pill.contains(e.target);
+      if(inside){
+        // Click on collapsed pill -> expand.
+        if(pill.getAttribute('data-state') === 'collapsed') setState('expanded');
+        armIdle();
+      } else {
+        // Click outside collapses (unless at top of page).
+        if((window.scrollY || 0) <= 0) setState('expanded');
+        else setState('collapsed');
+      }
+    };
+
+    const onActivity = () => { armIdle(); };
+
+    // Initial state — expanded if at top, otherwise mirror current scroll.
+    if((window.scrollY || 0) <= 0) setState('expanded');
+    else if((window.scrollY || 0) > SCROLL_COLLAPSE) setState('collapsed');
+    else setState('expanded');
+    armIdle();
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('pointerdown', onPointerDownAnywhere, true);
+    pill.addEventListener('mouseenter', onActivity);
+    pill.addEventListener('mousemove', onActivity);
+
+    CD._subtabPill.teardown = () => {
+      try { window.removeEventListener('scroll', onScroll); } catch(_){}
+      try { document.removeEventListener('pointerdown', onPointerDownAnywhere, true); } catch(_){}
+      try { pill.removeEventListener('mouseenter', onActivity); } catch(_){}
+      try { pill.removeEventListener('mousemove', onActivity); } catch(_){}
+      if(CD._subtabPill.idleTimer){ clearTimeout(CD._subtabPill.idleTimer); CD._subtabPill.idleTimer = null; }
+    };
+  };
+
   // ── A6: Highlight pulse on cross-tab scroll arrival ────────────────
   CD._pulseTarget = (el) => {
     if(!el || !el.classList) return;
@@ -3758,6 +3884,14 @@
       try {
         CD._positionSubtabIndicator && CD._positionSubtabIndicator();
         CD._positionBottomNavPill   && CD._positionBottomNavPill();
+        // The pill is body-level so resize doesn't tear it down, but we
+        // still re-evaluate state in case viewport changed (e.g., orientation).
+        if(document.getElementById('cd-subtab-pill')){
+          if((window.scrollY || 0) <= 0){
+            const p = document.getElementById('cd-subtab-pill');
+            if(p) p.setAttribute('data-state', 'expanded');
+          }
+        }
       } catch(_) {}
     });
   }
@@ -4069,11 +4203,14 @@
         });
       } catch(e){ /* rAF unavailable — silently skip, baseline fade still runs */ }
     }
-    // Position the sub-tab indicator and bottom-nav pill (FLIP-style).
+    // Position the sub-tab indicator and bottom-nav pill (FLIP-style),
+    // mount the body-level floating sub-tab pill, then wire its state machine.
     try {
       requestAnimationFrame(() => {
         CD._positionSubtabIndicator && CD._positionSubtabIndicator();
         CD._positionBottomNavPill   && CD._positionBottomNavPill();
+        CD._mountSubtabPill         && CD._mountSubtabPill();
+        CD._initSubtabPill          && CD._initSubtabPill();
       });
     } catch(_) {}
     // Restore captured form state (values + focus + selection).
@@ -4884,6 +5021,125 @@
     /* Keep legacy helpers around for callers elsewhere. */
     .cd-sub-enter  { animation: cd-sub-in 140ms ease-out both; }
 
+    /* ── A9: Floating glass sub-tab pill (top of viewport) ─────────────────────
+       Replaces the in-flow .cd-subtab-bar visually while keeping it in the DOM
+       (so the existing FLIP indicator JS stays a no-op and never throws). The
+       pill morphs between icon-only collapsed and icon+label expanded states
+       via the data-state attribute, animated by CSS. JS in CD._initSubtabPill
+       drives the state machine (scroll, idle, outside-click). */
+    body.cd-pill-active #cd-root .cd-subtab-bar { display: none !important; }
+
+    .cd-subtab-pill {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1850;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      background: rgba(18, 18, 28, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 26px;
+      backdrop-filter: blur(28px) saturate(1.8);
+      -webkit-backdrop-filter: blur(28px) saturate(1.8);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      max-width: calc(100% - 24px);
+      transition: max-width 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  padding   280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity   200ms ease-out;
+      opacity: 1;
+    }
+    .cd-subtab-pill[data-state="expanded"] { max-width: 600px; }
+    .cd-subtab-pill[data-state="collapsed"] { padding: 4px 6px; }
+    @media (max-width: 900px) {
+      .cd-subtab-pill[data-state="expanded"] { max-width: calc(100% - 24px); }
+    }
+
+    .cd-subtab-pill-item {
+      appearance: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.65);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 7px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      position: relative;
+      transition: background 220ms var(--cd-ease-hover),
+                  color      220ms var(--cd-ease-hover),
+                  padding    280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cd-subtab-pill-item:hover { color: rgba(255, 255, 255, 0.92); }
+    .cd-subtab-pill-item .cd-subtab-pill-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+    }
+    .cd-subtab-pill-item .cd-subtab-pill-label {
+      max-width: 140px;
+      overflow: hidden;
+      opacity: 1;
+      transform: translateX(0);
+      transition: max-width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity   180ms ease-out,
+                  transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  margin-left 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .cd-subtab-pill[data-state="collapsed"] .cd-subtab-pill-item {
+      padding: 6px 8px;
+    }
+    .cd-subtab-pill[data-state="collapsed"] .cd-subtab-pill-item .cd-subtab-pill-label {
+      max-width: 0;
+      opacity: 0;
+      transform: translateX(-4px);
+      margin-left: -6px;  /* collapse the gap to icon */
+    }
+    /* Active state */
+    .cd-subtab-pill-item.is-active {
+      color: #fff;
+      background: linear-gradient(180deg, var(--electric-2, #4d75ff), var(--electric, #2e5bff));
+      box-shadow: 0 4px 14px rgba(46, 91, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    /* In collapsed state, give the active icon a small accent dot underneath instead of pill bg. */
+    .cd-subtab-pill[data-state="collapsed"] .cd-subtab-pill-item.is-active {
+      background: transparent;
+      box-shadow: none;
+      color: #fff;
+    }
+    .cd-subtab-pill[data-state="collapsed"] .cd-subtab-pill-item.is-active::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, var(--pink, #ff2d87), var(--electric, #2e5bff));
+      box-shadow: 0 0 8px rgba(46, 91, 255, 0.7);
+    }
+    .cd-subtab-pill-item:active { transform: scale(0.96); transition: transform 100ms ease-out; }
+    /* Reduced-motion: disable morph */
+    @media (prefers-reduced-motion: reduce) {
+      .cd-subtab-pill,
+      .cd-subtab-pill-item,
+      .cd-subtab-pill-item .cd-subtab-pill-label {
+        transition: none !important;
+      }
+    }
+
     /* ── A8: Mobile floating-glass bottom-nav pill + sticky sub-tabs ─────────────
        The bottom nav is rendered with inline 'position:fixed; bottom:10px;
        left:10px; right:10px;' which spans edge-to-edge. Override on mobile
@@ -4892,8 +5148,11 @@
        is measure-based via JS (CD.bnSyncPill) so it survives geometry change.
        z-index sits below modal-bg (2000) so modals still beat the nav. */
     @media (max-width: 900px) {
+      /* iOS safe-area: keep nav clear of the home indicator. */
+      body { padding-bottom: env(safe-area-inset-bottom); }
+
       #cd-root .cd-bn {
-        bottom: 14px !important;
+        bottom: max(14px, env(safe-area-inset-bottom)) !important;
         left: 50% !important;
         right: auto !important;
         transform: translateX(-50%) !important;
@@ -4927,6 +5186,15 @@
         backdrop-filter: blur(20px) saturate(1.6);
         -webkit-backdrop-filter: blur(20px) saturate(1.6);
         border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+      }
+      /* Task 2: kill aurora drift loops on mobile (perf — keeps gradient blobs static). */
+      .aurora-blob,
+      .aurora-blob:nth-child(1),  .aurora-blob:nth-child(2),
+      .aurora-blob:nth-child(3),  .aurora-blob:nth-child(4),
+      .aurora-blob:nth-child(5),  .aurora-blob:nth-child(6),
+      .aurora-blob:nth-child(7),  .aurora-blob:nth-child(8),
+      .aurora-blob:nth-child(9),  .aurora-blob:nth-child(10) {
+        animation: none !important;
       }
     }
 
