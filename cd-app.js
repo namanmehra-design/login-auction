@@ -3001,7 +3001,7 @@
               </tr>
             </thead>
             <tbody class="cd-pool-tbody">
-              ${filtered.slice(0, 150).map(p => {
+              ${filtered.map(p => {
                 const name = p.name || p.n || '';
                 const status = p.status || 'available';
                 const tone = status === 'sold' ? 'lime' : status === 'unsold' ? 'red' : 'electric';
@@ -3169,7 +3169,7 @@
               <table style="width:100%;border-collapse:collapse;font-size:13px;">
                 <thead><tr style="background:rgba(0,0,0,0.2);"><th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">#</th>${activeSub.cols.map((c,i) => `<th style="padding:10px 14px;text-align:${i>=2?'right':'left'};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--mute);">${c}</th>`).join('')}</tr></thead>
                 <tbody class="cd-analytics-tbody">
-                  ${rows.slice(0, 50).map((p, i) => {
+                  ${rows.map((p, i) => {
                     const rowVals = activeSub.row(p);
                     return `<tr style="border-top:1px solid var(--line);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
                       <td style="padding:11px 14px;font-family:var(--display);font-size:15px;color:var(--mute);">${(i+1).toString().padStart(2,'0')}</td>
