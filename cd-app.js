@@ -1019,8 +1019,9 @@
 
     return `
       <div style="position:relative;min-height:100vh;display:grid;grid-template-columns:${CD.state.isMobile ? '1fr' : '240px 1fr'};">${sidebar}${main}</div>
-      ${CD.state.isMobile ? CD.renderMobileBottomNav() : ''}
     `;
+    /* Bottom nav is no longer rendered inline — CD._mountBottomNav appends it
+       to document.body so .cd-view's will-change cant trap its position:fixed. */
   };
 
   // Map sub-tab id -> icon name (falls back to a sensible default per nav).
@@ -1069,7 +1070,7 @@
   };
 
   CD.renderMobileBottomNav = () => `
-    <div class="cd-bn" id="cd-bn" style="position:fixed;bottom:10px;left:10px;right:10px;z-index:100;padding:5px;border-radius:9999px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);-webkit-backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);box-shadow:var(--sh-2);display:flex;gap:2px;overflow-x:auto;">
+    <div class="cd-bn" id="cd-bn" style="position:fixed;bottom:10px;left:10px;right:10px;z-index:1900;padding:5px;border-radius:9999px;background:var(--glass-2);backdrop-filter:blur(40px) saturate(1.6);-webkit-backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--line-2);box-shadow:var(--sh-2);display:flex;gap:2px;overflow-x:auto;">
       ${NAV.map(n => `
         <div class="cd-bn-item${CD.state.activeNav === n.id ? ' is-active' : ''}" data-bn-id="${n.id}" onclick="CD.go('${n.id}')">
           <span class="cd-bn-icon">${I(n.icon, 14)}</span>
@@ -1079,6 +1080,21 @@
       `).join('')}
     </div>
   `;
+
+  // Append the mobile bottom nav to document.body. Removes prior instance so
+  // CD.render rewriting #cd-root.innerHTML never traps a stale onclick.
+  CD._mountBottomNav = () => {
+    try {
+      const existing = document.getElementById('cd-bn');
+      if(existing) existing.remove();
+      if(!CD.state.isMobile) return;
+      if(CD.state.view !== 'room' && CD.state.view !== 'dashboard') return;
+      const wrap = document.createElement('div');
+      wrap.innerHTML = CD.renderMobileBottomNav();
+      const node = wrap.firstChild;
+      if(node) document.body.appendChild(node);
+    } catch(e){ console.warn('mountBottomNav:', e); }
+  };
 
   // ── TAB CONTENT DISPATCH ────────────────────────────────────────
   CD.renderTabContent = () => {
@@ -4208,6 +4224,7 @@
     try {
       requestAnimationFrame(() => {
         CD._positionSubtabIndicator && CD._positionSubtabIndicator();
+        CD._mountBottomNav          && CD._mountBottomNav();
         CD._positionBottomNavPill   && CD._positionBottomNavPill();
         CD._mountSubtabPill         && CD._mountSubtabPill();
         CD._initSubtabPill          && CD._initSubtabPill();
@@ -5028,6 +5045,9 @@
        via the data-state attribute, animated by CSS. JS in CD._initSubtabPill
        drives the state machine (scroll, idle, outside-click). */
     body.cd-pill-active #cd-root .cd-subtab-bar { display: none !important; }
+    /* Push room content below the floating top pill so they never overlap. */
+    body.cd-pill-active main { padding-top: 60px; }
+    @media (max-width: 900px) { body.cd-pill-active main { padding-top: 56px; } }
 
     .cd-subtab-pill {
       position: fixed;
