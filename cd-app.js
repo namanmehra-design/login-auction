@@ -1797,11 +1797,12 @@
       const price = (roster[rosterIdx]?.soldPrice || 0);
       const btnSize = mob ? 36 : 32;
       const iconSize = mob ? 9 : 11;
-      const actionBar = (canRelease || canReplace) ? `
-        <div style="display:flex;gap:${mob?3:5}px;justify-content:center;margin-top:${mob?2:3}px;" onclick="event.stopPropagation()">
-          ${canRelease ? `<button data-team="${esc(t.name)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${price}" data-idx="${rosterIdx}" onclick="event.stopPropagation();CD.openReleaseConfirm(this);" title="Release ${esc(name)}" style="width:${btnSize}px;height:${btnSize}px;min-width:44px;min-height:44px;padding:8px;border-radius:50%;background:rgba(255,59,59,0.18);border:1px solid rgba(255,59,59,0.55);color:#FF8B8B;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;line-height:0;">${I('x',iconSize)}</button>` : ''}
-          ${canReplace ? `<button data-team="${esc(t.name)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${price}" data-idx="${rosterIdx}" onclick="event.stopPropagation();CD.handleReplaceA(this);" title="Replace ${esc(name)}" style="width:${btnSize}px;height:${btnSize}px;min-width:44px;min-height:44px;padding:8px;border-radius:50%;background:rgba(255,200,61,0.18);border:1px solid rgba(255,200,61,0.55);color:#FFE49A;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;line-height:0;font-size:${iconSize+1}px;font-weight:800;">⇄</button>` : ''}
-        </div>` : '';
+      // Buttons render UNCONDITIONALLY. Permission re-checked downstream.
+      const actionBar = `
+        <div style="display:flex;gap:${mob?3:5}px;justify-content:center;margin-top:${mob?2:3}px;position:relative;z-index:5;" onclick="event.stopPropagation()">
+          <button type="button" data-team="${esc(t.name)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${price}" data-idx="${rosterIdx}" onclick="event.stopPropagation();CD.openReleaseConfirm(this);return false;" title="Release ${esc(name)}" style="width:${btnSize}px;height:${btnSize}px;min-width:44px;min-height:44px;padding:8px;border-radius:50%;background:rgba(255,59,59,0.22);border:1px solid rgba(255,59,59,0.6);color:#FF8B8B;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;line-height:0;pointer-events:auto;">${I('x',iconSize)}</button>
+          <button type="button" data-team="${esc(t.name)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${price}" data-idx="${rosterIdx}" onclick="event.stopPropagation();CD.handleReplaceA(this);return false;" title="Replace ${esc(name)}" style="width:${btnSize}px;height:${btnSize}px;min-width:44px;min-height:44px;padding:8px;border-radius:50%;background:rgba(255,200,61,0.22);border:1px solid rgba(255,200,61,0.6);color:#FFE49A;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;line-height:0;font-size:${iconSize+1}px;font-weight:800;pointer-events:auto;">⇄</button>
+        </div>`;
       return `
         <div style="display:flex;flex-direction:column;align-items:center;gap:${pp.gap}px;min-width:${pp.minW}px;cursor:pointer;position:relative;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
           <div style="position:relative;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7));">
