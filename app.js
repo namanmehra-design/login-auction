@@ -356,6 +356,232 @@ async function migrateMissingWinBonuses(rid,data){
  }
 }
 
+// -- Canonical pts rebuilder (auction parallel) --
+// Treats the breakdown text as the source of truth and re-derives pts.
+// Same drift cases as the draft version: missing win bonus, doubled
+// duck (from earlier over-eager migration), and pts/breakdown drift.
+function _isLikelyDuckBatEntryA(e){
+ var lblM=e.label.match(/^bat\((\d+)r\s+([\d.]+)b/i);
+ if(!lblM) return false;
+ var runs=+lblM[1], balls=+lblM[2];
+ return runs===0 && balls<10 && e.val<=-5;
+}
+function _canonicalRebuildA(p, winnerCanonical, iplMap){
+ if(!p||typeof p!=='object') return null;
+ var origPts=+p.pts||0;
+ var origBd=String(p.breakdown||'');
+ var rawParts=origBd.split('|').map(function(s){return s.trim();}).filter(Boolean);
+ var entries=[];
+ for(var i=0;i<rawParts.length;i++){
+  var part=rawParts[i];
+  var m=part.match(/^(.+?):\s*([+-]?\d+(?:\.\d+)?)\s*$/);
+  if(!m) continue;
+  entries.push({raw:part,label:m[1].trim(),val:parseFloat(m[2])});
+ }
+ var batHasDuck=entries.some(function(e){
+  return /^bat\(.*duck.*\)/i.test(e.label) || _isLikelyDuckBatEntryA(e);
+ });
+ var pNameLow=(p.name||'').toLowerCase().trim();
+ var pNameClean=pNameLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+ var pIpl=iplMap[pNameLow]||iplMap[pNameClean]||'';
+ var winEligible=!!(winnerCanonical&&pIpl===winnerCanonical);
+ var kept=[];
+ var standaloneDuckKept=0;
+ var winKept=0;
+ var duckRemovedCount=0;
+ var winRemovedCount=0;
+ for(var j=0;j<entries.length;j++){
+  var e=entries[j];
+  var lblLow=e.label.toLowerCase();
+  if(/^duck/.test(lblLow)){
+   if(batHasDuck){ duckRemovedCount++; continue; }
+   if(standaloneDuckKept>=1){ duckRemovedCount++; continue; }
+   kept.push(e); standaloneDuckKept++;
+  } else if(/^win/.test(lblLow)){
+   if(winKept>=1){ winRemovedCount++; continue; }
+   kept.push(e); winKept++;
+  } else {
+   kept.push(e);
+  }
+ }
+ var addedWin=false;
+ if(winEligible&&winKept===0){
+  // Auction's original code emitted "Winning team: +5". Match that style.
+  kept.push({label:'Winning team',val:5,raw:'Winning team: +5'});
+  addedWin=true;
+ }
+ var canonicalPts=0;
+ for(var k=0;k<kept.length;k++) canonicalPts+=kept[k].val;
+ canonicalPts=Math.round(canonicalPts*100)/100;
+ var canonicalBd=kept.map(function(e){
+  var sign=e.val>=0?'+':'';
+  return e.label+': '+sign+e.val;
+ }).join(' | ');
+ var ptsChanged=Math.abs(origPts-canonicalPts)>0.01;
+ var bdChanged=origBd!==canonicalBd;
+ return {
+  pts:canonicalPts, breakdown:canonicalBd,
+  ptsChanged:ptsChanged, bdChanged:bdChanged,
+  addedWin:addedWin, duckDupesRemoved:duckRemovedCount, winDupesRemoved:winRemovedCount,
+  origPts:origPts, origBd:origBd
+ };
+}
+window._canonicalRebuildA=_canonicalRebuildA;
+
+let _canonicalRebuildDoneA={};
+async function migrateCanonicalRebuildA(rid,data){
+ if(_canonicalRebuildDoneA[rid]) return;
+ _canonicalRebuildDoneA[rid]=true;
+ if(!data?.matches) return;
+ try{
+  var iplMap={};
+  if(data.players){
+   var pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+   pArr.forEach(function(p){
+    var fn=(p.name||p.n||'').toLowerCase().trim();
+    var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    var t=(p.iplTeam||p.t||'').toUpperCase();
+    if(fn) iplMap[fn]=t;
+    if(cn) iplMap[cn]=t;
+   });
+  }
+  rawData.forEach(function(p){
+   var fn=(p.n||'').toLowerCase().trim();
+   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var t=(p.t||'').toUpperCase();
+   if(fn&&!iplMap[fn]) iplMap[fn]=t;
+   if(cn&&!iplMap[cn]) iplMap[cn]=t;
+  });
+  var upd={};
+  var fixedPlayers=0;
+  var fixedMatches={};
+  Object.entries(data.matches).forEach(function(me){
+   var mid=me[0],m=me[1];
+   if(!m||!m.players) return;
+   var rawW=(m.winner||'').trim();
+   var canonical=rawW?_normalizeIplTeamCode(rawW):'';
+   if(canonical&&rawW.toUpperCase()!==canonical){
+    upd['auctions/'+rid+'/matches/'+mid+'/winner']=canonical;
+    fixedMatches[mid]=true;
+   }
+   Object.entries(m.players).forEach(function(pe){
+    var pkey=pe[0],p=pe[1];
+    var rebuilt=_canonicalRebuildA(p,canonical,iplMap);
+    if(!rebuilt) return;
+    if(rebuilt.ptsChanged) upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/pts']=rebuilt.pts;
+    if(rebuilt.bdChanged) upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/breakdown']=rebuilt.breakdown;
+    if(rebuilt.ptsChanged||rebuilt.bdChanged){
+     fixedPlayers++; fixedMatches[mid]=true;
+    }
+   });
+  });
+  if(Object.keys(upd).length){
+   await update(ref(db),upd);
+   try{ await _recalcLeaderboardCore(); }catch(e){ console.error('canonical rebuild: recalc failed:',e); }
+   try{ window.showAlert('Pts rebuild: '+fixedPlayers+' player(s) across '+Object.keys(fixedMatches).length+' match(es) corrected.','ok'); }catch(_e){}
+   console.info('canonical rebuild:',{rid:rid,fixedPlayers:fixedPlayers,fixedMatches:Object.keys(fixedMatches).length});
+  }
+ }catch(e){ console.error('migrateCanonicalRebuildA:',e); }
+}
+
+// -- Super-admin: forced canonical rebuild across all auction rooms --
+// Console: await window.saRebuildAllPtsA(true)  -> apply fixes
+//          await window.saRebuildAllPtsA()      -> dry-run summary
+window.saRebuildAllPtsA=async function(autoFix){
+ if(!isSuperAdminEmail(user?.email)){ window.showAlert('Super admin only.','err'); return; }
+ console.group('🔧 Cross-room canonical rebuild — AUCTION');
+ console.info('Mode:',autoFix?'REBUILD + WRITE':'DRY-RUN (pass true to write)');
+ try{
+  var usersSnap=await get(ref(db,'users'));
+  var usersData=usersSnap.val()||{};
+  var allRoomIds={};
+  Object.entries(usersData).forEach(function(e){
+   var uid=e[0],u=e[1];
+   if(u&&u.auctions) Object.keys(u.auctions).forEach(function(rid){ allRoomIds[rid]=u.email||uid; });
+  });
+  var ridList=Object.keys(allRoomIds);
+  console.info('Discovered',ridList.length,'auction room(s).');
+  var globalIplMap={};
+  rawData.forEach(function(p){
+   var fn=(p.n||'').toLowerCase().trim();
+   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var t=(p.t||'').toUpperCase();
+   if(fn) globalIplMap[fn]=t;
+   if(cn) globalIplMap[cn]=t;
+  });
+  var summary=[];
+  var totalFixedPlayers=0;
+  for(var i=0;i<ridList.length;i++){
+   var rid=ridList[i];
+   try{
+    var snap=await get(ref(db,'auctions/'+rid));
+    var data=snap.val();
+    if(!data){ summary.push({roomId:rid.substring(0,8),owner:allRoomIds[rid],status:'EMPTY'}); continue; }
+    var matches=data.matches||{};
+    var iplMap={};
+    Object.assign(iplMap,globalIplMap);
+    if(data.players){
+     var pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+     pArr.forEach(function(p){
+      var fn=(p.name||p.n||'').toLowerCase().trim();
+      var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+      var t=(p.iplTeam||p.t||'').toUpperCase();
+      if(fn&&t) iplMap[fn]=t;
+      if(cn&&t) iplMap[cn]=t;
+     });
+    }
+    var upd={};
+    var roomFixed=0;
+    var roomTouched={};
+    Object.entries(matches).forEach(function(me){
+     var mid=me[0],m=me[1];
+     if(!m||!m.players) return;
+     var rawW=(m.winner||'').trim();
+     var canonical=rawW?_normalizeIplTeamCode(rawW):'';
+     if(canonical&&rawW.toUpperCase()!==canonical&&autoFix){
+      upd['auctions/'+rid+'/matches/'+mid+'/winner']=canonical;
+      roomTouched[mid]=true;
+     }
+     Object.entries(m.players).forEach(function(pe){
+      var pkey=pe[0],p=pe[1];
+      var rebuilt=_canonicalRebuildA(p,canonical,iplMap);
+      if(!rebuilt) return;
+      if(rebuilt.ptsChanged||rebuilt.bdChanged){
+       roomFixed++;
+       roomTouched[mid]=true;
+       if(autoFix){
+        if(rebuilt.ptsChanged) upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/pts']=rebuilt.pts;
+        if(rebuilt.bdChanged) upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/breakdown']=rebuilt.breakdown;
+       }
+      }
+     });
+    });
+    if(autoFix&&Object.keys(upd).length){
+     await update(ref(db),upd);
+     totalFixedPlayers+=roomFixed;
+    }
+    summary.push({roomId:rid.substring(0,8),name:data.roomName||'?',owner:allRoomIds[rid],matches:Object.keys(matches).length,playersFixed:roomFixed,matchesTouched:Object.keys(roomTouched).length});
+   }catch(e){
+    console.error('Room',rid,'rebuild failed:',e);
+    summary.push({roomId:rid.substring(0,8),owner:allRoomIds[rid],status:'ERROR',error:e.message});
+   }
+  }
+  console.table(summary);
+  if(autoFix&&totalFixedPlayers>0){
+   try{ window.showAlert('Cross-room rebuild: fixed '+totalFixedPlayers+' player record(s). See console.','ok'); }catch(_e){}
+  } else if(!autoFix){
+   var anyFix=summary.some(function(r){return r.playersFixed>0;});
+   try{ window.showAlert(anyFix?'Rebuild dry-run found fixes. Pass true to apply.':'No fixes needed.', anyFix?'err':'ok'); }catch(_e){}
+  }
+  console.groupEnd();
+  return summary;
+ }catch(e){
+  console.error('saRebuildAllPtsA failed:',e);
+  console.groupEnd();
+  throw e;
+ }
+};
+
 // -- Admin/super-admin audit helper for the auction app --
 // Walks every match in the current auction room and prints:
 //   - the raw winner string vs. its normalized code
@@ -1322,6 +1548,13 @@ function loadRoom(rid){
  // silently lost their +5. Idempotent — checks the breakdown for an
  // existing "Win:" / "Winning team:" marker before adding.
  migrateMissingWinBonuses(rid,data);
+ // Final canonical rebuild: derives pts from breakdown text, dedupes
+ // any stray DUCK / Win entries from earlier buggy migrations, adds
+ // missing win bonus, writes back if anything drifted. Runs once per
+ // session per room.
+ setTimeout(function(){
+  try{ migrateCanonicalRebuildA(rid,data); }catch(e){ console.error('canonical rebuild trigger:',e); }
+ }, 1500);
 
  // Self-heal: silently recalc leaderboardTotals once per room load so stored
  // values never drift from what computeMatchContribution would produce right
