@@ -5462,7 +5462,7 @@ function _mtRenderA(){
 
 
 window.mt_move_A = function(name, from, to){
-  if(roomState&&roomState.squadLocked){window.showAlert('Squad changes are locked by admin.');return;}
+  if(roomState&&roomState.squadLocked&&!isSuperAdminEmail(user?.email)){window.showAlert('Squad changes are locked by admin.');return;}
   const sq = _sqSavedA || {xi:[],bench:[],reserves:[]};
   _sqHistA.push(JSON.parse(JSON.stringify(sq)));
   var ub=document.getElementById('mt_undo_A'); if(ub) ub.style.display='flex';
@@ -5481,7 +5481,7 @@ window.mt_undo_A = function(){
 };
 
 window.mt_save_A = async function(){
-  if(roomState&&roomState.squadLocked){window.showAlert("Squad changes are locked by admin.");return;}
+  if(roomState&&roomState.squadLocked&&!isSuperAdminEmail(user?.email)){window.showAlert("Squad changes are locked by admin.");return;}
   if(!user||!roomId) return;
   const sq=_sqSavedA;
   if(!sq){window.showAlert('No squad to save.');return;}
@@ -6178,7 +6178,7 @@ window.saveSquadCD = async function(xiNames, benchNames){
   if(!user || !user.uid) return { ok:false, error:'Not signed in' };
   if(!roomId) return { ok:false, error:'No active room' };
   if(!myTeamName) return { ok:false, error:'No team registered' };
-  if(roomState && roomState.squadLocked){
+  if(roomState && roomState.squadLocked && !isSuperAdminEmail(user?.email)){
     return { ok:false, error:'Squad changes are locked by admin' };
   }
   const team = roomState?.teams?.[myTeamName];
