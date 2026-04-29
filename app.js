@@ -1137,15 +1137,31 @@ function loadRoom(rid){
 
  // Auction block
 
- // One-time auto-fix: add Dasun Shanaka if missing (only runs once per session)
+ // One-time auto-fix: backfill any seed players added after the room was first
+ // initialized. Idempotent — only pushes if name not already present.
  if(data.players&&roomId&&!window._dasunFixDoneA){
   var _ap=Array.isArray(data.players)?data.players:Object.values(data.players||{});
-  if(!_ap.some(function(p){return(p.name||p.n||'').indexOf('Dasun Shanaka')>=0;})){
-   _ap.push({name:"Dasun Shanaka* (SL)",n:"Dasun Shanaka* (SL)",iplTeam:"RR",t:"RR",role:"All-rounder",r:"All-rounder",isOverseas:true,o:true,status:"unsold",basePrice:2});
+  var _missingSeedA=[
+   {match:'Dasun Shanaka',  add:{name:"Dasun Shanaka* (SL)",  iplTeam:"RR", role:"All-rounder", isOverseas:true}},
+   {match:'Keshav Maharaj', add:{name:"Keshav Maharaj* (SA)", iplTeam:"MI", role:"Bowler",      isOverseas:true}},
+   {match:'George Linde',   add:{name:"George Linde* (SA)",   iplTeam:"LSG",role:"All-rounder", isOverseas:true}}
+  ];
+  var _addedAny=false;
+  _missingSeedA.forEach(function(m){
+   if(!_ap.some(function(p){return(p.name||p.n||'').indexOf(m.match)>=0;})){
+    _ap.push({
+     name:m.add.name, n:m.add.name,
+     iplTeam:m.add.iplTeam, t:m.add.iplTeam,
+     role:m.add.role, r:m.add.role,
+     isOverseas:m.add.isOverseas, o:m.add.isOverseas,
+     status:"unsold", basePrice:2
+    });
+    _addedAny=true;
+   }
+  });
+  if(_addedAny){
    data.players=_ap;
-   // Best-effort migration; users don't need a toast if the write loses to
-   // a concurrent update or permissions hiccup. Surface to console only.
-   set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(e){console.error('Dasun migration write failed:',e);});
+   set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(e){console.error('seed backfill (auction) write failed:',e);});
   }
   window._dasunFixDoneA=true;
  }
