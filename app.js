@@ -1137,9 +1137,10 @@ function loadRoom(rid){
 
  // Auction block
 
- // One-time auto-fix: backfill any seed players added after the room was first
- // initialized. Idempotent — only pushes if name not already present.
- if(data.players&&roomId&&!window._dasunFixDoneA){
+ // Seed-backfill — runs on EVERY onValue (idempotent, self-stopping).
+ // No session flag: first onValue may arrive before data.players is fully
+ // populated, leaving the flag stuck and migration never re-running.
+ if(data.players&&roomId&&isAdmin){
   var _ap=Array.isArray(data.players)?data.players:Object.values(data.players||{});
   var _missingSeedA=[
    {match:'Dasun Shanaka',  add:{name:"Dasun Shanaka* (SL)",  iplTeam:"RR", role:"All-rounder", isOverseas:true}},
@@ -1161,9 +1162,10 @@ function loadRoom(rid){
   });
   if(_addedAny){
    data.players=_ap;
-   set(ref(db,'auctions/'+roomId+'/players'),_ap).catch(function(e){console.error('seed backfill (auction) write failed:',e);});
+   set(ref(db,'auctions/'+roomId+'/players'),_ap)
+    .then(function(){ try{window.showAlert&&window.showAlert('Player pool updated.','ok');}catch(_){}})
+    .catch(function(e){console.error('seed backfill (auction) write failed:',e); try{window.showAlert&&window.showAlert('Player backfill failed: '+e.message,'err');}catch(_){}});
   }
-  window._dasunFixDoneA=true;
  }
  renderBlock(data);
 
