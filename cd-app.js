@@ -1918,7 +1918,7 @@
         <span style="font-family:var(--mono);color:var(--mute);">₹${(p.soldPrice||0).toFixed(2)}</span>
         <span style="font-family:var(--display);font-weight:800;color:${pts>0?'var(--lime)':pts<0?'var(--red)':'var(--mute)'};">${pts>=0?'+':''}${pts}${mc?' <span style="color:var(--mute);font-weight:500;font-size:10px;">· '+mc+'m</span>':''}</span>
         <div style="display:flex;gap:5px;margin-left:auto;">
-          ${isSuper ? `<button onclick="window.saReplacePlayerA && window.saReplacePlayerA('${esc(teamName)}','${esc(name)}',${isOs?'true':'false'},${(p.soldPrice||0)})" style="padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.12);border:1px solid rgba(255,200,61,0.45);color:#FFD97D;font-size:10px;font-weight:600;cursor:pointer;">Replace</button>` : ''}
+          ${isSuper ? `<button data-team="${esc(teamName)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${p.soldPrice||0}" onclick="CD.handleReplaceA(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.12);border:1px solid rgba(255,200,61,0.45);color:#FFD97D;font-size:10px;font-weight:600;cursor:pointer;">Replace</button>` : ''}
           ${!releaseLocked ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
         </div>
       </div>
@@ -3769,11 +3769,27 @@
 
   // ── DATA-ATTRIBUTE HANDLERS (avoid string interpolation in onclick) ──
   CD.handleRelease = (btn) => {
-    if(typeof window.openReleaseModal !== 'function') return;
+    if(typeof window.openReleaseModal !== 'function') {
+      window.showAlert?.('Release handler not available — reload the page.','err');
+      return;
+    }
     window.openReleaseModal(
       btn.getAttribute('data-team'),
       parseInt(btn.getAttribute('data-idx'), 10),
       btn.getAttribute('data-name'),
+      parseFloat(btn.getAttribute('data-price')) || 0
+    );
+  };
+  // Auction Replace handler — data-attributes pattern (apostrophe-safe).
+  CD.handleReplaceA = (btn) => {
+    if(typeof window.saReplacePlayerA !== 'function') {
+      window.showAlert?.('Replace handler not available — reload the page.','err');
+      return;
+    }
+    window.saReplacePlayerA(
+      btn.getAttribute('data-team'),
+      btn.getAttribute('data-name'),
+      btn.getAttribute('data-os') === '1',
       parseFloat(btn.getAttribute('data-price')) || 0
     );
   };
