@@ -253,6 +253,100 @@ function migrateDuckPoints(rid,data){
  if(needsWrite) update(ref(db),upd).then(()=>{window.showAlert('Duck penalties corrected.','ok');}).catch(e=>console.error('Duck migration:',e));
 }
 
+// -- Seed-backfill (auction parallel) --
+// Path-specific writes, no isAdmin gate, returns summary. Auction
+// players have shape {name, n, iplTeam, t, role, r, isOverseas, o,
+// status, basePrice} — duplicate keys for legacy short/long aliases
+// across the codebase.
+const _AUCTION_LATE_ADDITIONS=[
+ {match:'Dasun Shanaka',  add:{name:"Dasun Shanaka* (SL)",  iplTeam:"RR", role:"All-rounder", isOverseas:true}},
+ {match:'Keshav Maharaj', add:{name:"Keshav Maharaj* (SA)", iplTeam:"MI", role:"Bowler",      isOverseas:true}},
+ {match:'George Linde',   add:{name:"George Linde* (SA)",   iplTeam:"LSG",role:"All-rounder", isOverseas:true}}
+];
+async function _addMissingSeedPlayersA(rid){
+ var result={rid:rid,added:0,skipped:0,addedNames:[],skippedNames:[],error:null};
+ if(!rid){ result.error='No rid'; return result; }
+ try{
+  var snap=await get(ref(db,'auctions/'+rid+'/players'));
+  var pdata=snap.val();
+  var entries=[];
+  if(Array.isArray(pdata)){
+   pdata.forEach(function(p,i){ if(p) entries.push({key:i,p:p}); });
+  } else if(pdata && typeof pdata === 'object'){
+   Object.entries(pdata).forEach(function(e){
+    var k=e[0],v=e[1];
+    if(v) entries.push({key:isNaN(+k)?k:+k,p:v});
+   });
+  }
+  var maxId=-1;
+  entries.forEach(function(e){
+   if(typeof e.key==='number' && e.key>maxId) maxId=e.key;
+  });
+  var upd={};
+  for(var i=0;i<_AUCTION_LATE_ADDITIONS.length;i++){
+   var seed=_AUCTION_LATE_ADDITIONS[i];
+   var present=entries.some(function(e){return((e.p.name||e.p.n||'').indexOf(seed.match)>=0);});
+   if(present){ result.skipped++; result.skippedNames.push(seed.match); continue; }
+   maxId++;
+   upd['auctions/'+rid+'/players/'+maxId]={
+    name:seed.add.name, n:seed.add.name,
+    iplTeam:seed.add.iplTeam, t:seed.add.iplTeam,
+    role:seed.add.role, r:seed.add.role,
+    isOverseas:seed.add.isOverseas, o:seed.add.isOverseas,
+    status:"unsold", basePrice:2
+   };
+   result.added++; result.addedNames.push(seed.match);
+  }
+  if(result.added>0){
+   await update(ref(db),upd);
+   console.info('[seed-backfill auction]',rid,'added:',result.addedNames);
+  }
+ }catch(e){
+  console.error('[seed-backfill auction]',rid,'failed:',e);
+  result.error=e.message;
+ }
+ return result;
+}
+window._addMissingSeedPlayersA=_addMissingSeedPlayersA;
+
+window.addMissingPlayersA=async function(){
+ if(!roomId){ window.showAlert('Load an auction room first.','err'); return; }
+ var r=await _addMissingSeedPlayersA(roomId);
+ if(r.error){ window.showAlert('Backfill failed: '+r.error,'err'); }
+ else if(r.added>0){ window.showAlert('Added '+r.addedNames.join(', ')+' to player pool.','ok'); }
+ else { window.showAlert('All seed players already present.','ok'); }
+ return r;
+};
+
+window.saAddMissingPlayersAllRoomsA=async function(){
+ if(!isSuperAdminEmail(user?.email)){ window.showAlert('Super admin only.','err'); return; }
+ console.group('🔧 Seed-backfill — all auction rooms');
+ try{
+  var usersSnap=await get(ref(db,'users'));
+  var usersData=usersSnap.val()||{};
+  var ridSet=new Set();
+  Object.values(usersData).forEach(function(u){
+   if(u&&u.auctions) Object.keys(u.auctions).forEach(function(r){ ridSet.add(r); });
+  });
+  var summary=[];
+  var totalAdded=0;
+  for(var rid of ridSet){
+   var r=await _addMissingSeedPlayersA(rid);
+   summary.push({roomId:rid.substring(0,8),added:r.added,skipped:r.skipped,addedNames:r.addedNames.join(',')||'-',error:r.error||''});
+   totalAdded+=r.added;
+  }
+  console.table(summary);
+  console.info('Total players added across rooms:',totalAdded);
+  try{ window.showAlert('Cross-room seed backfill: added '+totalAdded+' player record(s). See console.','ok'); }catch(_e){}
+  console.groupEnd();
+  return summary;
+ }catch(e){
+  console.error('saAddMissingPlayersAllRoomsA failed:',e);
+  console.groupEnd();
+  throw e;
+ }
+};
+
 // -- Normalize an arbitrary winner string to its canonical IPL team code --
 // Used by the retroactive win-bonus migration so historical match records
 // where the admin typed "Sunrisers Hyderabad" instead of "SRH" can still
@@ -1721,35 +1815,19 @@ function loadRoom(rid){
 
  // Auction block
 
- // Seed-backfill — runs on EVERY onValue (idempotent, self-stopping).
- // No session flag: first onValue may arrive before data.players is fully
- // populated, leaving the flag stuck and migration never re-running.
- if(data.players&&roomId&&isAdmin){
-  var _ap=Array.isArray(data.players)?data.players:Object.values(data.players||{});
-  var _missingSeedA=[
-   {match:'Dasun Shanaka',  add:{name:"Dasun Shanaka* (SL)",  iplTeam:"RR", role:"All-rounder", isOverseas:true}},
-   {match:'Keshav Maharaj', add:{name:"Keshav Maharaj* (SA)", iplTeam:"MI", role:"Bowler",      isOverseas:true}},
-   {match:'George Linde',   add:{name:"George Linde* (SA)",   iplTeam:"LSG",role:"All-rounder", isOverseas:true}}
-  ];
-  var _addedAny=false;
-  _missingSeedA.forEach(function(m){
-   if(!_ap.some(function(p){return(p.name||p.n||'').indexOf(m.match)>=0;})){
-    _ap.push({
-     name:m.add.name, n:m.add.name,
-     iplTeam:m.add.iplTeam, t:m.add.iplTeam,
-     role:m.add.role, r:m.add.role,
-     isOverseas:m.add.isOverseas, o:m.add.isOverseas,
-     status:"unsold", basePrice:2
-    });
-    _addedAny=true;
-   }
-  });
-  if(_addedAny){
-   data.players=_ap;
-   set(ref(db,'auctions/'+roomId+'/players'),_ap)
-    .then(function(){ try{window.showAlert&&window.showAlert('Player pool updated.','ok');}catch(_){}})
-    .catch(function(e){console.error('seed backfill (auction) write failed:',e); try{window.showAlert&&window.showAlert('Player backfill failed: '+e.message,'err');}catch(_){}});
-  }
+ // Seed-backfill: ensure late-additions (Linde, Maharaj, Shanaka) are
+ // in the player pool so admins can pick them as replacements. Now
+ // delegates to the path-specific helper below — works even when the
+ // current viewer isn't the room admin (super-admin opening someone
+ // else's room) and never clobbers the existing pool by overwriting it.
+ if(!window._seedBackfillDoneA) window._seedBackfillDoneA={};
+ if(!window._seedBackfillDoneA[roomId]){
+  window._seedBackfillDoneA[roomId]=true;
+  setTimeout(function(){
+   _addMissingSeedPlayersA(roomId).then(function(r){
+    if(r.added>0){ try{ window.showAlert('Player pool updated: added '+r.addedNames.join(', '),'ok'); }catch(_){} }
+   });
+  }, 600);
  }
  renderBlock(data);
 
