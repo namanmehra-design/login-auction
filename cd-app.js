@@ -1696,7 +1696,7 @@
       benchNames = rosterNames.slice(11, 16);
     }
     const reserveNames = rosterNames.filter(n => !xiNames.includes(n) && !benchNames.includes(n));
-    const canEdit = !squadLocked || isAdmin;
+    const canEdit = !squadLocked;
 
     // squadValid: XI must have 11 and roster must have 11+ to field a side.
     const squadValid = roster.length >= 11 && xiNames.length >= 11;
@@ -1823,7 +1823,7 @@
           <div style="display:flex;gap:${mob ? 5 : 8}px;align-items:center;flex-wrap:wrap;flex-shrink:0;">
             ${releaseLocked && !isSuper ? CD.Pill({tone:'red', style: mob?'font-size:9px;padding:2px 7px;':'', children: mob ? 'Locked' : 'Releases locked'}) : ''}
             ${isSuper ? `<button onclick="window.toggleReleaseLock_A && window.toggleReleaseLock_A()" title="${releaseLocked?'Currently LOCKED — click to allow releases':'Currently UNLOCKED — click to disallow releases'}" style="padding:${mob?'4px 9px':'6px 12px'};border-radius:9999px;background:${releaseLocked?'rgba(255,59,59,0.18)':'linear-gradient(180deg,rgba(255,200,61,0.22),rgba(255,200,61,0.08))'};border:1px solid ${releaseLocked?'rgba(255,59,59,0.45)':'rgba(255,200,61,0.55)'};color:${releaseLocked?'#FF8B8B':'#FFE49A'};font-family:var(--sans);font-size:${mob?9:10.5}px;font-weight:800;cursor:pointer;letter-spacing:0.12em;text-transform:uppercase;">${releaseLocked?(mob?'🔒':'🔒 Releases locked'):(mob?'🔓':'🔓 Releases open')}</button>` : ''}
-            ${squadLocked && !isAdmin ? CD.Pill({tone:'pink', style: mob?'font-size:9px;padding:2px 7px;':'', children:'Squad locked'}) : ''}
+            ${squadLocked ? CD.Pill({tone:'pink', style: mob?'font-size:9px;padding:2px 7px;':'', children:'Squad locked'}) : ''}
             ${CD.Pill({tone:'lime', style: mob?'font-size:9.5px;padding:2px 8px;':'', children: CD.LiveDot() + ' XI ' + (xiTotal>=0?'+':'') + Math.round(xiTotal)})}
             ${canEdit && roster.length > 0 ? `<button onclick="CD.startEditSquad()" style="padding:${mob ? '6px 10px' : '8px 14px'};border-radius:9999px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:${mob ? 10.5 : 12}px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 4px 16px rgba(46,91,255,0.35);">${I('edit',mob ? 10 : 12)} ${mob ? 'Edit' : 'Edit squad'}</button>` : ''}
           </div>
@@ -2011,7 +2011,7 @@
     const myTeam = window.myTeamName || '';
     const t = rs.teams?.[myTeam];
     if(!t){ window.showAlert?.('No team registered.'); return; }
-    if(rs.squadLocked && !window.isAdmin){
+    if(rs.squadLocked){
       window.showAlert?.('Squad changes are locked by admin.');
       return;
     }
