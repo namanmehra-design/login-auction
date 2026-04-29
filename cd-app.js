@@ -1266,7 +1266,7 @@
       <div style="padding:16px 20px;border-radius:14px;background:var(--glass);border:1px solid var(--line-2);margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <div style="font-size:10px;color:var(--gold);letter-spacing:0.18em;text-transform:uppercase;font-weight:700;margin-right:6px;">Admin controls</div>
         ${isSuper ? `<button onclick="window.toggleReleaseLock_A && window.toggleReleaseLock_A()" style="padding:8px 14px;border-radius:9999px;background:${releaseLocked?'rgba(255,59,59,0.18)':'var(--glass-2)'};border:1px solid ${releaseLocked?'rgba(255,59,59,0.4)':'var(--line-2)'};color:${releaseLocked?'var(--red)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${releaseLocked?'Unlock releases (allow)':'Lock releases (disallow)'}</button>` : ''}
-        ${isAdmin ? `<button onclick="window.toggleSquadLock_A && window.toggleSquadLock_A()" style="padding:8px 14px;border-radius:9999px;background:${squadLocked?'rgba(255,45,135,0.18)':'var(--glass-2)'};border:1px solid ${squadLocked?'rgba(255,45,135,0.4)':'var(--line-2)'};color:${squadLocked?'var(--pink)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${squadLocked?'Unlock squads':'Lock squads'}</button>` : ''}
+        ${(isAdmin || isSuper) ? `<button onclick="window.toggleSquadLock_A && window.toggleSquadLock_A()" style="padding:8px 14px;border-radius:9999px;background:${squadLocked?'rgba(255,45,135,0.18)':'var(--glass-2)'};border:1px solid ${squadLocked?'rgba(255,45,135,0.4)':'var(--line-2)'};color:${squadLocked?'var(--pink)':'var(--ink-2)'};font-size:11px;font-weight:600;cursor:pointer;">${squadLocked?'Unlock squads':'Lock squads'}</button>` : ''}
       </div>
       ` : ''}
 
@@ -1510,7 +1510,7 @@
                     const pName = p.name || p.n || '';
                     const pCode = teamCode(p.iplTeam || p.t);
                     const isOs = !!(p.isOverseas || p.o);
-                    const canRelease = (isAdmin || isMyTeam) && (!releaseLocked || isSuper);
+                    const canRelease = (isAdmin || isMyTeam) && !releaseLocked;
                     return `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
                       ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 28})}
                       <div style="flex:1;min-width:0;overflow:hidden;">
@@ -1696,7 +1696,7 @@
       benchNames = rosterNames.slice(11, 16);
     }
     const reserveNames = rosterNames.filter(n => !xiNames.includes(n) && !benchNames.includes(n));
-    const canEdit = !squadLocked || isSuper;
+    const canEdit = !squadLocked;
 
     // squadValid: XI must have 11 and roster must have 11+ to field a side.
     const squadValid = roster.length >= 11 && xiNames.length >= 11;
@@ -1821,7 +1821,7 @@
             <div class="ed" style="font-size:${mob ? 22 : 32}px;line-height:1;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.name)}</div>
           </div>
           <div style="display:flex;gap:${mob ? 5 : 8}px;align-items:center;flex-wrap:wrap;flex-shrink:0;">
-            ${releaseLocked && !isSuper ? CD.Pill({tone:'red', style: mob?'font-size:9px;padding:2px 7px;':'', children: mob ? 'Locked' : 'Releases locked'}) : ''}
+            ${releaseLocked ? CD.Pill({tone:'red', style: mob?'font-size:9px;padding:2px 7px;':'', children: mob ? 'Locked' : 'Releases locked'}) : ''}
             ${isSuper ? `<button onclick="window.toggleReleaseLock_A && window.toggleReleaseLock_A()" title="${releaseLocked?'Currently LOCKED — click to allow releases':'Currently UNLOCKED — click to disallow releases'}" style="padding:${mob?'4px 9px':'6px 12px'};border-radius:9999px;background:${releaseLocked?'rgba(255,59,59,0.18)':'linear-gradient(180deg,rgba(255,200,61,0.22),rgba(255,200,61,0.08))'};border:1px solid ${releaseLocked?'rgba(255,59,59,0.45)':'rgba(255,200,61,0.55)'};color:${releaseLocked?'#FF8B8B':'#FFE49A'};font-family:var(--sans);font-size:${mob?9:10.5}px;font-weight:800;cursor:pointer;letter-spacing:0.12em;text-transform:uppercase;">${releaseLocked?(mob?'🔒':'🔒 Releases locked'):(mob?'🔓':'🔓 Releases open')}</button>` : ''}
             ${squadLocked ? CD.Pill({tone:'pink', style: mob?'font-size:9px;padding:2px 7px;':'', children:'Squad locked'}) : ''}
             ${CD.Pill({tone:'lime', style: mob?'font-size:9.5px;padding:2px 8px;':'', children: CD.LiveDot() + ' XI ' + (xiTotal>=0?'+':'') + Math.round(xiTotal)})}
@@ -1919,7 +1919,7 @@
         <span style="font-family:var(--display);font-weight:800;color:${pts>0?'var(--lime)':pts<0?'var(--red)':'var(--mute)'};">${pts>=0?'+':''}${pts}${mc?' <span style="color:var(--mute);font-weight:500;font-size:10px;">· '+mc+'m</span>':''}</span>
         <div style="display:flex;gap:5px;margin-left:auto;">
           ${isSuper ? `<button onclick="window.saReplacePlayerA && window.saReplacePlayerA('${esc(teamName)}','${esc(name)}',${isOs?'true':'false'},${(p.soldPrice||0)})" style="padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.12);border:1px solid rgba(255,200,61,0.45);color:#FFD97D;font-size:10px;font-weight:600;cursor:pointer;">Replace</button>` : ''}
-          ${(!releaseLocked || isSuper) ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
+          ${!releaseLocked ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -2011,12 +2011,9 @@
     const myTeam = window.myTeamName || '';
     const t = rs.teams?.[myTeam];
     if(!t){ window.showAlert?.('No team registered.'); return; }
-    {
-      const _su = window.user?.email && (typeof window.isSuperAdminEmail === 'function' ? window.isSuperAdminEmail(window.user.email) : false);
-      if(rs.squadLocked && !_su){
-        window.showAlert?.('Squad changes are locked by admin.');
-        return;
-      }
+    if(rs.squadLocked){
+      window.showAlert?.('Squad changes are locked by admin.');
+      return;
     }
     const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
     const allNames = roster.map(p => p.name || p.n || '').filter(Boolean);

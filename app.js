@@ -683,7 +683,7 @@ window.adminRegisterTeam=function(){
 // -- Release Player --
 window.openReleaseModal=function(teamName,playerIdx,playerName,soldPrice){
  // Super admin release lock check
- if(roomState&&roomState.releaseLocked&&!isSuperAdminEmail(user?.email)){
+ if(roomState&&roomState.releaseLocked){
   return window.showAlert('Player releases are locked by the super admin. Contact the super admin to unlock.','error');
  }
  releaseTeam=teamName;
@@ -704,7 +704,7 @@ window.confirmRelease=function(){
  if(!roomId)return window.showAlert('You must be in a room to release a player.');
  if(!releaseTeam||!releasePlayerName)return;
  // Re-check super admin release lock (in case it was toggled after modal opened)
- if(roomState&&roomState.releaseLocked&&!isSuperAdminEmail(user?.email)){
+ if(roomState&&roomState.releaseLocked){
   window.closeReleaseModal();
   return window.showAlert('Player releases are locked by the super admin.','error');
  }
@@ -716,7 +716,7 @@ window.confirmRelease=function(){
  const data=snap.val();
  if(!data)return window.showAlert('Room data not found. Please reload.');
  // Final lock check from fresh data
- if(data.releaseLocked&&!isSuperAdminEmail(user?.email)){
+ if(data.releaseLocked){
   window.closeReleaseModal();
   return window.showAlert('Player releases are locked by the super admin.','error');
  }
@@ -5462,7 +5462,7 @@ function _mtRenderA(){
 
 
 window.mt_move_A = function(name, from, to){
-  if(roomState&&roomState.squadLocked&&!isSuperAdminEmail(user?.email)){window.showAlert('Squad changes are locked by admin.');return;}
+  if(roomState&&roomState.squadLocked){window.showAlert('Squad changes are locked by admin.');return;}
   const sq = _sqSavedA || {xi:[],bench:[],reserves:[]};
   _sqHistA.push(JSON.parse(JSON.stringify(sq)));
   var ub=document.getElementById('mt_undo_A'); if(ub) ub.style.display='flex';
@@ -5481,7 +5481,7 @@ window.mt_undo_A = function(){
 };
 
 window.mt_save_A = async function(){
-  if(roomState&&roomState.squadLocked&&!isSuperAdminEmail(user?.email)){window.showAlert("Squad changes are locked by admin.");return;}
+  if(roomState&&roomState.squadLocked){window.showAlert("Squad changes are locked by admin.");return;}
   if(!user||!roomId) return;
   const sq=_sqSavedA;
   if(!sq){window.showAlert('No squad to save.');return;}
@@ -5908,7 +5908,7 @@ window.renderTrades=function(data){
 
 window.toggleSquadLock_A=function(){
  if(!roomId) return window.showAlert('No room loaded.','err');
- if(!isAdmin) return window.showAlert('Only the room admin can toggle squad lock.','err');
+ if(!isAdmin && !isSuperAdminEmail(user?.email)) return window.showAlert('Only the room admin or super admin can toggle squad lock.','err');
  // Atomic toggle so concurrent clicks resolve to one final state.
  runTransaction(ref(db,'auctions/'+roomId+'/squadLocked'),function(cur){
   return !cur;
@@ -6178,7 +6178,7 @@ window.saveSquadCD = async function(xiNames, benchNames){
   if(!user || !user.uid) return { ok:false, error:'Not signed in' };
   if(!roomId) return { ok:false, error:'No active room' };
   if(!myTeamName) return { ok:false, error:'No team registered' };
-  if(roomState && roomState.squadLocked && !isSuperAdminEmail(user?.email)){
+  if(roomState && roomState.squadLocked){
     return { ok:false, error:'Squad changes are locked by admin' };
   }
   const team = roomState?.teams?.[myTeamName];
