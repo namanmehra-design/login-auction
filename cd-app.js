@@ -1510,7 +1510,8 @@
                     const pName = p.name || p.n || '';
                     const pCode = teamCode(p.iplTeam || p.t);
                     const isOs = !!(p.isOverseas || p.o);
-                    const canRelease = (isAdmin || isMyTeam) && !releaseLocked;
+                    // Permission: owner | admin | super, gated by releaseLocked.
+                    const canRelease = (isAdmin || isMyTeam || isSuper) && !releaseLocked;
                     return `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);">
                       ${CD.Avatar({team: p.iplTeam || p.t, name: pName, size: 28})}
                       <div style="flex:1;min-width:0;overflow:hidden;">
@@ -1518,7 +1519,7 @@
                         <div style="font-size:10px;color:var(--mute);letter-spacing:0.04em;">${pCode ? esc(pCode) : '<span style="color:rgba(255,255,255,0.3);">—</span>'} · ${esc(p.role || p.r || '')}</div>
                       </div>
                       <div style="font-family:var(--mono);font-size:11px;color:var(--lime);font-weight:700;">₹${(p.soldPrice||0).toFixed(2)}</div>
-                      ${canRelease ? `<button data-team="${esc(t.name)}" data-idx="${idx}" data-name="${esc(pName)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" title="Release player" style="padding:4px 6px;border-radius:8px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:9px;font-weight:600;cursor:pointer;">${I('x',10)}</button>` : ''}
+                      ${canRelease ? `<button data-team="${esc(t.name)}" data-idx="${idx}" data-name="${esc(pName)}" data-price="${p.soldPrice||0}" data-os="${isOs?'1':'0'}" onclick="CD.handleRelease(this)" title="Release player" style="padding:4px 6px;border-radius:8px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:9px;font-weight:600;cursor:pointer;">${I('x',10)}</button>` : ''}
                     </div>`;
                   }).join('')}
                 </div>
@@ -1762,6 +1763,17 @@
       star:   mob ? 12 : 16,
       starFs: mob ? 8 : 10
     };
+    // Permissions for release/replace buttons rendered inline on each
+    // pitch player. Owner of own team OR room admin OR super admin can
+    // release/replace any player on this team. releaseLocked gates both.
+    // Squad lock does NOT gate release/replace — the buttons stay live
+    // even when squadLocked is true.
+    const myUid = window.user?.uid || '';
+    const ownerMember = rs.members && rs.members[myUid];
+    const isMyTeam = !!(ownerMember && ownerMember.teamName === t.name);
+    const canRelease = !releaseLocked && (isMyTeam || isAdmin || isSuper);
+    const canReplace = !releaseLocked && (isMyTeam || isAdmin || isSuper);
+
     const renderPitchPlayer = (p, pos) => {
       const name = p.name || p.n || '';
       const first = name.split(' ')[0];
@@ -1775,6 +1787,21 @@
         ? 'linear-gradient(180deg,rgba(40,60,20,0.92),rgba(20,40,10,0.95))'
         : pts < 0 ? 'rgba(70,20,20,0.92)' : 'rgba(0,0,0,0.7)';
       const ptsBorder = pts > 0 ? 'rgba(182,255,60,0.65)' : pts < 0 ? 'rgba(255,120,120,0.45)' : 'rgba(255,255,255,0.3)';
+      // Action bar — small icon-only buttons under the points pill.
+      // Each uses event.stopPropagation so clicking doesn't open the
+      // player-stats modal that fires on the parent circle.
+      // Tap-zone sized toward iOS HIG 44x44 minimum (FIX #2). The
+      // visible icon stays small but min-width/min-height + padding
+      // grow the clickable region so finger taps don't miss.
+      const rosterIdx = roster.findIndex(rp => (rp.name||rp.n||'') === name);
+      const price = (roster[rosterIdx]?.soldPrice || 0);
+      const btnSize = mob ? 36 : 32;
+      const iconSize = mob ? 9 : 11;
+      const actionBar = (canRelease || canReplace) ? `
+        <div style="display:flex;gap:${mob?3:5}px;justify-content:center;margin-top:${mob?2:3}px;" onclick="event.stopPropagation()">
+          ${canRelease ? `<button data-team="${esc(t.name)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${price}" data-idx="${rosterIdx}" onclick="event.stopPropagation();CD.openReleaseConfirm(this);" title="Release ${esc(name)}" style="width:${btnSize}px;height:${btnSize}px;min-width:44px;min-height:44px;padding:8px;border-radius:50%;background:rgba(255,59,59,0.18);border:1px solid rgba(255,59,59,0.55);color:#FF8B8B;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;line-height:0;">${I('x',iconSize)}</button>` : ''}
+          ${canReplace ? `<button data-team="${esc(t.name)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${price}" data-idx="${rosterIdx}" onclick="event.stopPropagation();CD.handleReplaceA(this);" title="Replace ${esc(name)}" style="width:${btnSize}px;height:${btnSize}px;min-width:44px;min-height:44px;padding:8px;border-radius:50%;background:rgba(255,200,61,0.18);border:1px solid rgba(255,200,61,0.55);color:#FFE49A;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;line-height:0;font-size:${iconSize+1}px;font-weight:800;">⇄</button>` : ''}
+        </div>` : '';
       return `
         <div style="display:flex;flex-direction:column;align-items:center;gap:${pp.gap}px;min-width:${pp.minW}px;cursor:pointer;position:relative;" onclick="window.showPlayerModal && window.showPlayerModal('${esc(name)}')">
           <div style="position:relative;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7));">
@@ -1783,6 +1810,7 @@
           </div>
           <div style="font-size:${pp.name}px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.95),0 0 10px rgba(0,0,0,0.7);max-width:${pp.nameMx}px;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.01em;line-height:1.1;">${esc(displayName)}</div>
           <div style="font-family:var(--display);font-size:${pp.pill}px;font-weight:800;padding:${pp.pillPy}px ${pp.pillPx}px;border-radius:9999px;background:${ptsBg};border:1px solid ${ptsBorder};color:${ptsColor};box-shadow:0 2px 6px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.08);min-width:${pp.pillMin}px;text-align:center;line-height:1;">${pts >= 0 ? '+' : ''}${Math.round(pts)}</div>
+          ${actionBar}
         </div>
       `;
     };
@@ -1874,7 +1902,7 @@
           <span style="font-family:var(--display);font-weight:800;color:${benchTotal>0?'var(--lime)':'var(--mute)'};">${benchTotal>=0?'+':''}${Math.round(benchTotal)} pts</span>
         </div>
         <div style="padding:14px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">
-          ${benchPlayers.map((p, idx) => CD._renderRosterCard(p, 'bench', t.name, xiPlayers.length + idx, releaseLocked, isSuper, ptsFor, mcFor)).join('')}
+          ${benchPlayers.map((p, idx) => CD._renderRosterCard(p, 'bench', t.name, xiPlayers.length + idx, releaseLocked, isSuper, ptsFor, mcFor, canRelease, canReplace)).join('')}
         </div>
       </div>` : ''}
 
@@ -1885,14 +1913,24 @@
           <div class="ed" style="font-size:20px;">Reserves <span class="ed-i" style="color:var(--mute);font-size:16px;">0×</span></div>
         </div>
         <div style="padding:14px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">
-          ${reservePlayers.map((p, idx) => CD._renderRosterCard(p, 'reserve', t.name, xiPlayers.length + benchPlayers.length + idx, releaseLocked, isSuper, ptsFor, mcFor)).join('')}
+          ${reservePlayers.map((p, idx) => CD._renderRosterCard(p, 'reserve', t.name, xiPlayers.length + benchPlayers.length + idx, releaseLocked, isSuper, ptsFor, mcFor, canRelease, canReplace)).join('')}
         </div>
       </div>` : ''}
     `;
   };
 
-  // Helper for roster cards in bench/reserve — includes small role/OS pills
-  CD._renderRosterCard = (p, section, teamName, idx, releaseLocked, isSuper, ptsFor, mcFor) => {
+  // Helper for roster cards in bench/reserve — includes small role/OS pills.
+  // Accepts canRelease/canReplace from caller so the same permission logic
+  // (owner | admin | super, gated by releaseLocked) drives every button.
+  CD._renderRosterCard = (p, section, teamName, idx, releaseLocked, isSuper, ptsFor, mcFor, canRelease, canReplace) => {
+    // Deny-by-default fallback (FIX #3). If a caller forgets to pass
+    // canRelease/canReplace we MUST NOT fall back to the old permissive
+    // behaviour — that exposed every player's release button to any
+    // viewer. Permission must be computed by the caller and passed in.
+    if(typeof canRelease === 'undefined') canRelease = false;
+    if(typeof canReplace === 'undefined') canReplace = false;
+    canRelease = !!canRelease;
+    canReplace = !!canReplace;
     const name = p.name || p.n || '';
     const code = teamCode(p.iplTeam || p.t);
     const [c1, c2] = TEAM_COLORS[code] || ['#444','#222'];
@@ -1918,8 +1956,8 @@
         <span style="font-family:var(--mono);color:var(--mute);">₹${(p.soldPrice||0).toFixed(2)}</span>
         <span style="font-family:var(--display);font-weight:800;color:${pts>0?'var(--lime)':pts<0?'var(--red)':'var(--mute)'};">${pts>=0?'+':''}${pts}${mc?' <span style="color:var(--mute);font-weight:500;font-size:10px;">· '+mc+'m</span>':''}</span>
         <div style="display:flex;gap:5px;margin-left:auto;">
-          ${isSuper ? `<button data-team="${esc(teamName)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${p.soldPrice||0}" onclick="CD.handleReplaceA(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.12);border:1px solid rgba(255,200,61,0.45);color:#FFD97D;font-size:10px;font-weight:600;cursor:pointer;">Replace</button>` : ''}
-          ${!releaseLocked ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" onclick="CD.handleRelease(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
+          ${canReplace ? `<button data-team="${esc(teamName)}" data-name="${esc(name)}" data-os="${isOs?'1':'0'}" data-price="${p.soldPrice||0}" data-idx="${idx}" onclick="CD.handleReplaceA(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,200,61,0.12);border:1px solid rgba(255,200,61,0.45);color:#FFD97D;font-size:10px;font-weight:600;cursor:pointer;">Replace</button>` : ''}
+          ${canRelease ? `<button data-team="${esc(teamName)}" data-idx="${idx}" data-name="${esc(name)}" data-price="${p.soldPrice||0}" data-os="${isOs?'1':'0'}" onclick="CD.openReleaseConfirm(this)" style="padding:3px 8px;border-radius:9999px;background:rgba(255,59,59,0.12);border:1px solid rgba(255,59,59,0.3);color:var(--red);font-size:10px;font-weight:600;cursor:pointer;">Release</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -1940,17 +1978,154 @@
     CD._replaceA.filter = role;
     CD._renderReplaceAOverlay();
   };
-  CD.confirmReplaceA = (newId, newName) => {
-    const ctx = CD._replaceA;
-    if(!ctx) return;
-    if(!confirm(`Replace ${ctx.oldName} with ${newName}?\n\n• ${newName} joins ${ctx.teamName} at ₹${ctx.price.toFixed(2)} Cr (same price — budget unchanged)\n• ${ctx.oldName} returns to the unsold pool\n• All match points already earned by ${ctx.oldName} stay with ${ctx.teamName}`)) return;
-    if(typeof window.saExecuteReplaceA !== 'function'){
-      window.showAlert?.('Replace handler not available.');
+  // Custom in-app confirm overlay — replaces native confirm() so the
+  // confirm prompt matches the rest of the CD design system, doesn't
+  // freeze the page, and works on mobile where confirm() is awkward.
+  CD._showCustomConfirm = (opts) => {
+    // opts: { title, body, confirmLabel, cancelLabel, onConfirm, tone:'red'|'gold' }
+    // Strip any existing custom confirm so we don't stack overlays.
+    document.querySelectorAll('[data-cd-confirm="1"]').forEach(el => el.remove());
+    const id = 'cd-custom-confirm-' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    const tone = opts.tone || 'red';
+    const accent = tone === 'gold' ? '#FFD97D' : '#FF8B8B';
+    const accentBg = tone === 'gold'
+      ? 'linear-gradient(180deg,rgba(255,200,61,0.95),rgba(220,170,40,0.95))'
+      : 'linear-gradient(180deg,rgba(255,80,80,0.95),rgba(220,40,40,0.95))';
+    const accentBorder = tone === 'gold' ? 'rgba(255,200,61,0.65)' : 'rgba(255,120,120,0.55)';
+    const html = `<div id="${id}" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;" data-cd-confirm="1">
+      <div style="background:var(--glass-2,rgba(22,24,38,0.94));backdrop-filter:blur(32px);border:1px solid var(--line-2);border-radius:18px;max-width:440px;width:100%;padding:22px 24px;box-shadow:var(--sh-2);">
+        <div class="ed" style="font-size:22px;line-height:1.1;color:${accent};margin-bottom:8px;">${opts.title||'Confirm'}</div>
+        <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:18px;">${opts.body||''}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button data-act="cancel" style="padding:9px 18px;border-radius:9999px;background:var(--glass);border:1px solid var(--line-2);color:var(--ink-2);font-weight:600;font-size:12px;cursor:pointer;">${opts.cancelLabel||'Cancel'}</button>
+          <button data-act="confirm" style="padding:9px 18px;border-radius:9999px;background:${accentBg};border:1px solid ${accentBorder};color:#fff;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.02em;">${opts.confirmLabel||'Confirm'}</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    const root = document.getElementById(id);
+    if(!root) return;
+    let close = () => { try{ root.remove(); }catch(e){ console.error('confirm close:', e); } };
+    root.addEventListener('click', (ev) => {
+      const tgt = ev.target;
+      if(tgt === root){ close(); return; }
+      const act = tgt && tgt.getAttribute && tgt.getAttribute('data-act');
+      if(act === 'cancel'){ close(); }
+      else if(act === 'confirm'){
+        close();
+        try{ opts.onConfirm && opts.onConfirm(); }
+        catch(e){ console.error('confirm handler threw:', e); window.showAlert?.('Action failed: ' + (e.message||e), 'err'); }
+      }
+    });
+    // Keyboard support: Escape cancels, Enter confirms (FIX #8).
+    const onKey = (ev) => {
+      if(ev.key === 'Escape'){ ev.preventDefault(); close(); document.removeEventListener('keydown', onKey, true); }
+      else if(ev.key === 'Enter'){ ev.preventDefault(); document.removeEventListener('keydown', onKey, true); close(); try{ if(typeof opts.onConfirm === 'function') opts.onConfirm(); }catch(e){ console.error('confirm onConfirm:', e); window.showAlert?.('Action failed: '+(e.message||e),'err'); } }
+    };
+    document.addEventListener('keydown', onKey, true);
+    // Strip the listener whenever close runs (button click, backdrop click, or key handler).
+    const _close = close;
+    close = () => { document.removeEventListener('keydown', onKey, true); _close(); };
+  };
+
+  // Release confirm modal — invoked from inline buttons via data-attrs.
+  // Reads team/name/idx/price/os off the button element so the value
+  // never has to round-trip through onclick string interpolation
+  // (apostrophe-safe). On confirm, calls window.confirmReleaseV2 which
+  // sets the legacy globals and runs the existing confirmRelease path.
+  CD.openReleaseConfirm = (btnOrCtx) => {
+    let team, name, idx, price, isOs;
+    if(btnOrCtx && btnOrCtx.getAttribute){
+      team = btnOrCtx.getAttribute('data-team') || '';
+      name = btnOrCtx.getAttribute('data-name') || '';
+      idx = parseInt(btnOrCtx.getAttribute('data-idx') || '-1', 10);
+      price = parseFloat(btnOrCtx.getAttribute('data-price') || '0') || 0;
+      isOs = btnOrCtx.getAttribute('data-os') === '1';
+    } else if(btnOrCtx && typeof btnOrCtx === 'object'){
+      team = btnOrCtx.team; name = btnOrCtx.name; idx = btnOrCtx.idx;
+      price = +btnOrCtx.price||0; isOs = !!btnOrCtx.isOs;
+    } else { return; }
+    if(!team || !name){ console.error('openReleaseConfirm: missing team/name'); return; }
+    const rs = window.roomState || {};
+    if(rs.releaseLocked){
+      window.showAlert?.('Player releases are locked by the super admin.','err');
       return;
     }
-    window.saExecuteReplaceA(ctx.teamName, ctx.oldName, newId)
-      .then(() => { CD.closeReplaceA(); })
-      .catch(e => window.showAlert?.('Replace failed: ' + (e.message||e), 'err'));
+    const body = `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--glass);border:1px solid var(--line);margin-bottom:12px;">
+      ${CD.Avatar({name, size: 36})}
+      <div style="min-width:0;flex:1;">
+        <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(name)}${isOs ? ' <span style="color:var(--gold);font-size:11px;">★</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--mute);margin-top:2px;">${esc(team)}</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:13px;color:var(--lime);font-weight:700;">₹${(+price).toFixed(2)} Cr</div>
+    </div>
+    <ul style="list-style:none;padding:0;margin:0;font-size:12px;color:var(--ink-2);line-height:1.6;">
+      <li>• <b>₹${(+price).toFixed(2)} Cr</b> refunded to ${esc(team)}'s purse</li>
+      <li>• ${esc(name)} returns to the available pool</li>
+      <li>• All match points already earned by ${esc(name)} stay with ${esc(team)}</li>
+    </ul>`;
+    CD._showCustomConfirm({
+      title: 'Release player?',
+      body,
+      confirmLabel: 'Release',
+      tone: 'red',
+      onConfirm: () => {
+        if(typeof window.confirmReleaseV2 !== 'function'){
+          console.error('openReleaseConfirm: window.confirmReleaseV2 missing');
+          window.showAlert?.('Release handler not available — reload the page.','err');
+          return;
+        }
+        try{
+          window.confirmReleaseV2(team, name, idx, price);
+        }catch(e){
+          console.error('openReleaseConfirm: confirmReleaseV2 threw', e);
+          window.showAlert?.('Release failed: ' + (e.message||e), 'err');
+        }
+      }
+    });
+  };
+
+  CD.confirmReplaceA = (newId, newName) => {
+    const ctx = CD._replaceA;
+    if(!ctx){ console.error('confirmReplaceA: no _replaceA context'); return; }
+    if(typeof window.saExecuteReplaceA !== 'function'){
+      console.error('confirmReplaceA: saExecuteReplaceA missing');
+      window.showAlert?.('Replace handler not available.','err');
+      return;
+    }
+    // Compute overseas-cap warning preview (non-blocking — request was
+    // "warning only, do not block"). Show the warning toast inline AFTER
+    // the user accepts the confirm.
+    const rs = window.roomState || {};
+    const team = rs.teams?.[ctx.teamName];
+    const roster = team ? (Array.isArray(team.roster)?team.roster:(team.roster?Object.values(team.roster):[])) : [];
+    const oldEntry = roster.find(p => (p.name||p.n||'').toLowerCase().trim() === (ctx.oldName||'').toLowerCase().trim());
+    const allPlayers = rs.players ? Object.values(rs.players) : [];
+    const newP = allPlayers.find(p => String(p.id) === String(newId));
+    const currentOs = roster.filter(p => !!(p.isOverseas||p.o)).length;
+    const losingOs = (oldEntry && (oldEntry.isOverseas||oldEntry.o)) ? 1 : 0;
+    const gainingOs = (newP && newP.isOverseas) ? 1 : 0;
+    const newOsCount = currentOs - losingOs + gainingOs;
+    const maxOs = rs.maxOverseas || rs.setup?.maxOverseas || 8;
+    const breachOs = newOsCount > maxOs;
+
+    const body = `<ul style="list-style:none;padding:0;margin:0;font-size:12px;color:var(--ink-2);line-height:1.6;">
+      <li>• <b>${esc(newName)}</b> joins ${esc(ctx.teamName)} at <b>₹${ctx.price.toFixed(2)} Cr</b> (same price — budget unchanged)</li>
+      <li>• ${esc(ctx.oldName)} returns to the unsold pool</li>
+      <li>• All match points already earned by ${esc(ctx.oldName)} stay with ${esc(ctx.teamName)}</li>
+      ${breachOs ? `<li style="color:#FFB4B4;margin-top:8px;">⚠️ This replacement breaches the overseas cap (${newOsCount} / ${maxOs}). You can still proceed.</li>` : ''}
+    </ul>`;
+    CD._showCustomConfirm({
+      title: 'Replace player?',
+      body,
+      confirmLabel: breachOs ? 'Replace anyway' : 'Replace',
+      tone: 'gold',
+      onConfirm: () => {
+        window.saExecuteReplaceA(ctx.teamName, ctx.oldName, newId)
+          .then(() => { CD.closeReplaceA(); })
+          .catch(e => { console.error('saExecuteReplaceA failed:', e); window.showAlert?.('Replace failed: ' + (e.message||e), 'err'); });
+      }
+    });
   };
   CD._renderReplaceAOverlay = () => {
     const ctx = CD._replaceA;
@@ -3768,30 +3943,40 @@
   };
 
   // ── DATA-ATTRIBUTE HANDLERS (avoid string interpolation in onclick) ──
+  // CD.handleRelease — legacy entry point still used in some places. Now
+  // routes through the custom CD confirm modal instead of the legacy
+  // #releaseModal in index.html. The legacy modal stays in HTML for
+  // backward-compat but isn't reached from CD code paths anymore.
   CD.handleRelease = (btn) => {
-    if(typeof window.openReleaseModal !== 'function') {
-      window.showAlert?.('Release handler not available — reload the page.','err');
+    if(!btn || typeof btn.getAttribute !== 'function'){
+      console.error('handleRelease: invalid btn');
       return;
     }
-    window.openReleaseModal(
-      btn.getAttribute('data-team'),
-      parseInt(btn.getAttribute('data-idx'), 10),
-      btn.getAttribute('data-name'),
-      parseFloat(btn.getAttribute('data-price')) || 0
-    );
+    try{
+      CD.openReleaseConfirm(btn);
+    }catch(e){
+      console.error('handleRelease: openReleaseConfirm threw', e);
+      window.showAlert?.('Release UI failed: ' + (e.message||e), 'err');
+    }
   };
   // Auction Replace handler — data-attributes pattern (apostrophe-safe).
   CD.handleReplaceA = (btn) => {
     if(typeof window.saReplacePlayerA !== 'function') {
+      console.error('handleReplaceA: window.saReplacePlayerA missing');
       window.showAlert?.('Replace handler not available — reload the page.','err');
       return;
     }
-    window.saReplacePlayerA(
-      btn.getAttribute('data-team'),
-      btn.getAttribute('data-name'),
-      btn.getAttribute('data-os') === '1',
-      parseFloat(btn.getAttribute('data-price')) || 0
-    );
+    try{
+      window.saReplacePlayerA(
+        btn.getAttribute('data-team'),
+        btn.getAttribute('data-name'),
+        btn.getAttribute('data-os') === '1',
+        parseFloat(btn.getAttribute('data-price')) || 0
+      );
+    }catch(e){
+      console.error('handleReplaceA: saReplacePlayerA threw', e);
+      window.showAlert?.('Replace failed: ' + (e.message||e), 'err');
+    }
   };
   CD.handleRoomClick = (el) => {
     const rid = el.getAttribute('data-rid');

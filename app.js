@@ -43,6 +43,29 @@ function isSuperAdminEmail(email){ return (email||'').toLowerCase().trim()==='na
 // Expose for cd-app.js (classic script, can't import module scope)
 if(typeof window !== 'undefined'){ window.isSuperAdminEmail = isSuperAdminEmail; }
 function escapeHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// ─── Audit log helper ──────────────────────────────────────────────
+// Records every release/replace action under auctions/{roomId}/auditLog/{pushId}.
+// Best-effort: failures here must NOT break the primary action. Each call
+// awaits independently so a network blip on the audit write doesn't mask
+// a successful release/replace.
+async function _writeAuditLog(action, payload){
+ try{
+  if(!roomId) return;
+  if(!user) return;
+  const entry={
+   at: Date.now(),
+   byUid: user.uid||'',
+   byEmail: user.email||'',
+   action: String(action||''),
+   ...payload
+  };
+  const auditRef=push(ref(db,`auctions/${roomId}/auditLog`));
+  await set(auditRef, entry);
+ }catch(e){ console.error('audit log (auction):', e); }
+}
+if(typeof window !== 'undefined'){ window._writeAuditLog = _writeAuditLog; }
+
 let user=null,roomId=null,roomState=null,isAdmin=false,roomListener=null,isSignup=false;
 let myTeamName='',pendingJoinRoomId='',roomToDelete='',roomToDeleteName='';
 let releaseTeam='',releaseIdx=-1,releasePlayerName='',releasePrice=0;
@@ -682,6 +705,11 @@ window.adminRegisterTeam=function(){
 
 // -- Release Player --
 window.openReleaseModal=function(teamName,playerIdx,playerName,soldPrice){
+ // Permission gate: owner of own team OR room admin OR super admin.
+ // Function is hoisted so the call here works even though the def is below.
+ if(!_canReleaseTeamA(teamName)){
+  return window.showAlert('You do not have permission to release players for this team.','err');
+ }
  // Super admin release lock check
  if(roomState&&roomState.releaseLocked){
   return window.showAlert('Player releases are locked by the super admin. Contact the super admin to unlock.','error');
@@ -700,36 +728,58 @@ window.closeReleaseModal=function(){
  releaseTeam='';releaseIdx=-1;releasePlayerName='';releasePrice=0;
 };
 
+// Permission gate for release: owner of own team OR room admin OR super admin.
+// Mirrors _canReplaceTeamA so the same matrix governs both actions.
+function _canReleaseTeamA(teamName){
+ if(!user) return false;
+ if(isSuperAdminEmail(user.email)) return true;
+ if(isAdmin) return true;
+ const members = roomState?.members || {};
+ const me = members[user.uid];
+ return !!(me && me.teamName === teamName);
+}
+if(typeof window !== 'undefined'){ window._canReleaseTeamA = _canReleaseTeamA; }
+
 window.confirmRelease=function(){
  if(!roomId)return window.showAlert('You must be in a room to release a player.');
  if(!releaseTeam||!releasePlayerName)return;
+ // Snapshot globals to locals so concurrent confirm clicks can't overwrite
+ // mid-flight (race fix: globals were read post-async-get).
+ const _team = releaseTeam, _playerName = releasePlayerName, _price = releasePrice;
+ // Permission gate (defense-in-depth — UI also gates these buttons).
+ if(!_canReleaseTeamA(_team)){
+  window.closeReleaseModal();
+  console.error('confirmRelease: permission denied', { team: _team, uid: user?.uid });
+  return window.showAlert('You do not have permission to release players for this team.','err');
+ }
  // Re-check super admin release lock (in case it was toggled after modal opened)
  if(roomState&&roomState.releaseLocked){
   window.closeReleaseModal();
   return window.showAlert('Player releases are locked by the super admin.','error');
  }
- const pricePaid=parseFloat(releasePrice)||0;
- const targetName=releasePlayerName.toLowerCase().trim();
+ const pricePaid=parseFloat(_price)||0;
+ const targetName=_playerName.toLowerCase().trim();
 
  // Always re-fetch live data from Firebase -- never use stale roomState
  get(ref(db,`auctions/${roomId}`)).then(snap=>{
  const data=snap.val();
- if(!data)return window.showAlert('Room data not found. Please reload.');
+ if(!data){ console.error('confirmRelease: no data at auctions/'+roomId); return window.showAlert('Room data not found. Please reload.'); }
  // Final lock check from fresh data
  if(data.releaseLocked){
   window.closeReleaseModal();
   return window.showAlert('Player releases are locked by the super admin.','error');
  }
 
- const team=data.teams?.[releaseTeam];
- if(!team)return window.showAlert(`Team "${releaseTeam}" not found.`);
+ const team=data.teams?.[_team];
+ if(!team){ console.error('confirmRelease: team not found:', _team); return window.showAlert(`Team "${_team}" not found.`); }
 
  // Normalise roster -- Firebase stores JS arrays as keyed objects {0:{},1:{},2:{}}
  // We must read ALL keys (not just Object.values order) and rebuild with explicit keys
  const rawRoster=team.roster;
  let rosterEntries=[]; // [{key, value}]
  if(!rawRoster){
- return window.showAlert(`${releaseTeam} has no players to release.`);
+ console.error('confirmRelease: no roster on team', _team);
+ return window.showAlert(`${_team} has no players to release.`);
  } else if(Array.isArray(rawRoster)){
  rosterEntries=rawRoster.map((v,i)=>({key:String(i),value:v}));
  } else {
@@ -738,14 +788,15 @@ window.confirmRelease=function(){
 
  // Find the player by name -- match against the stored name
  const matchEntry=rosterEntries.find(e=>(e.value?.name||e.value?.n||'').toLowerCase().trim()===targetName);
- if(!matchEntry)return window.showAlert(`"${releasePlayerName}" not found in ${releaseTeam}'s roster. Try reloading the page.`);
+ if(!matchEntry){ console.error('confirmRelease: player not in roster', _playerName); return window.showAlert(`"${_playerName}" not found in ${_team}'s roster. Try reloading the page.`); }
 
  const actualPrice=matchEntry.value.soldPrice||pricePaid;
  const newBudget=parseFloat((team.budget+actualPrice).toFixed(2));
+ const oldRosterIdx=parseInt(matchEntry.key,10);
 
  // Build the new roster object WITHOUT the released player key
  // Using explicit null on the old key removes it; remaining keys stay indexed
- const rosterRef=ref(db,`auctions/${roomId}/teams/${releaseTeam}/roster`);
+ const rosterRef=ref(db,`auctions/${roomId}/teams/${_team}/roster`);
  // Rebuild as a clean indexed object (re-index from 0 to avoid gaps)
  const remaining=rosterEntries.filter(e=>e.key!==matchEntry.key).map(e=>e.value);
  // remaining is a JS array -- use set() to REPLACE (not merge) the roster entirely
@@ -755,15 +806,33 @@ window.confirmRelease=function(){
  const allPlayers=data.players?Object.values(data.players):[];
  const dbPlayer=allPlayers.find(p=>(p.name||p.n||'').toLowerCase().trim()===targetName);
 
+ // activeSquad slot preservation: if the released name appears in the
+ // saved active squad, drop it so the indexes stay valid. Bench/reserve
+ // can absorb the gap on next render.
+ const rawActive=team.activeSquad;
+ const activeSquadArr=Array.isArray(rawActive)?rawActive.slice():(rawActive?Object.values(rawActive):null);
+ let newActiveSquad=null;
+ let wasInXI=false;
+ if(activeSquadArr){
+  const xiIdx=activeSquadArr.findIndex(n=>(n||'').toLowerCase().trim()===targetName);
+  if(xiIdx>=0){
+   wasInXI = xiIdx < 11;
+   newActiveSquad=activeSquadArr.filter(n=>(n||'').toLowerCase().trim()!==targetName);
+  }
+ }
+
  // Step 1: set() the roster (full replace -- eliminates merge issues)
  const rosterWrite = remaining.length >0
  ? set(rosterRef, remaining)
  : remove(rosterRef); // empty roster = delete the key entirely
 
  rosterWrite.then(()=>{
- // Step 2: update budget + player status atomically
+ // Step 2: update budget + player status + activeSquad atomically
  const upd={};
- upd[`auctions/${roomId}/teams/${releaseTeam}/budget`]=newBudget;
+ upd[`auctions/${roomId}/teams/${_team}/budget`]=newBudget;
+ if(newActiveSquad){
+   upd[`auctions/${roomId}/teams/${_team}/activeSquad`] = newActiveSquad.length ? newActiveSquad : null;
+ }
  if(dbPlayer!==undefined){
  const pid=String(dbPlayer.id);
  upd[`auctions/${roomId}/players/${pid}/status`]='available';
@@ -773,13 +842,34 @@ window.confirmRelease=function(){
  return update(ref(db),upd);
  }).then(()=>{
  window.closeReleaseModal();
- window.showAlert(`${releasePlayerName} released. \u20b9${actualPrice.toFixed(2)} Cr refunded to ${releaseTeam}.`,'ok');
+ window.showAlert(`${_playerName} released. \u20b9${actualPrice.toFixed(2)} Cr refunded to ${_team}.`,'ok');
+ // Audit log (best-effort, never blocks the success path)
+ _writeAuditLog('release', {
+  team: _team,
+  oldName: _playerName,
+  oldPrice: actualPrice,
+  oldRosterIdx: oldRosterIdx,
+  wasInXI: wasInXI
+ });
  // Auto-heal stored leaderboardTotals so future reads can't drift.
  try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.error('recalc leaderboard (auction):', e); }
  // Notify CD: any open match-entry form should surface a soft Resync banner.
- try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:releaseTeam}})); }catch(e){ console.error('dispatch _cdRosterChanged:', e); }
- }).catch(e=>window.showAlert('Release failed: '+e.message));
- }).catch(e=>window.showAlert('Could not read room data: '+e.message));
+ try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:_team}})); }catch(e){ console.error('dispatch _cdRosterChanged:', e); }
+ }).catch(e=>{ console.error('confirmRelease: write failed', e); window.showAlert('Release failed: '+e.message,'err'); });
+ }).catch(e=>{ console.error('confirmRelease: read failed', e); window.showAlert('Could not read room data: '+e.message,'err'); });
+};
+
+// Newer entry-point used by the CD custom confirm modal. Sets the legacy
+// globals (releaseTeam/releaseIdx/releasePlayerName/releasePrice) so the
+// existing code path runs unchanged, then defers to confirmRelease().
+window.confirmReleaseV2=function(team, name, idx, price){
+ if(!team||!name){ console.error('confirmReleaseV2: missing args', {team,name}); return; }
+ releaseTeam = team;
+ releaseIdx = (idx==null||isNaN(idx))?-1:parseInt(idx,10);
+ releasePlayerName = name;
+ releasePrice = parseFloat(price)||0;
+ try{ window.confirmRelease(); }
+ catch(e){ console.error('confirmReleaseV2: confirmRelease threw', e); window.showAlert('Release failed: '+(e.message||e),'err'); }
 };
 
 window.backToDashboard=function(){
@@ -6264,49 +6354,64 @@ window.populateScorecardSelect     = renderSuperAdminPanel;        // select is 
 // already carry ownedBy and live squad snapshots, so refusing to mutate
 // them keeps every earned point intact for the team that owned the
 // player at match time. Only current-roster + players-list pointers move.
+// Permission: owner of own team OR room admin OR super admin can replace.
+// Replace is gated by releaseLocked (replace includes release).
+function _canReplaceTeamA(teamName){
+  if(!user) return false;
+  if(isSuperAdminEmail(user.email)) return true;
+  if(isAdmin) return true;
+  // Team owner check: members map keyed by uid → { teamName }
+  const members = roomState?.members || {};
+  const me = members[user.uid];
+  return !!(me && me.teamName === teamName);
+}
+if(typeof window !== 'undefined'){ window._canReplaceTeamA = _canReplaceTeamA; }
+
 window.saReplacePlayerA = function(teamName, oldName, wasOverseas, price){
-  if(!isSuperAdminEmail(user?.email)) return window.showAlert('Only the super admin can replace players.','error');
+  if(!_canReplaceTeamA(teamName)) return window.showAlert('You do not have permission to replace players for this team.','err');
   if(!roomId) return window.showAlert('No room loaded.','error');
+  if(roomState && roomState.releaseLocked) return window.showAlert('Player releases are locked by the super admin.','err');
   if(typeof CD !== 'undefined' && typeof CD.openReplaceA === 'function'){
     CD.openReplaceA(teamName, oldName, !!wasOverseas, +price||0);
   } else {
+    console.error('saReplacePlayerA: CD.openReplaceA missing');
     window.showAlert('Replace UI not loaded. Reload the page.','error');
   }
 };
 
 window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
-  if(!isSuperAdminEmail(user?.email)) throw new Error('Not authorized');
+  if(!_canReplaceTeamA(teamName)) throw new Error('Not authorized');
   if(!roomId) throw new Error('No room loaded');
   const targetName=(oldName||'').toLowerCase().trim();
   const snap=await get(ref(db,`auctions/${roomId}`));
   const data=snap.val();
-  if(!data) throw new Error('Room data not found');
+  if(!data){ console.error('saExecuteReplaceA: no room data'); throw new Error('Room data not found'); }
+  if(data.releaseLocked) throw new Error('Player releases are locked by the super admin.');
   const team=data.teams?.[teamName];
-  if(!team) throw new Error(`Team ${teamName} not found`);
+  if(!team){ console.error('saExecuteReplaceA: team not found', teamName); throw new Error(`Team ${teamName} not found`); }
   // Normalise roster, keeping explicit indices
   const rawRoster=team.roster;
   let rosterEntries=[];
   if(Array.isArray(rawRoster)) rosterEntries=rawRoster.map((v,i)=>({key:String(i),value:v}));
   else if(rawRoster) rosterEntries=Object.entries(rawRoster).map(([k,v])=>({key:k,value:v}));
-  else throw new Error(`${teamName} has no roster.`);
+  else { console.error('saExecuteReplaceA: empty roster on', teamName); throw new Error(`${teamName} has no roster.`); }
   const matchEntry=rosterEntries.find(e=>(e.value?.name||e.value?.n||'').toLowerCase().trim()===targetName);
-  if(!matchEntry) throw new Error(`${oldName} not in ${teamName}'s roster`);
+  if(!matchEntry){ console.error('saExecuteReplaceA: oldName not in roster', oldName); throw new Error(`${oldName} not in ${teamName}'s roster`); }
   // Resolve players
   const allPlayers=data.players?Object.values(data.players):[];
   const oldPlayer=allPlayers.find(p=>(p.name||p.n||'').toLowerCase().trim()===targetName);
   const newPlayer=allPlayers.find(p=>String(p.id)===String(newPlayerId));
-  if(!newPlayer) throw new Error('Replacement player not found in pool');
-  if((newPlayer.status==='sold')||newPlayer.soldTo) throw new Error(`${newPlayer.name} is already sold`);
+  if(!newPlayer){ console.error('saExecuteReplaceA: newPlayer not in pool', newPlayerId); throw new Error('Replacement player not found in pool'); }
+  if((newPlayer.status==='sold')||newPlayer.soldTo){ console.error('saExecuteReplaceA: already sold', newPlayer.name); throw new Error(`${newPlayer.name} is already sold`); }
   // Keep price identical → budget unchanged
   const oldSoldPrice=+(matchEntry.value.soldPrice||matchEntry.value.sp||oldPlayer?.soldPrice||0);
-  // Overseas cap check
+  // Overseas cap (informational — UI shows a warning toast but does NOT block)
   const currentRoster=rosterEntries.map(e=>e.value);
   const currentOs=currentRoster.filter(p=>!!(p.isOverseas||p.o)).length;
   const losingOs=(matchEntry.value.isOverseas||matchEntry.value.o)?1:0;
-  const gainingOs=newPlayer.isOverseas?1:0;
+  const gainingOs=(newPlayer.isOverseas||newPlayer.o)?1:0;
   const newOsCount=currentOs-losingOs+gainingOs;
   const maxOs=data.maxOverseas||8;
-  if(newOsCount>maxOs) throw new Error(`Overseas limit exceeded: ${newOsCount} > ${maxOs}`);
   // Build new roster (full replace to avoid Firebase merge bugs)
   const newRoster=currentRoster.slice();
   const idx=parseInt(matchEntry.key,10);
@@ -6317,9 +6422,28 @@ window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
     isOverseas:!!newPlayer.isOverseas,
     soldPrice:oldSoldPrice
   };
-  // Commit — roster via set() to avoid merge artefacts, then atomic update for players/*
-  await set(ref(db,`auctions/${roomId}/teams/${teamName}/roster`),newRoster);
+  // activeSquad slot preservation: if the old player is in activeSquad,
+  // swap the new player in at the same index so XI/Bench placement stays.
+  const rawActive=team.activeSquad;
+  const activeSquadArr=Array.isArray(rawActive)?rawActive.slice():(rawActive?Object.values(rawActive):null);
+  let newActiveSquad=null;
+  let wasInXI=false;
+  if(activeSquadArr){
+    const xiIdx=activeSquadArr.findIndex(n=>(n||'').toLowerCase().trim()===targetName);
+    if(xiIdx>=0){
+      wasInXI = xiIdx < 11;
+      newActiveSquad = activeSquadArr.slice();
+      newActiveSquad[xiIdx] = newPlayer.name;
+    }
+  }
+  // Commit — roster via set() to avoid merge artefacts, then atomic update for players/* + activeSquad
+  try{
+    await set(ref(db,`auctions/${roomId}/teams/${teamName}/roster`),newRoster);
+  }catch(e){ console.error('saExecuteReplaceA: roster set failed', e); throw e; }
   const upd={};
+  if(newActiveSquad){
+    upd[`auctions/${roomId}/teams/${teamName}/activeSquad`] = newActiveSquad;
+  }
   if(oldPlayer){
     upd[`auctions/${roomId}/players/${oldPlayer.id}/status`]='available';
     upd[`auctions/${roomId}/players/${oldPlayer.id}/soldTo`]=null;
@@ -6328,9 +6452,25 @@ window.saExecuteReplaceA = async function(teamName, oldName, newPlayerId){
   upd[`auctions/${roomId}/players/${newPlayer.id}/status`]='sold';
   upd[`auctions/${roomId}/players/${newPlayer.id}/soldTo`]=teamName;
   upd[`auctions/${roomId}/players/${newPlayer.id}/soldPrice`]=oldSoldPrice;
-  await update(ref(db),upd);
+  try{
+    await update(ref(db),upd);
+  }catch(e){ console.error('saExecuteReplaceA: update failed', e); throw e; }
+  // Audit log (best-effort)
+  _writeAuditLog('replace', {
+    team: teamName,
+    oldName: oldName,
+    newName: newPlayer.name,
+    oldPrice: oldSoldPrice,
+    oldRosterIdx: idx,
+    wasInXI: wasInXI
+  });
   // Auto-heal stored leaderboardTotals so future reads can't drift.
   try{ window._recalcLeaderboardSilent&&window._recalcLeaderboardSilent(); }catch(e){ console.error('recalc leaderboard (auction):', e); }
   try{ window.dispatchEvent(new CustomEvent('_cdRosterChanged',{detail:{team:teamName}})); }catch(e){ console.error('dispatch _cdRosterChanged:', e); }
   window.showAlert(`${oldName} replaced with ${newPlayer.name}. Points history preserved.`,'ok');
+  // Surface a non-blocking warning if the replacement breaches the overseas cap.
+  if(newOsCount>maxOs){
+    setTimeout(()=>window.showAlert('⚠️ Overseas cap breached: '+newOsCount+' / '+maxOs+'. Resolve before next match.','err'), 1800);
+  }
+  return { newOsCount, maxOs };
 };
