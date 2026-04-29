@@ -9,8 +9,8 @@
 <title>IPL Fantasy Auction 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="cd-styles.css?v=20260425c">
-<link rel="stylesheet" href="styles.css?v=20260425c">
+<link rel="stylesheet" href="cd-styles.css?v=20260429a">
+<link rel="stylesheet" href="styles.css?v=20260429a">
 <style>
   /* New design wraps classic UI. Classic chrome (header/nav/aurora) hidden;
      classic tab content gets MOVED into CD shell so all features work. */
@@ -554,7 +554,7 @@
           </div>
           <div id="matchFormBody" style="display:none;">
             <div class="match-form">
-              <div class="fld"><label>Winning IPL Team</label><input type="text" id="mfWinner" placeholder="e.g. MI"></div>
+              <div class="fld"><label>Winning IPL Team</label><select id="mfWinner"><option value="">— Select winner —</option><option value="CSK">CSK · Chennai Super Kings</option><option value="MI">MI · Mumbai Indians</option><option value="KKR">KKR · Kolkata Knight Riders</option><option value="RCB">RCB · Royal Challengers Bengaluru</option><option value="PBKS">PBKS · Punjab Kings</option><option value="GT">GT · Gujarat Titans</option><option value="RR">RR · Rajasthan Royals</option><option value="SRH">SRH · Sunrisers Hyderabad</option><option value="LSG">LSG · Lucknow Super Giants</option><option value="DC">DC · Delhi Capitals</option></select></div>
               <div class="fld"><label>Man of the Match</label><input type="text" id="mfMotm" placeholder="Player name"></div>
               <div class="fld"><label>Result</label><select id="mfResult"><option value="normal">Normal Result</option><option value="noresult">No Result</option><option value="superover">Super Over</option></select></div>
             </div>
@@ -736,8 +736,8 @@
 
 <!-- Agent 4: canvas-confetti for SOLD bursts and leaderboard #1 celebration -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-<script type="module" src="app.js?v=20260425c"></script>
+<script type="module" src="app.js?v=20260429a"></script>
 <!-- New Cricket Design — single unified file loaded after app.js so window.* handlers exist -->
-<script src="cd-app.js?v=20260425c"></script>
+<script src="cd-app.js?v=20260429a"></script>
 </body>
 </html>

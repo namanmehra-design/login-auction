@@ -253,6 +253,352 @@ function migrateDuckPoints(rid,data){
  if(needsWrite) update(ref(db),upd).then(()=>{window.showAlert('Duck penalties corrected.','ok');}).catch(e=>console.error('Duck migration:',e));
 }
 
+// -- Normalize an arbitrary winner string to its canonical IPL team code --
+// Used by the retroactive win-bonus migration so historical match records
+// where the admin typed "Sunrisers Hyderabad" instead of "SRH" can still
+// be fixed. Returns '' if no confident match.
+function _normalizeIplTeamCode(raw){
+ var s=(raw||'').trim().toUpperCase();
+ if(!s) return '';
+ var codes=['CSK','MI','KKR','RCB','PBKS','GT','RR','SRH','LSG','DC'];
+ if(codes.indexOf(s)>=0) return s;
+ if(s.indexOf('CHENNAI')>=0||s.indexOf('SUPER KING')>=0) return 'CSK';
+ if(s.indexOf('MUMBAI')>=0||s.indexOf('INDIANS')>=0) return 'MI';
+ if(s.indexOf('KOLKATA')>=0||s.indexOf('KNIGHT')>=0) return 'KKR';
+ if(s.indexOf('BENGAL')>=0||s.indexOf('BANGAL')>=0||s.indexOf('CHALLENG')>=0) return 'RCB';
+ if(s.indexOf('PUNJAB')>=0) return 'PBKS';
+ if(s.indexOf('GUJARAT')>=0||s.indexOf('TITAN')>=0) return 'GT';
+ if(s.indexOf('RAJASTHAN')>=0||s.indexOf('ROYALS')>=0) return 'RR';
+ if(s.indexOf('HYDER')>=0||s.indexOf('SUNRISER')>=0) return 'SRH';
+ if(s.indexOf('LUCKNOW')>=0||s.indexOf('GIANT')>=0) return 'LSG';
+ if(s.indexOf('DELHI')>=0||s.indexOf('CAPITAL')>=0) return 'DC';
+ return '';
+}
+window._normalizeIplTeamCode=_normalizeIplTeamCode;
+
+// -- One-time retroactive migration: fix missing win bonuses --
+// Until the winner input was a dropdown, admins could type the full
+// team name ("Sunrisers Hyderabad") instead of the short code ("SRH").
+// The win-bonus loop in collectMatchData uses strict uppercase equality
+// against player.iplTeam (which is always the short code), so any
+// mistyped winner silently dropped every winning-team player's +5.
+//
+// Walks every saved auction match. Per match: normalizes the stored
+// `winner` to a canonical code, rewrites it, and for every player on
+// the winning team whose breakdown lacks a "Win:" / "Winning team:"
+// marker adds +5 to stored pts and appends "Winning team: +5 (retro)".
+// After applying fixes, leaderboardTotals are recomputed via
+// _recalcLeaderboardCore so cumulative team totals catch up.
+let _winBonusMigrationDone={};
+async function migrateMissingWinBonuses(rid,data){
+ if(_winBonusMigrationDone[rid]) return;
+ _winBonusMigrationDone[rid]=true;
+ if(!data?.matches) return;
+ try{
+  var iplMap={};
+  if(data.players){
+   var pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+   pArr.forEach(function(p){
+    var fn=(p.name||p.n||'').toLowerCase().trim();
+    var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    var t=(p.iplTeam||p.t||'').toUpperCase();
+    if(fn) iplMap[fn]=t;
+    if(cn) iplMap[cn]=t;
+   });
+  }
+  rawData.forEach(function(p){
+   var fn=(p.n||'').toLowerCase().trim();
+   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var t=(p.t||'').toUpperCase();
+   if(fn&&!iplMap[fn]) iplMap[fn]=t;
+   if(cn&&!iplMap[cn]) iplMap[cn]=t;
+  });
+  var upd={};
+  var fixedMatches=0,fixedPlayers=0;
+  Object.entries(data.matches).forEach(function(entry){
+   var mid=entry[0],m=entry[1];
+   if(!m||!m.players) return;
+   var rawWinner=(m.winner||'').trim();
+   if(!rawWinner) return;
+   var canonical=_normalizeIplTeamCode(rawWinner);
+   if(!canonical) return;
+   var winnerNeedsRewrite=rawWinner.toUpperCase()!==canonical;
+   var matchHadAnyFix=false;
+   Object.entries(m.players).forEach(function(pe){
+    var pkey=pe[0],p=pe[1];
+    if(!p) return;
+    var pNameLow=(p.name||'').toLowerCase().trim();
+    var pNameClean=pNameLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+    var pIpl=iplMap[pNameLow]||iplMap[pNameClean]||'';
+    if(!pIpl||pIpl!==canonical) return;
+    var bd=p.breakdown||'';
+    var hasWin=/win(?:ning team)?:\s*\+?5/i.test(bd);
+    if(hasWin) return;
+    upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/pts']=(p.pts||0)+5;
+    upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/breakdown']=(bd?bd+' | ':'')+'Winning team: +5 (retro)';
+    fixedPlayers++;
+    matchHadAnyFix=true;
+   });
+   if(winnerNeedsRewrite){
+    upd['auctions/'+rid+'/matches/'+mid+'/winner']=canonical;
+    matchHadAnyFix=true;
+   }
+   if(matchHadAnyFix) fixedMatches++;
+  });
+  if(Object.keys(upd).length){
+   await update(ref(db),upd);
+   try{ await _recalcLeaderboardCore(); }catch(e){ console.error('Win-bonus migration: recalc failed:',e); }
+   try{ window.showAlert('Win-bonus migration: '+fixedPlayers+' player(s) across '+fixedMatches+' match(es) corrected.','ok'); }catch(_e){}
+   console.info('Win-bonus migration:',{rid:rid,fixedMatches:fixedMatches,fixedPlayers:fixedPlayers});
+  }
+ }catch(e){
+  console.error('migrateMissingWinBonuses:',e);
+ }
+}
+
+// -- Admin/super-admin audit helper for the auction app --
+// Walks every match in the current auction room and prints:
+//   - the raw winner string vs. its normalized code
+//   - players who got the +5 win bonus
+//   - players who SHOULD have but didn't (winning team, no Win bonus)
+// Output goes to console.table for easy inspection. Triggered via
+// window.auditPointsA() — not a cron, since scoring data is rarely
+// expected to be wrong in steady state.
+window.auditPointsA=async function(){
+ if(!roomId||!roomState){ window.showAlert('Load an auction room first.','err'); return; }
+ var matches=roomState.matches||{};
+ var iplMap={};
+ if(roomState.players){
+  var pArr=Array.isArray(roomState.players)?roomState.players:Object.values(roomState.players);
+  pArr.forEach(function(p){
+   var fn=(p.name||p.n||'').toLowerCase().trim();
+   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var t=(p.iplTeam||p.t||'').toUpperCase();
+   if(fn) iplMap[fn]=t; if(cn) iplMap[cn]=t;
+  });
+ }
+ rawData.forEach(function(p){
+  var fn=(p.n||'').toLowerCase().trim();
+  var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+  var t=(p.t||'').toUpperCase();
+  if(fn&&!iplMap[fn]) iplMap[fn]=t;
+  if(cn&&!iplMap[cn]) iplMap[cn]=t;
+ });
+ var rows=[];
+ var unknownWinners=[];
+ var missing=[];
+ Object.entries(matches).forEach(function(entry){
+  var mid=entry[0],m=entry[1];
+  if(!m||!m.players) return;
+  var rawW=(m.winner||'').trim();
+  var canon=_normalizeIplTeamCode(rawW);
+  if(rawW&&!canon) unknownWinners.push({matchId:mid,label:m.label||mid,storedWinner:rawW});
+  var withBonus=0,withoutBonus=0;
+  Object.values(m.players).forEach(function(p){
+   var pNameLow=(p.name||'').toLowerCase().trim();
+   var pNameClean=pNameLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var pIpl=iplMap[pNameLow]||iplMap[pNameClean]||'';
+   var bd=p.breakdown||'';
+   var hasWin=/win(?:ning team)?:\s*\+?5/i.test(bd);
+   if(canon&&pIpl===canon){
+    if(hasWin) withBonus++;
+    else { withoutBonus++; missing.push({matchId:mid,label:m.label||mid,player:p.name,iplTeam:pIpl,storedPts:p.pts,breakdown:bd}); }
+   }
+  });
+  rows.push({matchId:mid,label:m.label||mid,storedWinner:rawW||'(none)',canonical:canon||'(unknown)',playersWithBonus:withBonus,playersMissing:withoutBonus});
+ });
+ console.group('🔍 Points audit — auction room '+roomId);
+ console.info('Total matches:',Object.keys(matches).length);
+ console.table(rows);
+ if(unknownWinners.length){ console.warn('Unrecognized winner strings (need manual review):'); console.table(unknownWinners); }
+ if(missing.length){ console.warn('Players missing win bonus (will be fixed by migrateMissingWinBonuses):'); console.table(missing); }
+ else if(rows.length){ console.info('✅ No missing win bonuses detected.'); }
+ console.groupEnd();
+ try{ window.showAlert('Audit complete: '+rows.length+' match(es), '+missing.length+' missing win bonus(es). See console.','ok'); }catch(_e){}
+ return {rows:rows,unknownWinners:unknownWinners,missing:missing};
+};
+
+// -- Super-admin: audit + auto-fix every auction room on the platform --
+// Walks `users/*/auctions` to enumerate every auction room ID, fetches
+// `auctions/{rid}` snapshots, runs the win-bonus audit logic, and (if
+// `autoFix` is true) applies +5 retro fixes directly to Firebase.
+//
+// Usage from the browser console (super admin only):
+//   await window.saAuditAllRoomsA()           // dry-run, prints summary
+//   await window.saAuditAllRoomsA(true)       // dry-run + auto-fix
+//
+// Output: per-room summary table on the console showing matches,
+// players missing win bonuses, unknown winner strings, and (if
+// autoFix) the count of players patched.
+window.saAuditAllRoomsA=async function(autoFix){
+ if(!isSuperAdminEmail(user?.email)){ window.showAlert('Super admin only.','err'); return; }
+ console.group('🔍 Cross-room audit — AUCTION');
+ console.info('Mode:',autoFix?'AUDIT + AUTO-FIX':'AUDIT ONLY (pass true to fix)');
+ try{
+  var usersSnap=await get(ref(db,'users'));
+  var usersData=usersSnap.val()||{};
+  var allRoomIds={};
+  Object.entries(usersData).forEach(function(e){
+   var uid=e[0],u=e[1];
+   if(u&&u.auctions) Object.keys(u.auctions).forEach(function(rid){ allRoomIds[rid]=u.email||uid; });
+  });
+  var ridList=Object.keys(allRoomIds);
+  console.info('Discovered',ridList.length,'auction room(s).');
+  var globalIplMap={};
+  rawData.forEach(function(p){
+   var fn=(p.n||'').toLowerCase().trim();
+   var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   var t=(p.t||'').toUpperCase();
+   if(fn) globalIplMap[fn]=t;
+   if(cn) globalIplMap[cn]=t;
+  });
+  var summary=[];
+  var totalFixed=0;
+  for(var i=0;i<ridList.length;i++){
+   var rid=ridList[i];
+   try{
+    var snap=await get(ref(db,'auctions/'+rid));
+    var data=snap.val();
+    if(!data){ summary.push({roomId:rid.substring(0,8),owner:allRoomIds[rid],status:'EMPTY'}); continue; }
+    var matches=data.matches||{};
+    var iplMap={};
+    Object.assign(iplMap,globalIplMap);
+    if(data.players){
+     var pArr=Array.isArray(data.players)?data.players:Object.values(data.players);
+     pArr.forEach(function(p){
+      var fn=(p.name||p.n||'').toLowerCase().trim();
+      var cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+      var t=(p.iplTeam||p.t||'').toUpperCase();
+      if(fn&&t) iplMap[fn]=t;
+      if(cn&&t) iplMap[cn]=t;
+     });
+    }
+    var matchCount=Object.keys(matches).length;
+    var missingCount=0;
+    var unknownWinners=0;
+    var upd={};
+    Object.entries(matches).forEach(function(me){
+     var mid=me[0],m=me[1];
+     if(!m||!m.players) return;
+     var rawW=(m.winner||'').trim();
+     if(!rawW) return;
+     var canon=_normalizeIplTeamCode(rawW);
+     if(!canon){ unknownWinners++; return; }
+     var winnerNeedsRewrite=rawW.toUpperCase()!==canon;
+     Object.entries(m.players).forEach(function(pe){
+      var pkey=pe[0],p=pe[1];
+      if(!p) return;
+      var pNameLow=(p.name||'').toLowerCase().trim();
+      var pNameClean=pNameLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+      var pIpl=iplMap[pNameLow]||iplMap[pNameClean]||'';
+      if(!pIpl||pIpl!==canon) return;
+      var bd=p.breakdown||'';
+      var hasWin=/win(?:ning team)?:\s*\+?5/i.test(bd);
+      if(hasWin) return;
+      missingCount++;
+      if(autoFix){
+       upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/pts']=(p.pts||0)+5;
+       upd['auctions/'+rid+'/matches/'+mid+'/players/'+pkey+'/breakdown']=(bd?bd+' | ':'')+'Winning team: +5 (retro)';
+      }
+     });
+     if(autoFix&&winnerNeedsRewrite){
+      upd['auctions/'+rid+'/matches/'+mid+'/winner']=canon;
+     }
+    });
+    if(autoFix&&Object.keys(upd).length){
+     await update(ref(db),upd);
+     totalFixed+=missingCount;
+    }
+    summary.push({roomId:rid.substring(0,8),name:data.roomName||'?',owner:allRoomIds[rid],matches:matchCount,missingWinBonus:missingCount,unknownWinners:unknownWinners,fixed:autoFix?missingCount:0});
+   }catch(e){
+    console.error('Room',rid,'audit failed:',e);
+    summary.push({roomId:rid.substring(0,8),owner:allRoomIds[rid],status:'ERROR',error:e.message});
+   }
+  }
+  console.table(summary);
+  if(autoFix&&totalFixed>0){
+   console.info('Wrote +5 fix to '+totalFixed+' player record(s) across rooms. Each affected room will recompute its leaderboardTotals on next load.');
+   try{ window.showAlert('Cross-room audit: fixed '+totalFixed+' missing win bonus(es). See console.','ok'); }catch(_e){}
+  } else if(!autoFix){
+   var anyMissing=summary.some(function(r){return r.missingWinBonus>0;});
+   try{ window.showAlert(anyMissing?'Audit found missing win bonuses. Pass true to fix.':'No fixes needed.', anyMissing?'err':'ok'); }catch(_e){}
+  }
+  console.groupEnd();
+  return summary;
+ }catch(e){
+  console.error('saAuditAllRoomsA failed:',e);
+  console.groupEnd();
+  throw e;
+ }
+};
+
+// -- Snapshot-aware per-player season total (auction parallel) --
+// Returns { total, perMatch, owner, xiMult } for one player. The total
+// is the sum across all matches of (raw × multiplier), where the
+// multiplier comes from THAT match's frozen squad snapshot:
+//   XI -> roomState.xiMultiplier   Bench -> 1×   Reserves/no-snap -> 0×
+//   No squadSnapshots stored -> 1× (legacy fallback)
+// Mirrors `computeMatchContribution` so every season-points display
+// (modal, All-Squads, Points tab, Analytics) lines up with the
+// leaderboard's team total.
+function _playerSeasonContribA(playerName){
+ var out = { total: 0, perMatch: {}, owner: '', xiMult: 1 };
+ if(!roomState) return out;
+ var matches = roomState.matches || {};
+ var teams = roomState.teams || {};
+ var xiMult = parseFloat(roomState.xiMultiplier) || 1;
+ out.xiMult = xiMult;
+ var nameLow = (playerName||'').toLowerCase().trim();
+ var nameClean = nameLow.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+ if(!nameLow) return out;
+ var rosterOwnerMap = {};
+ Object.values(teams).forEach(function(t){
+  var roster = Array.isArray(t.roster)?t.roster:Object.values(t.roster||{});
+  roster.forEach(function(p){
+   var fn = (p.name||p.n||'').toLowerCase().trim();
+   var cn = fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   rosterOwnerMap[fn] = t.name;
+   rosterOwnerMap[cn] = t.name;
+  });
+ });
+ out.owner = rosterOwnerMap[nameLow] || rosterOwnerMap[nameClean] || '';
+ Object.entries(matches).forEach(function(entry){
+  var mid = entry[0], m = entry[1];
+  if(!m || !m.players) return;
+  var pData = Object.values(m.players).find(function(p){
+   var pn = (p.name||'').toLowerCase().trim();
+   return pn === nameLow || pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim() === nameClean;
+  });
+  if(!pData) return;
+  var raw = pData.pts || 0;
+  var matchOwner = pData.ownedBy || rosterOwnerMap[nameLow] || rosterOwnerMap[nameClean] || '';
+  var hasStoredSnaps = !!m.squadSnapshots;
+  var mult = 0;
+  if(matchOwner){
+   var snap = m.squadSnapshots ? m.squadSnapshots[matchOwner] : null;
+   if(snap){
+    var inXI = (snap.xi||[]).some(function(n){
+     var fn = (n||'').toLowerCase().trim();
+     return fn === nameLow || fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim() === nameClean;
+    });
+    var inBench = (snap.bench||[]).some(function(n){
+     var fn = (n||'').toLowerCase().trim();
+     return fn === nameLow || fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim() === nameClean;
+    });
+    if(inXI) mult = xiMult;
+    else if(inBench) mult = 1;
+   } else if(!hasStoredSnaps){
+    mult = 1;
+   }
+  }
+  var contrib = raw * mult;
+  out.total += contrib;
+  out.perMatch[mid] = { raw: raw, mult: mult, contrib: contrib, breakdown: pData.breakdown||'' };
+ });
+ return out;
+}
+window._playerSeasonContribA = _playerSeasonContribA;
+
 window.showAlert=function(msg,type='err'){
  const t=document.getElementById('toast');
  document.getElementById('tmsg').textContent=msg;
@@ -971,6 +1317,11 @@ function loadRoom(rid){
  migrateOverseasFlags(rid,data);
  migrateSquadSnapshots(rid,data);
  migrateDuckPoints(rid,data);
+ // Retroactively repair matches where the admin typed the full team
+ // name (e.g. "Sunrisers Hyderabad") and every winning-team player
+ // silently lost their +5. Idempotent — checks the breakdown for an
+ // existing "Win:" / "Winning team:" marker before adding.
+ migrateMissingWinBonuses(rid,data);
 
  // Self-heal: silently recalc leaderboardTotals once per room load so stored
  // values never drift from what computeMatchContribution would produce right
@@ -2137,24 +2488,9 @@ function renderPointsTab(){
  const matchIds=Object.keys(matches);
  const sel=document.getElementById('matchFilter');
  const filterVal=sel?.value||'all';
+ const xiMult=parseFloat(roomState.xiMultiplier)||1;
 
- // Build cumulative player pts map
- const playerTotals={}; // name_lower ->{name, pts, matchCount, breakdown[]}
- const matchesToUse=filterVal==='all'?matchIds:[filterVal];
- matchesToUse.forEach(mid=>{
- const m=matches[mid];
- if(!m?.players) return;
- Object.values(m.players).forEach(p=>{
- const key=(p.name||'').toLowerCase();
- if(!key) return;
- if(!playerTotals[key]) playerTotals[key]={name:p.name,pts:0,matchCount:0,matches:[]};
- playerTotals[key].pts+=p.pts||0;
- playerTotals[key].matchCount++;
- playerTotals[key].matches.push({label:m.label||mid,pts:p.pts||0,breakdown:p.breakdown||''});
- });
- });
-
- // Map to owners from teams
+ // Map to owners from teams (used for snapshot-aware mult lookup below)
  const ownerMap={}; // playerName_lower ->teamName
  if(roomState.teams){
  Object.values(roomState.teams).forEach(team=>{
@@ -2162,9 +2498,52 @@ function renderPointsTab(){
  roster.forEach(p=>{
  const key=(p.name||p.n||'').toLowerCase();
  if(key) ownerMap[key]=team.name;
+ const ck=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+ if(ck) ownerMap[ck]=team.name;
  });
  });
  }
+
+ // Build cumulative player pts map. Each per-match contribution is
+ // raw × snapshot-aware multiplier so the table agrees with the
+ // leaderboard team total. Reserves / not-in-snap → 0× (excluded).
+ const playerTotals={}; // name_lower ->{name, pts, matchCount, breakdown[]}
+ const matchesToUse=filterVal==='all'?matchIds:[filterVal];
+ matchesToUse.forEach(mid=>{
+ const m=matches[mid];
+ if(!m?.players) return;
+ const hasStoredSnaps=!!m.squadSnapshots;
+ // Pre-build XI/bench sets per team for this match
+ const mXI={},mBench={};
+ if(m.squadSnapshots){
+ Object.entries(m.squadSnapshots).forEach(([tn,snap])=>{
+ const xiS=new Set(),bnS=new Set();
+ (snap.xi||[]).forEach(n=>{const fn=(n||'').toLowerCase().trim();xiS.add(fn);xiS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+ (snap.bench||[]).forEach(n=>{const fn=(n||'').toLowerCase().trim();bnS.add(fn);bnS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+ mXI[tn]=xiS; mBench[tn]=bnS;
+ });
+ }
+ Object.values(m.players).forEach(p=>{
+ const key=(p.name||'').toLowerCase();
+ if(!key) return;
+ const ckey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+ const owner=p.ownedBy||ownerMap[key]||ownerMap[ckey]||'';
+ const raw=p.pts||0;
+ let mult=0;
+ if(owner&&mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(ckey))) mult=xiMult;
+ else if(owner&&mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(ckey))) mult=1;
+ else if(!hasStoredSnaps&&owner) mult=1; // legacy fallback
+ // else: reserves/not-in-snap → 0×
+ if(mult===0) return;
+ const contrib=raw*mult;
+ if(!playerTotals[key]) playerTotals[key]={name:p.name,pts:0,matchCount:0,matches:[]};
+ playerTotals[key].pts+=contrib;
+ playerTotals[key].matchCount++;
+ playerTotals[key].matches.push({label:m.label||mid,pts:Math.round(contrib),raw:raw,mult:mult,breakdown:p.breakdown||''});
+ });
+ });
+ // Round each player's accumulated pts now that we're done summing.
+ Object.values(playerTotals).forEach(pt=>{ pt.pts=Math.round(pt.pts); });
 
  // Get player roles from players list
  const roleMap={};
@@ -2644,16 +3023,19 @@ window.renderAllSquads=function(){
  var body=document.getElementById('allSquadsBody');
  if(!body||!roomState||!roomState.teams) return;
 
- // Aggregate all match points per player
- var matches=roomState.matches||{};
- var pts={};
- Object.values(matches).forEach(function(m){
-  if(!m.players) return;
-  Object.values(m.players).forEach(function(p){
-   var k=(p.name||'').toLowerCase();
-   pts[k]=(pts[k]||0)+(p.pts||0);
-  });
- });
+ var xiMult=parseFloat(roomState.xiMultiplier)||1;
+ // Snapshot-aware per-player season contribution. Mirrors
+ // computeMatchContribution / leaderboardTotals so this view's numbers
+ // match the leaderboard exactly. Cached per name so we don't re-walk
+ // every match for every roster row.
+ var contribCache={};
+ function ptsForPlayer(name){
+  var key=(name||'').toLowerCase().trim();
+  if(contribCache[key]!=null) return contribCache[key];
+  var c=_playerSeasonContribA(name);
+  contribCache[key]=Math.round(c.total);
+  return contribCache[key];
+ }
 
  var html='';
  Object.values(roomState.teams).forEach(function(team){
@@ -2682,26 +3064,25 @@ window.renderAllSquads=function(){
    var iplTeam=(p.iplTeam||p.t||'').toUpperCase();
    var role=(p.role||p.r||'');
    var isOs=!!(p.isOverseas||p.o||name.indexOf('*')>=0);
-   var k=name.toLowerCase().trim();
-   var kc=k.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-   var playerPts=pts[k]||pts[kc]||0;
+   var playerPts=ptsForPlayer(name);
    var ptsCls=playerPts>0?'sq-p-pts-pos':playerPts<0?'sq-p-pts-neg':'sq-p-pts-zero';
    return '<tr><td class="sq-p-name" onclick="window.showPlayerModal(\''+name.replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:6px;">'+cbzAvatar(name,22)+(isOs?'<span class="sq-p-os-dot">\u25cf</span>':'')+name+'</td><td class="sq-p-ipl">'+iplTeam+'</td><td class="sq-p-role">'+role+'</td><td class="sq-p-pts '+ptsCls+'">'+(playerPts>=0?'+':'')+playerPts+'</td></tr>';
   }
 
+  // Team total = sum of every player's snapshot-aware contribution
+  // (matches the leaderboard's stored total). Reserves can still
+  // contribute if they were XI/bench in past matches, so include the
+  // entire roster.
   var teamTotal=0;
-  xi.concat(bench).forEach(function(n){
-   var k=n.toLowerCase().trim();
-   var kc=k.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-   teamTotal+=(pts[k]||pts[kc]||0);
-  });
+  allNames.forEach(function(n){ teamTotal+=ptsForPlayer(n); });
 
+  var multBadge=xiMult!==1?' <span class="sq-mult-badge" style="font-size:10px;color:var(--gold);font-weight:700;letter-spacing:0.06em;margin-left:6px;">XI ×'+xiMult+'</span>':'';
   html+='<div class="sq-card">';
-  html+='<div class="sq-card-hdr"><strong class="sq-card-name">'+team.name+'</strong><span class="sq-card-pts">'+(teamTotal>=0?'+':'')+teamTotal+'</span></div>';
+  html+='<div class="sq-card-hdr"><strong class="sq-card-name">'+team.name+'</strong>'+multBadge+'<span class="sq-card-pts">'+(teamTotal>=0?'+':'')+teamTotal+'</span></div>';
   html+='<table class="sq-table">';
 
   // XI
-  html+='<tr><td colspan="4" class="sq-section-hdr sq-section-xi">Playing XI ('+xi.length+')</td></tr>';
+  html+='<tr><td colspan="4" class="sq-section-hdr sq-section-xi">Playing XI ('+xi.length+')'+(xiMult!==1?' · ×'+xiMult:'')+'</td></tr>';
   xi.forEach(function(n){html+=pRow(n,'xi');});
 
   // Bench
@@ -2757,31 +3138,40 @@ window.showPlayerModal=function(playerName){
   ${soldPrice?`<span class="pm-price-info">Bought for: \u20b9${soldPrice.toFixed(2)} Cr</span>`:''}
  `;
 
- // Build match-by-match breakdown
+ // Build match-by-match breakdown using the snapshot-aware helper so
+ // the modal agrees with the leaderboard team total (raw × per-match
+ // mult, summed). Reserves / not-in-snap cells are shown at 0×.
+ const contrib=_playerSeasonContribA(playerName);
  const matches=roomState.matches||{};
  const matchList=Object.entries(matches).sort((a,b)=>(a[1].timestamp||0)-(b[1].timestamp||0));
- let totalPts=0;
  let rows='';
  matchList.forEach(([mid,m])=>{
-  if(!m.players) return;
-  const pData=Object.values(m.players).find(p=>{const pn=(p.name||'').toLowerCase().trim();return pn===nLow||pn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim()===nClean;});
-  if(!pData) return;
-  totalPts+=pData.pts||0;
-  const ptsColCls=(pData.pts||0)>=0?'md-td-pts-pos':'md-td-pts-neg';
+  const pm=contrib.perMatch[mid];
+  if(!pm) return;
+  const raw=pm.raw||0;
+  const mult=pm.mult||0;
+  const cVal=Math.round(pm.contrib||0);
+  const ptsColCls=cVal>=0?'md-td-pts-pos':'md-td-pts-neg';
+  const pos=mult===contrib.xiMult&&contrib.xiMult!==1?'XI':mult===1?(contrib.xiMult!==1?'Bench':'Played'):'Out';
+  const posPill=`<span class="pm-pos pm-pos-${pos.toLowerCase()}">${pos}${mult>0&&mult!==1?' · '+mult+'×':''}</span>`;
+  const bdText=(pm.breakdown||'').replace(/\|/g,' | ');
+  const multNote=mult>0&&mult!==1?`<span class="pm-mult-note"> &rarr; ${raw} × ${mult} = ${cVal}</span>`:(mult===0?`<span class="pm-mult-note"> &rarr; not in XI/Bench (0×)</span>`:'');
   rows+=`<tr class="pm-row">
-   <td class="pm-td pm-td-match">${escapeHtml(m.label||mid)}</td>
-   <td class="pm-td pm-td-pts ${ptsColCls}">${(pData.pts||0)>=0?'+':''}${pData.pts||0}</td>
-   <td class="pm-td pm-td-bd">${(pData.breakdown||'').replace(/\|/g,' | ')}</td>
+   <td class="pm-td pm-td-match">${escapeHtml(m.label||mid)} ${posPill}</td>
+   <td class="pm-td pm-td-pts ${ptsColCls}">${cVal>=0?'+':''}${cVal}</td>
+   <td class="pm-td pm-td-bd">${bdText}${multNote}</td>
   </tr>`;
  });
 
  if(!rows){
   bodyEl.innerHTML='<div class="pm-no-data">No match data for this player yet.</div>';
  } else {
+  const totalPts=Math.round(contrib.total);
   const totalColCls=totalPts>=0?'md-td-pts-pos':'md-td-pts-neg';
+  const multBadge=contrib.xiMult!==1?`<span class="pm-mult-badge">XI ×${contrib.xiMult}</span>`:'';
   bodyEl.innerHTML=`
    <div class="pm-season-total">
-    <span class="pm-season-label">Season Total</span>
+    <span class="pm-season-label">Season Total</span>${multBadge}
     <span class="pm-season-val ${totalColCls}">${totalPts>=0?'+':''}${totalPts}</span>
    </div>
    <div class="md-overflow"><table class="pm-table">
@@ -2796,14 +3186,49 @@ window.showPlayerModal=function(playerName){
 function renderAnalytics(data){
  if(!data) return;
  const matches=data.matches||{};
+ const xiMult=parseFloat(data.xiMultiplier)||1;
+ // Build owner map (case + clean variants) once for snapshot mult lookup.
+ const _ownerMapAA={};
+ if(data.teams) Object.values(data.teams).forEach(team=>{
+  const roster=Array.isArray(team.roster)?team.roster:Object.values(team.roster||{});
+  roster.forEach(p=>{
+   const fn=(p.name||p.n||'').toLowerCase().trim();
+   const cn=fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
+   if(fn) _ownerMapAA[fn]=team.name;
+   if(cn) _ownerMapAA[cn]=team.name;
+  });
+ });
  // ── Aggregate per-player stats from all matches ──
+ // Points (s.pts) are the snapshot-aware contribution: raw × mult per
+ // match, summed. Match counts and bat/bowl/field stats are still raw
+ // counts since they're event totals (not multiplied).
  const playerTotal={};
  Object.values(matches).forEach(m=>{
   if(!m?.players) return;
+  const hasStoredSnaps=!!m.squadSnapshots;
+  // Pre-build XI/Bench sets per team for this match
+  const mXI={},mBench={};
+  if(m.squadSnapshots){
+   Object.entries(m.squadSnapshots).forEach(([tn,snap])=>{
+    const xiS=new Set(),bnS=new Set();
+    (snap.xi||[]).forEach(n=>{const fn=(n||'').toLowerCase().trim();xiS.add(fn);xiS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+    (snap.bench||[]).forEach(n=>{const fn=(n||'').toLowerCase().trim();bnS.add(fn);bnS.add(fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim());});
+    mXI[tn]=xiS; mBench[tn]=bnS;
+   });
+  }
   Object.values(m.players).forEach(p=>{
    const key=(p.name||'').toLowerCase();
+   const ckey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
    if(!playerTotal[key]) playerTotal[key]={name:p.name,pts:0,runs:0,balls:0,fours:0,sixes:0,wkts:0,overs:0,bowlRuns:0,ecoStored:0,ecoCount:0,catches:0,stumpings:0,runouts:0,matchCount:0,highScore:0,hundreds:0,fifties:0,nineties:0,fiveWkts:0,threeWkts:0,inns:0,bowlInns:0};
-   const s=playerTotal[key]; s.pts+=(p.pts||0); s.matchCount++;
+   const s=playerTotal[key];
+   // Resolve mult for this match via snapshot membership
+   const owner=p.ownedBy||_ownerMapAA[key]||_ownerMapAA[ckey]||'';
+   let mult=0;
+   if(owner&&mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(ckey))) mult=xiMult;
+   else if(owner&&mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(ckey))) mult=1;
+   else if(!hasStoredSnaps&&owner) mult=1; // legacy fallback
+   // else: reserves/not-in-snap → 0× — pts excluded but stats still tally
+   s.pts+=(p.pts||0)*mult; s.matchCount++;
    const bd=p.breakdown||'';
    const batM=bd.match(/Bat(?:ting)?\((\d+)r\s+([\d.]+)b(?:\s+(\d+)[x\u00d7]4)?(?:\s+(\d+)[x\u00d7]6)?/);
    if(batM){
@@ -2832,6 +3257,8 @@ function renderAnalytics(data){
    if(fldM){s.catches+=+fldM[1];s.stumpings+=+fldM[2];s.runouts+=+fldM[3];}
   });
  });
+ // Round each player's accumulated pts (raw × mult sums can be fractional, e.g. 7.5)
+ Object.values(playerTotal).forEach(s=>{ s.pts=Math.round(s.pts); });
  // ── Metadata ──
  const meta={};
  if(data.players) Object.values(data.players).forEach(p=>{meta[(p.name||p.n||'').toLowerCase()]={role:p.role||p.r||'',team:p.iplTeam||p.t||''};});
