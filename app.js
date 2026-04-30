@@ -922,9 +922,18 @@ window._playerSeasonContribA = _playerSeasonContribA;
 window.showAlert=function(msg,type='err'){
  const t=document.getElementById('toast');
  document.getElementById('tmsg').textContent=msg;
+ // Preserve any animation classes added by cd-app.js patchToast
+ // (a4-spring/a4-shake) since className=`show ${type}` would wipe them
+ // — the patchToast wrapper re-adds them after this call returns.
  t.className=`show ${type}`;
  clearTimeout(t._t);
- t._t=setTimeout(()=>t.classList.remove('show'),4800);
+ t._t=setTimeout(()=>{
+  // Remove BOTH the .show class AND the cd-app a4-spring animation
+  // class. The animation has fill-mode:both which keeps the toast
+  // pinned at translateY(0) after running, so removing .show alone
+  // isn't enough — the animation's final state would keep it visible.
+  t.classList.remove('show','a4-spring','a4-shake');
+ },3500);
 };
 
 // -- View management --
