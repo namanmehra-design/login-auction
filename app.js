@@ -578,6 +578,142 @@ async function migrateCanonicalRebuildA(rid,data){
  }catch(e){ console.error('migrateCanonicalRebuildA:',e); }
 }
 
+// -- Normalize a match label for dedupe comparison (auction parallel) --
+function _normalizeMatchLabel(s){
+ return String(s||'')
+  .replace(/[–—−]/g,'-')   // en-dash, em-dash, minus → hyphen
+  .replace(/ /g,' ')                  // non-breaking space → space
+  .replace(/\s+/g,' ')                     // collapse whitespace
+  .trim()
+  .toLowerCase();
+}
+window._normalizeMatchLabel=_normalizeMatchLabel;
+
+// -- Auto-dedupe migration: collapse same-label match duplicates --
+// Same logic as the draft version: group by normalized label, keep the
+// latest by timestamp, delete older mids, recompute leaderboard.
+let _dedupeMatchesDoneA={};
+async function migrateDedupeMatchesA(rid,data){
+ if(_dedupeMatchesDoneA[rid]) return;
+ _dedupeMatchesDoneA[rid]=true;
+ if(!data?.matches) return;
+ try{
+  var matches=data.matches;
+  var groups={};
+  Object.entries(matches).forEach(function(me){
+   var mid=me[0],m=me[1];
+   if(!m||!m.label) return;
+   var key=_normalizeMatchLabel(m.label);
+   if(!key) return;
+   if(!groups[key]) groups[key]=[];
+   groups[key].push({mid:mid,m:m});
+  });
+  var dupes=Object.entries(groups).filter(function(e){return e[1].length>1;});
+  if(!dupes.length) return;
+  var upd={};
+  var deletedCount=0;
+  var affectedLabels=[];
+  dupes.forEach(function(de){
+   var lbl=de[0], arr=de[1];
+   arr.sort(function(a,b){
+    var ta=a.m.timestamp||0, tb=b.m.timestamp||0;
+    if(ta!==tb) return tb-ta;
+    return String(b.mid).localeCompare(String(a.mid));
+   });
+   var keep=arr[0];
+   var drops=arr.slice(1);
+   affectedLabels.push((keep.m.label||lbl)+' ['+drops.length+' dropped]');
+   drops.forEach(function(d){
+    upd['auctions/'+rid+'/matches/'+d.mid]=null;
+    deletedCount++;
+   });
+  });
+  if(Object.keys(upd).length){
+   await update(ref(db),upd);
+   console.info('[dedupe-matches auction]',rid,'dropped '+deletedCount+' duplicate match record(s):',affectedLabels);
+   try{ await _recalcLeaderboardCore(); }catch(e){ console.error('dedupe recalc failed:',e); }
+   try{ window.showAlert('Removed '+deletedCount+' duplicate match record(s). Leaderboard recomputed.','ok'); }catch(_e){}
+  }
+ }catch(e){
+  console.error('migrateDedupeMatchesA:',e);
+ }
+}
+window._migrateDedupeMatchesA=migrateDedupeMatchesA;
+
+// -- Super-admin: cross-room match dedupe (auction) --
+//   await window.saDedupeMatchesAllRoomsA()      -> dry-run
+//   await window.saDedupeMatchesAllRoomsA(true)  -> apply
+window.saDedupeMatchesAllRoomsA=async function(autoFix){
+ if(!isSuperAdminEmail(user?.email)){ window.showAlert('Super admin only.','err'); return; }
+ console.group('🔧 Cross-room match dedupe — AUCTION');
+ console.info('Mode:',autoFix?'DEDUPE + WRITE':'DRY-RUN (pass true to write)');
+ try{
+  var usersSnap=await get(ref(db,'users'));
+  var usersData=usersSnap.val()||{};
+  var ridSet=new Set();
+  Object.values(usersData).forEach(function(u){
+   if(u&&u.auctions) Object.keys(u.auctions).forEach(function(r){ ridSet.add(r); });
+  });
+  var summary=[];
+  var totalDropped=0;
+  for(var rid of ridSet){
+   try{
+    var snap=await get(ref(db,'auctions/'+rid+'/matches'));
+    var matches=snap.val()||{};
+    var groups={};
+    Object.entries(matches).forEach(function(me){
+     var mid=me[0],m=me[1];
+     if(!m||!m.label) return;
+     var key=_normalizeMatchLabel(m.label);
+     if(!key) return;
+     if(!groups[key]) groups[key]=[];
+     groups[key].push({mid:mid,m:m});
+    });
+    var dupes=Object.entries(groups).filter(function(e){return e[1].length>1;});
+    var roomDropped=0;
+    var roomLabels=[];
+    var upd={};
+    dupes.forEach(function(de){
+     var arr=de[1];
+     arr.sort(function(a,b){
+      var ta=a.m.timestamp||0, tb=b.m.timestamp||0;
+      if(ta!==tb) return tb-ta;
+      return String(b.mid).localeCompare(String(a.mid));
+     });
+     var drops=arr.slice(1);
+     roomLabels.push((arr[0].m.label||de[0])+' ('+drops.length+')');
+     drops.forEach(function(d){
+      if(autoFix) upd['auctions/'+rid+'/matches/'+d.mid]=null;
+      roomDropped++;
+     });
+    });
+    if(autoFix&&Object.keys(upd).length){
+     await update(ref(db),upd);
+     totalDropped+=roomDropped;
+    }
+    summary.push({roomId:rid.substring(0,8),duplicates:dupes.length,toDrop:roomDropped,labels:roomLabels.join('; ')||'-'});
+   }catch(e){
+    console.error('Room',rid,'dedupe failed:',e);
+    summary.push({roomId:rid.substring(0,8),error:e.message});
+   }
+  }
+  console.table(summary);
+  console.info('Total duplicates dropped:',autoFix?totalDropped:'(dry-run)');
+  if(autoFix&&totalDropped>0){
+   try{ window.showAlert('Cross-room dedupe: dropped '+totalDropped+' duplicate match record(s).','ok'); }catch(_e){}
+  } else if(!autoFix){
+   var anyFix=summary.some(function(r){return r.toDrop>0;});
+   try{ window.showAlert(anyFix?'Dry-run found duplicates. Pass true to dedupe.':'No duplicates detected.', anyFix?'err':'ok'); }catch(_e){}
+  }
+  console.groupEnd();
+  return summary;
+ }catch(e){
+  console.error('saDedupeMatchesAllRoomsA failed:',e);
+  console.groupEnd();
+  throw e;
+ }
+};
+
 // -- Super-admin: forced canonical rebuild across all auction rooms --
 // Console: await window.saRebuildAllPtsA(true)  -> apply fixes
 //          await window.saRebuildAllPtsA()      -> dry-run summary
@@ -1658,6 +1794,11 @@ function loadRoom(rid){
  setTimeout(function(){
   try{ migrateCanonicalRebuildA(rid,data); }catch(e){ console.error('canonical rebuild trigger:',e); }
  }, 1500);
+ // Match dedupe: collapse same-label match duplicates to the latest
+ // by timestamp. Recomputes leaderboard. Runs once per session per room.
+ setTimeout(function(){
+  try{ migrateDedupeMatchesA(rid,data); }catch(e){ console.error('match dedupe trigger:',e); }
+ }, 2200);
 
  // Self-heal: silently recalc leaderboardTotals once per room load so stored
  // values never drift from what computeMatchContribution would produce right
@@ -4579,10 +4720,11 @@ window.saveGlobalScorecard=async function(){
  const allAuctionRids=new Set([...Object.keys(aRooms),...Object.keys(jRooms)]);
  const allDraftRids=new Set([...Object.keys(dRooms),...Object.keys(jdRooms)]);
 
- // Duplicate detection: case+whitespace-normalised label match. Latest push wins —
- // no confirm, always overwrite. Track overwrite counts for the toast.
+ // Duplicate detection: case+whitespace-normalised label match using
+ // _normalizeMatchLabel so en-dash / em-dash / non-breaking-space /
+ // collapsed-whitespace variants all dedupe correctly. Latest push wins.
  const dupCleanPromises=[];
- const matchLabel=data.label.toLowerCase().trim();
+ const matchLabel=_normalizeMatchLabel(data.label);
  var _gscOverwriteCount=0; var _gscRoomsTouched=0;
  allAuctionRids.forEach(rid=>{
   // Per-room fan-out cleanup: per-room failures get logged but don't
@@ -4592,7 +4734,7 @@ window.saveGlobalScorecard=async function(){
    var matches=mSnap.val()||{};
    var delWrites={}; var n=0;
    Object.entries(matches).forEach(function(me){
-    if((me[1].label||'').toLowerCase().trim()===matchLabel){
+    if(_normalizeMatchLabel(me[1].label)===matchLabel){
      delWrites[`auctions/${rid}/matches/${me[0]}`]=null; n++;
     }
    });
@@ -4604,7 +4746,7 @@ window.saveGlobalScorecard=async function(){
    var matches=mSnap.val()||{};
    var delWrites={}; var n=0;
    Object.entries(matches).forEach(function(me){
-    if((me[1].label||'').toLowerCase().trim()===matchLabel){
+    if(_normalizeMatchLabel(me[1].label)===matchLabel){
      delWrites[`drafts/${rid}/matches/${me[0]}`]=null; n++;
     }
    });
