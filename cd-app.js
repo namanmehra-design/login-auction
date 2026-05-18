@@ -3906,17 +3906,75 @@
 
     if(!myTeam) return `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;">Register your team first to propose trades.</div>`;
 
-    return `
-      <!-- New trade proposer -->
+    // ── Native CD trade proposer (replaces the unreachable off-screen
+    // classic #trades-tab form). State persists on CD._tradeForm. ──
+    if(!CD._tradeForm) CD._tradeForm = { partner:'', send:[], receive:[] };
+    const tf = CD._tradeForm;
+    const _rosterOf = (tn) => {
+      const tt = teams[tn];
+      if(!tt) return [];
+      return Array.isArray(tt.roster) ? tt.roster : (tt.roster ? Object.values(tt.roster) : []);
+    };
+    const myRoster = _rosterOf(myTeam);
+    const partnerRoster = tf.partner ? _rosterOf(tf.partner) : [];
+    const partnerOpts = Object.values(teams)
+      .filter(tt => tt.name !== myTeam)
+      .map(tt => `<option value="${esc(tt.name)}"${tf.partner===tt.name?' selected':''}>${esc(tt.name)}</option>`)
+      .join('');
+    const sendAvail = myRoster.filter(p => !tf.send.includes(p.name||p.n||''));
+    const recvAvail = partnerRoster.filter(p => !tf.receive.includes(p.name||p.n||''));
+    const optsFor = (arr) => arr.map(p => {
+      const nm = p.name||p.n||'';
+      return `<option value="${esc(nm)}">${esc(nm)} · ${esc(p.iplTeam||p.t||'')} · ${esc(p.role||p.r||'')}</option>`;
+    }).join('');
+    const chip = (nm, side) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;background:var(--glass);border:1px solid var(--line);">
+      ${CD.Avatar({name:nm,size:22})}<span style="flex:1;font-size:12px;font-weight:600;">${esc(nm)}</span>
+      <button onclick="CD.tradeDel('${side}',${side==='send'?tf.send.indexOf(nm):tf.receive.indexOf(nm)})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 4px;">×</button>
+    </div>`;
+    const canSubmit = tf.partner && tf.send.length && tf.receive.length;
+
+    const proposer = `
       <div style="padding:20px;border-radius:18px;background:var(--glass-2,rgba(22,24,38,0.72));backdrop-filter:blur(32px);border:1px solid var(--line-2);margin-bottom:18px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-          <div class="ed" style="font-size:24px;">Propose a <span class="ed-i" style="color:var(--pink);">trade</span></div>
-          <button onclick="window.switchTab && window.switchTab('trades');setTimeout(()=>{var _t=document.getElementById('trades-tab');if(_t){_t.scrollIntoView({behavior:'smooth',block:'start'});CD._pulseTarget && CD._pulseTarget(_t);}},220);" style="padding:8px 14px;border-radius:9999px;background:linear-gradient(180deg,var(--pink-2),var(--pink));color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">${I('swap',12)} Open proposer</button>
+        <div class="ed" style="font-size:24px;margin-bottom:14px;">Propose a <span class="ed-i" style="color:var(--pink);">trade</span></div>
+        <div style="margin-bottom:14px;">
+          <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Trade partner</div>
+          <select onchange="CD.tradeSetPartner(this.value)" style="width:100%;padding:10px 14px;font-size:13px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:10px;font-family:var(--sans);">
+            <option value="">— Select a team —</option>
+            ${partnerOpts}
+          </select>
         </div>
-        <div style="font-size:13px;color:var(--ink-2);line-height:1.5;">
-          The full trade proposer (multi-player, partner selector) is in the classic Trades tab. Click "Open proposer" above to compose a trade.
+        <div style="display:grid;grid-template-columns:${CD.state.isMobile?'1fr':'1fr 1fr'};gap:14px;">
+          <div>
+            <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">${esc(myTeam)} sends</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;">
+              <select id="cd-trade-send-sel" style="flex:1;padding:9px 12px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:10px;font-family:var(--sans);">
+                <option value="">— Player to send —</option>${optsFor(sendAvail)}
+              </select>
+              <button onclick="CD.tradeAdd('send')" style="padding:9px 14px;border-radius:10px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">Add</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">${tf.send.length?tf.send.map(n=>chip(n,'send')).join(''):'<div style="color:var(--mute);font-size:12px;padding:6px;">No players staged</div>'}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">${tf.partner?esc(tf.partner):'Partner'} sends</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;">
+              <select id="cd-trade-recv-sel" ${tf.partner?'':'disabled'} style="flex:1;padding:9px 12px;font-size:12px;color:var(--ink);background:var(--glass);border:1px solid var(--line-2);border-radius:10px;font-family:var(--sans);${tf.partner?'':'opacity:.5;'}">
+                <option value="">${tf.partner?'— Player to receive —':'Select a partner first'}</option>${optsFor(recvAvail)}
+              </select>
+              <button onclick="CD.tradeAdd('receive')" ${tf.partner?'':'disabled'} style="padding:9px 14px;border-radius:10px;background:linear-gradient(180deg,var(--electric-2),var(--electric));color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;${tf.partner?'':'opacity:.5;cursor:not-allowed;'}">Add</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">${tf.receive.length?tf.receive.map(n=>chip(n,'receive')).join(''):'<div style="color:var(--mute);font-size:12px;padding:6px;">No players staged</div>'}</div>
+          </div>
         </div>
+        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+          <button onclick="CD.tradeSubmit()" ${canSubmit?'':'disabled'} style="padding:11px 22px;border-radius:9999px;background:${canSubmit?'linear-gradient(180deg,var(--lime-2),var(--lime))':'var(--glass)'};color:${canSubmit?'#000':'var(--mute)'};border:1px solid ${canSubmit?'transparent':'var(--line)'};font-size:13px;font-weight:700;cursor:${canSubmit?'pointer':'not-allowed'};">${I('swap',13)} Propose trade</button>
+          <button onclick="CD.tradeClear()" style="padding:11px 18px;border-radius:9999px;background:var(--glass);border:1px solid var(--line);color:var(--mute);font-size:13px;font-weight:600;cursor:pointer;">Clear</button>
+        </div>
+        <div style="font-size:11px;color:var(--mute);margin-top:10px;line-height:1.5;">Both sides must agree — ${esc(tf.partner||'the partner')} accepts from their Trades tab. Points already earned stay with the team that earned them; only future-match points follow the player.</div>
       </div>
+`;
+
+    return `
+      ${proposer}
 
       <!-- Received (pending) -->
       ${received.length ? `
@@ -3939,8 +3997,45 @@
         <div style="display:flex;flex-direction:column;gap:12px;">${history.slice(0, 12).map(t => renderTradeCard(t, 'history')).join('')}</div>
       </section>` : ''}
 
-      ${!received.length && !sentP.length && !history.length ? `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;"><div class="ed" style="font-size:22px;margin-bottom:6px;">No trades <span class="ed-i" style="color:var(--pink);">yet</span></div><div style="font-size:13px;">Propose a trade via the Open proposer button above.</div></div>` : ''}
+      ${!received.length && !sentP.length && !history.length ? `<div style="padding:40px;border-radius:18px;background:var(--glass);border:1px solid var(--line);color:var(--mute);text-align:center;"><div class="ed" style="font-size:22px;margin-bottom:6px;">No trades <span class="ed-i" style="color:var(--pink);">yet</span></div><div style="font-size:13px;">Use the proposer above to send your first trade.</div></div>` : ''}
     `;
+  };
+
+  // ── CD-native trade proposer handlers ──
+  CD._tradeForm = CD._tradeForm || { partner:'', send:[], receive:[] };
+  CD.tradeSetPartner = (val) => {
+    CD._tradeForm.partner = val || '';
+    CD._tradeForm.receive = [];
+    CD.render();
+  };
+  CD.tradeAdd = (side) => {
+    const selId = side === 'send' ? 'cd-trade-send-sel' : 'cd-trade-recv-sel';
+    const sel = document.getElementById(selId);
+    const val = sel && sel.value;
+    if(!val) return;
+    const arr = side === 'send' ? CD._tradeForm.send : CD._tradeForm.receive;
+    if(!arr.includes(val)) arr.push(val);
+    CD.render();
+  };
+  CD.tradeDel = (side, idx) => {
+    const arr = side === 'send' ? CD._tradeForm.send : CD._tradeForm.receive;
+    if(idx >= 0 && idx < arr.length) arr.splice(idx, 1);
+    CD.render();
+  };
+  CD.tradeClear = () => {
+    CD._tradeForm = { partner:'', send:[], receive:[] };
+    CD.render();
+  };
+  CD.tradeSubmit = () => {
+    const tf = CD._tradeForm || {};
+    const fn = window.cdSubmitTradeD || window.cdSubmitTradeA;
+    if(typeof fn !== 'function'){
+      window.showAlert && window.showAlert('Trade engine not loaded — reload the page.', 'err');
+      return;
+    }
+    Promise.resolve(fn(tf.partner, tf.send.slice(), tf.receive.slice()))
+      .then(() => { CD._tradeForm = { partner:'', send:[], receive:[] }; CD.render(); })
+      .catch(() => { /* showAlert already fired inside fn */ });
   };
 
   // ── DATA-ATTRIBUTE HANDLERS (avoid string interpolation in onclick) ──
