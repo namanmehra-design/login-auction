@@ -189,18 +189,61 @@ function migrateSquadSnapshots(rid,data){
  _snapshotMigrationDone[rid]=true;
  if(!data?.matches||!data?.teams) return;
  const mp=data.maxPlayers||data.setup?.maxPlayers||20;
- const snaps=buildSquadSnapshots(data.teams,mp);
- if(!Object.keys(snaps).length) return;
+ // CURRENT-roster snapshot is only the LAST-RESORT fallback. For each match
+ // missing a snapshot we FIRST rebuild from the match's own frozen
+ // ownedBy/inActiveSquad data so a post-trade squad is never stamped onto a
+ // historical match as if it were historical.
+ const curSnaps=buildSquadSnapshots(data.teams,mp);
  const upd={};
  let needsWrite=false;
  Object.entries(data.matches).forEach(([mid,m])=>{
   if(!m.squadSnapshots||!Object.keys(m.squadSnapshots).length){
-   upd[`auctions/${rid}/matches/${mid}/squadSnapshots`]=snaps;
-   needsWrite=true;
+   let snaps=_reconstructSnapshotFromMatch(m,data.teams,mp);
+   if(!snaps||!Object.keys(snaps).length) snaps=curSnaps;
+   if(snaps&&Object.keys(snaps).length){
+    upd[`auctions/${rid}/matches/${mid}/squadSnapshots`]=snaps;
+    needsWrite=true;
+   }
   }
  });
  if(needsWrite) update(ref(db),upd).catch(e=>console.error('Snapshot migration:',e));
 }
+
+// -- One-time migration: FREEZE ownedBy from each match's own frozen snapshot --
+// For every match WITH a squadSnapshots, set each m.players[*].ownedBy to
+// whichever team's frozen snapshot (xi+bench) contains that player. Reads ONLY
+// the existing frozen snapshot — NEVER current rosters. Idempotent.
+let _ownedByFreezeDone={};
+function migrateFreezeOwnedByA(rid,data){
+ if(_ownedByFreezeDone[rid]) return;
+ _ownedByFreezeDone[rid]=true;
+ if(!data||!data.matches) return;
+ var clean=function(n){return (n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim();};
+ var upd={}, n=0;
+ Object.entries(data.matches).forEach(function(me){
+  var mid=me[0], m=me[1];
+  if(!m||!m.players||!m.squadSnapshots) return;
+  var snapOwner={};
+  Object.entries(m.squadSnapshots).forEach(function(se){
+   var tn=se[0], s=se[1]||{};
+   (s.xi||[]).concat(s.bench||[]).forEach(function(nm){
+    snapOwner[(nm||'').toLowerCase().trim()]=tn; snapOwner[clean(nm)]=tn;
+   });
+  });
+  Object.entries(m.players).forEach(function(pe){
+   var pk=pe[0], p=pe[1];
+   var k=(p.name||'').toLowerCase().trim();
+   var resolved=snapOwner[k]||snapOwner[clean(p.name)]||'';
+   if(resolved && p.ownedBy!==resolved){
+    upd['auctions/'+rid+'/matches/'+mid+'/players/'+pk+'/ownedBy']=resolved; n++;
+   }
+  });
+ });
+ if(n){ update(ref(db),upd).then(function(){
+   if(window._recalcLeaderboardSilent) window._recalcLeaderboardSilent();
+ }).catch(function(e){console.error('ownedBy-freeze:',e);}); }
+}
+window._migrateFreezeOwnedByA=migrateFreezeOwnedByA;
 
 // -- One-time migration: fix duck points retroactively --
 let _duckMigrationDone={};
@@ -1000,6 +1043,36 @@ window.saAuditAllRoomsA=async function(autoFix){
  }
 };
 
+// -- READ-ONLY super-admin diagnostic: list per-match attribution mismatches --
+// Flags rows where p.ownedBy disagrees with the team whose FROZEN snapshot
+// actually contains the player (or where no snapshot/team owns him). Pure
+// console.table — performs NO set/update writes.
+window.saAuditMatchAttribution=function(){
+ if(typeof isSuperAdminEmail==='function' && !isSuperAdminEmail(user&&user.email)){ console.warn('super admin only'); return; }
+ var st=(typeof draftState!=='undefined'&&draftState)||(typeof roomState!=='undefined'&&roomState);
+ if(!st){console.warn('Load a room first');return;}
+ var clean=function(n){return (n||'').toLowerCase().trim().replace(/\*?\s*\([^)]*\)\s*$/,'').trim();};
+ var rows=[];
+ Object.entries(st.matches||{}).forEach(function(me){
+  var mid=me[0], m=me[1]; if(!m||!m.players) return;
+  var hasSnap=!!m.squadSnapshots;
+  Object.values(m.players).forEach(function(p){
+   var k=(p.name||'').toLowerCase().trim(), ck=clean(p.name), snapTeam='', tier='';
+   if(hasSnap) Object.entries(m.squadSnapshots).forEach(function(se){
+    var s=se[1]||{};
+    if((s.xi||[]).some(function(x){return x.toLowerCase().trim()===k||clean(x)===ck;})){snapTeam=se[0];tier='XI';}
+    else if(!snapTeam&&(s.bench||[]).some(function(x){return x.toLowerCase().trim()===k||clean(x)===ck;})){snapTeam=se[0];tier='Bench';}
+   });
+   if(snapTeam===''||p.ownedBy!==snapTeam)
+    rows.push({match:m.label||mid, player:p.name, pts:p.pts||0, hasSnap:hasSnap,
+               ownedBy:p.ownedBy||'(empty)', snapTeam:snapTeam||'(none)', tier:tier||'reserve/absent'});
+  });
+ });
+ console.table(rows);
+ console.info(rows.length+' discrepancy row(s).');
+ return rows;
+};
+
 // -- Snapshot-aware per-player season total (auction parallel) --
 // Returns { total, perMatch, owner, xiMult } for one player. The total
 // is the sum across all matches of (raw × multiplier), where the
@@ -1039,25 +1112,29 @@ function _playerSeasonContribA(playerName){
   });
   if(!pData) return;
   var raw = pData.pts || 0;
-  var matchOwner = pData.ownedBy || rosterOwnerMap[nameLow] || rosterOwnerMap[nameClean] || '';
   var hasStoredSnaps = !!m.squadSnapshots;
+  // SNAPSHOT-FIRST: scan ALL frozen team snapshots for this match. The team
+  // whose xi/bench contains the player owns his points here, regardless of
+  // current roster / ownedBy. Only when NO snapshot exists at all do we fall
+  // back to the legacy 1× rule. Mirrors computeMatchContribution.
   var mult = 0;
-  if(matchOwner){
-   var snap = m.squadSnapshots ? m.squadSnapshots[matchOwner] : null;
-   if(snap){
+  if(m.squadSnapshots){
+   var _entries = Object.values(m.squadSnapshots);
+   for(var _si=0; _si<_entries.length; _si++){
+    var snap = _entries[_si] || {};
     var inXI = (snap.xi||[]).some(function(n){
      var fn = (n||'').toLowerCase().trim();
      return fn === nameLow || fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim() === nameClean;
     });
+    if(inXI){ mult = xiMult; break; }
     var inBench = (snap.bench||[]).some(function(n){
      var fn = (n||'').toLowerCase().trim();
      return fn === nameLow || fn.replace(/\*?\s*\([^)]*\)\s*$/,'').trim() === nameClean;
     });
-    if(inXI) mult = xiMult;
-    else if(inBench) mult = 1;
-   } else if(!hasStoredSnaps){
-    mult = 1;
+    if(inBench){ mult = 1; break; }
    }
+  } else {
+   mult = 1;
   }
   var contrib = raw * mult;
   out.total += contrib;
@@ -1793,6 +1870,7 @@ function loadRoom(rid){
  window.roomState=data; // expose for cd-app.js bridge
  migrateOverseasFlags(rid,data);
  migrateSquadSnapshots(rid,data);
+ migrateFreezeOwnedByA(rid,data);
  migrateDuckPoints(rid,data);
  // Retroactively repair matches where the admin typed the full team
  // name (e.g. "Sunrisers Hyderabad") and every winning-team player
@@ -3117,17 +3195,25 @@ function computeMatchContribution(matchData, matchSnaps, teamsData, xiMultiplier
  Object.values(matchData.players).forEach(function(p){
   var key=(p.name||'').toLowerCase();
   var cleanKey=key.replace(/\*?\s*\([^)]*\)\s*$/,'').trim();
-  var owner=p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey]||'';
-  if(!owner) return;
-  var mult=0;
-  if(mXI[owner]&&(mXI[owner].has(key)||mXI[owner].has(cleanKey))) mult=xiMultiplier;
-  else if(mBench[owner]&&(mBench[owner].has(key)||mBench[owner].has(cleanKey))) mult=1;
-  // Fallback: if no stored snapshots and player has ownedBy but isn't in current squad
-  // (e.g., player was released/traded after this match), still count their points at 1x
-  if(mult===0&&!hasStoredSnaps&&owner&&(p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey])){
-   mult=1;
+  // SNAPSHOT-FIRST: the team whose FROZEN per-match snapshot contains this
+  // player owns his points for THIS match. ownedBy / current roster are only
+  // consulted for matches that have NO snapshot at all (legacy records).
+  // This makes attribution immutable across trades.
+  var owner='', mult=0;
+  for(var tnS in mXI){
+   if(mXI[tnS]&&(mXI[tnS].has(key)||mXI[tnS].has(cleanKey))){ owner=tnS; mult=xiMultiplier; break; }
   }
-  if(mult>0){
+  if(!owner){
+   for(var tnB in mBench){
+    if(mBench[tnB]&&(mBench[tnB].has(key)||mBench[tnB].has(cleanKey))){ owner=tnB; mult=1; break; }
+   }
+  }
+  // Legacy-only fallback: NO frozen snapshot exists for this match.
+  if(!owner&&!hasStoredSnaps){
+   owner=p.ownedBy||rosterOwnerMap[key]||rosterOwnerMap[cleanKey]||'';
+   if(owner) mult=1;
+  }
+  if(owner&&mult>0){
    var mPts=Math.round((p.pts||0)*mult*100)/100;
    if(!contrib[owner]) contrib[owner]={pts:0,players:{}};
    contrib[owner].pts+=mPts;

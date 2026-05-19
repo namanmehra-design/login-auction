@@ -49,13 +49,18 @@
       Object.values(m.players).forEach(p => {
         const key = (p.name||'').toLowerCase().trim();
         const ckey = _cdCleanName(p.name||'');
-        const owner = rosterOwnerMap[key] || rosterOwnerMap[ckey] || p.ownedBy || '';
-        if(owner !== teamName) return;
         const raw = p.pts || 0;
         let contrib = 0, bucket = null;
+        // SNAPSHOT-FIRST: credit to teamName strictly when teamName's OWN
+        // frozen snapshot (xiSet/benchSet, already keyed by teamName) contains
+        // the player. Current-roster owner is consulted ONLY in the legacy
+        // (no-snapshot) path. Immutable across trades.
         if(xiSet && (xiSet.has(key) || xiSet.has(ckey))){ contrib = raw * xiMult; bucket = 'xi'; }
         else if(benchSet && (benchSet.has(key) || benchSet.has(ckey))){ contrib = raw * 1; bucket = 'bench'; }
-        else if(!hasStoredSnaps && owner){ contrib = raw * 1; bucket = 'bench'; }
+        else if(!hasStoredSnaps){
+          const owner = rosterOwnerMap[key] || rosterOwnerMap[ckey] || p.ownedBy || '';
+          if(owner === teamName){ contrib = raw * 1; bucket = 'bench'; } // legacy fallback
+        }
         if(bucket === 'xi') xi += contrib;
         else if(bucket === 'bench') bench += contrib;
         if(bucket){ playerPts[ckey] = (playerPts[ckey] || 0) + contrib; }
@@ -93,12 +98,15 @@
     Object.values(m.players).forEach(p => {
       const key = (p.name||'').toLowerCase().trim();
       const ckey = _cdCleanName(p.name||'');
-      const owner = rosterOwnerMap[key] || rosterOwnerMap[ckey] || p.ownedBy || '';
-      if(owner !== teamName) return;
       const raw = p.pts || 0;
+      // SNAPSHOT-FIRST: credit to teamName strictly when teamName's OWN frozen
+      // snapshot contains the player. Current roster only in legacy path.
       if(xiSet && (xiSet.has(key) || xiSet.has(ckey))) sum += raw * xiMult;
       else if(benchSet && (benchSet.has(key) || benchSet.has(ckey))) sum += raw;
-      else if(!hasStoredSnaps && owner) sum += raw;
+      else if(!hasStoredSnaps){
+        const owner = rosterOwnerMap[key] || rosterOwnerMap[ckey] || p.ownedBy || '';
+        if(owner === teamName) sum += raw;
+      }
     });
     return Math.round(sum);
   };
@@ -2802,13 +2810,31 @@
     const bench = benchNames.map(findP).filter(Boolean);
     const reserves = reserveNames.map(findP).filter(Boolean);
 
-    // Subtotals from canonical breakdown — single round per bucket, NOT per-player.
-    const xiTotal = Math.round(brk.xi);
-    const benchTotal = Math.round(brk.bench);
-    // Reserves never contribute under the canonical rule (0× multiplier).
-    const reservesTotal = 0;
     // Per-player chip values (player-level stat; already has multiplier baked in).
     const ptsFor = (p) => Math.round(playerPts[_cdCleanName(p.name||p.n||'')] || 0);
+    // Section subtotals are summed PER-PLAYER (from the canonical per-player
+    // breakdown) grouped by CURRENT roster position — NOT from brk.xi/brk.bench.
+    // brk.xi/brk.bench are split by each match's frozen XI/bench tier and
+    // already include traded-away players (still in this team's old
+    // snapshots), so using them while ALSO rendering a "Former" section would
+    // double-show those points and headers wouldn't reconcile to the
+    // leaderboard total. Per-player-by-current-section guarantees
+    // XI + Bench + Reserves + Former === brk.total.
+    const _sumPP = (players) => players.reduce((s,p) => s + (playerPts[_cdCleanName(p.name||p.n||'')] || 0), 0);
+    const xiTotal = Math.round(_sumPP(xi));
+    const benchTotal = Math.round(_sumPP(bench));
+    const reservesTotal = Math.round(_sumPP(reserves));
+
+    // TRADED / FORMER: snapshot-first attribution (FIX C) keeps a player's
+    // frozen pre-trade contribution under his OLD team. Any cleanKey in this
+    // team's playerPts that is NOT in the current roster is a former player —
+    // surface him in a muted section so he appears under BOTH the old team
+    // (former, pre-trade pts) and the new team (current roster, post-trade pts).
+    const currentCleanSet = new Set(rosterNames.map(n => _cdCleanName(n)));
+    const formerPlayers = Object.keys(playerPts)
+      .filter(ck => ck && !currentCleanSet.has(ck) && Math.round(playerPts[ck] || 0) !== 0)
+      .map(ck => ({ name: ck, _ck: ck }));
+    const formerTotal = Math.round(formerPlayers.reduce((s,fp) => s + (playerPts[fp._ck] || 0), 0));
 
     const renderSection = (label, players, mult, totalPts, sectionColor) => {
       if(!players.length) return '';
@@ -2850,6 +2876,7 @@
         ${renderSection('Playing XI', xi, xiMult, xiTotal, 'var(--electric)')}
         ${renderSection('Bench', bench, 1, benchTotal, 'var(--ink-2)')}
         ${reserves.length ? renderSection('Reserves', reserves, 0, reservesTotal, 'var(--mute)') : ''}
+        ${formerPlayers.length ? renderSection('Traded / Former', formerPlayers, 1, formerTotal, 'var(--mute)') : ''}
       </div>
     `;
   };
@@ -2888,12 +2915,10 @@
         const snap = snaps[t.name] || {};
         let xi = snap.xi || [];
         let bench = snap.bench || [];
-        if(!xi.length){
-          const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
-          const names = roster.map(p => p.name || p.n || '');
-          xi = names.slice(0, 11);
-          bench = names.slice(11, 16);
-        }
+        // Do NOT inject the CURRENT roster into a HISTORICAL match row — that
+        // would stamp a post-trade squad as if it were that match's lineup.
+        // No frozen snapshot for this team/match → skip the team for this row.
+        if(!xi.length && !bench.length) return;
         const roster = Array.isArray(t.roster) ? t.roster : (t.roster ? Object.values(t.roster) : []);
         const getMeta = (n) => roster.find(rp => (rp.name||rp.n||'').toLowerCase().trim() === (n||'').toLowerCase().trim()) || {};
         const getPts = (n) => {
